@@ -1,96 +1,94 @@
 
 
-## Plan: Corregir Function Calling del Asistente de IA
+## Plan: Corregir Visualización de Mensajes en el Chat
 
-### Problema Identificado
+### Problema Raíz Identificado
 
-El asistente de IA no está ejecutando las herramientas (function calling) para crear contactos. En su lugar, responde conversacionalmente como si hubiera completado la acción, pero **no inserta datos en la base de datos**.
+El backend funciona correctamente:
+- Los contactos se crean en la base de datos
+- Las respuestas streaming llegan correctamente
+- Los mensajes se guardan en la tabla `ai_conversations`
 
-Evidencia de los logs:
-- Se llama a la API con `tools` configuradas
-- **Nunca aparece** el log `"Executing tool: create_contact"`
-- El contacto no existe en la tabla `contacts` (consultas devuelven `[]`)
+Sin embargo, la UI no muestra los mensajes porque hay un problema de sincronización de estado entre React Query y el estado local del contexto.
 
-### Causas Probables
+### Diagnóstico Técnico
 
-1. **Problema con el modelo**: `google/gemini-3-flash-preview` puede no estar manejando correctamente `tool_choice: "auto"` o las definiciones de tools
-2. **Email no proporcionado**: El usuario no dio email, pero en lugar de pedir ese dato obligatorio, la IA "inventó" que creó el contacto
-3. **Falta instrucción explícita**: El system prompt no es lo suficientemente enfático sobre **siempre usar** las funciones
+En `ChatContext.tsx`:
+- `messages` se obtiene de `currentConversation?.messages || []`
+- `currentConversation` busca en `conversations` (datos del query)
+- Después de `updateConversation.mutateAsync`, se llama `queryClient.invalidateQueries`
+- Pero la invalidación es asíncrona y la UI puede mostrar datos vacíos temporalmente
+
+El problema específico: cuando `selectedConversationId` cambia o cuando la mutación completa, React Query necesita refetch los datos, y durante ese tiempo `messages` puede estar vacío.
 
 ### Solución Propuesta
 
-Modificar la edge function `supabase/functions/chat/index.ts`:
+#### Cambio 1: Optimistic Updates en React Query
 
-#### 1. Cambiar el modelo a uno más confiable con function calling
-```typescript
-// Cambiar de:
-model: "google/gemini-3-flash-preview"
-
-// A:
-model: "google/gemini-2.5-flash" // Más estable para function calling
-```
-
-#### 2. Reforzar el system prompt
-Agregar instrucciones más explícitas para que el modelo **siempre** use las funciones:
+Actualizar las mutaciones para usar `onMutate` y aplicar cambios optimistas inmediatamente sin esperar el refetch.
 
 ```typescript
-// En buildSystemPrompt, agregar al final:
-## REGLAS ESTRICTAS:
-1. NUNCA digas que creaste algo sin usar la función correspondiente
-2. Si el usuario pide crear un contacto, USA create_contact - NO simules la creación
-3. Si faltan datos obligatorios (email para contactos, nombre para empresas), PRIMERO pregunta por esos datos
-4. Solo confirma la creación DESPUÉS de recibir el resultado de la función
+// En updateConversation mutation
+onMutate: async ({ id, messages }) => {
+  await queryClient.cancelQueries({ queryKey: ['ai_conversations'] });
+  const previous = queryClient.getQueryData(['ai_conversations']);
+  
+  // Actualizar cache optimísticamente
+  queryClient.setQueryData(['ai_conversations'], (old: AIConversation[]) =>
+    old?.map(conv => 
+      conv.id === id 
+        ? { ...conv, messages, last_message_at: new Date().toISOString() }
+        : conv
+    )
+  );
+  
+  return { previous };
+},
+onError: (err, variables, context) => {
+  // Rollback en caso de error
+  queryClient.setQueryData(['ai_conversations'], context?.previous);
+},
 ```
 
-#### 3. Mejorar el logging para debug
+#### Cambio 2: Estado Local para Mensajes de Streaming
+
+Mantener los mensajes actuales en un estado local separado durante el streaming para evitar parpadeos.
+
 ```typescript
-console.log("AI response choice:", JSON.stringify(choice, null, 2));
+// Estado local para mensajes durante streaming
+const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
+const [isStreaming, setIsStreaming] = useState(false);
+
+// Sincronizar con la conversación seleccionada
+useEffect(() => {
+  if (!isStreaming && currentConversation) {
+    setLocalMessages(currentConversation.messages);
+  }
+}, [currentConversation, isStreaming]);
 ```
 
-#### 4. Considerar tool_choice más estricto
-```typescript
-// Opcionalmente forzar uso de herramientas cuando el mensaje sugiere creación:
-tool_choice: messages[messages.length - 1]?.content?.toLowerCase().includes('crear') 
-  ? { type: "function", function: { name: "create_contact" } }
-  : "auto"
-```
+#### Cambio 3: Selección Automática de Conversación Recién Creada
+
+Asegurar que después de crear una conversación, esta se seleccione y muestre correctamente.
 
 ### Cambios en Archivos
 
 | Archivo | Cambio |
 |---------|--------|
-| `supabase/functions/chat/index.ts` | Cambiar modelo, reforzar prompt, mejorar logging |
+| `src/contexts/ChatContext.tsx` | Agregar optimistic updates y mejorar sincronización de estado |
 
 ### Flujo Corregido
 
-```text
-Usuario: "crear contacto Johnatan George 3122554920 Neuman Ceo"
-    │
-    ▼
-IA detecta intención de crear contacto
-    │
-    ▼ (ANTES: respondía conversacionalmente ❌)
-    ▼ (AHORA: usa función create_contact)
-    │
-IA responde: "Necesito el email para crear el contacto. ¿Cuál es?"
-    │
-    ▼
-Usuario proporciona email
-    │
-    ▼
-IA llama create_contact({ first_name: "Johnatan", last_name: "George", ... })
-    │
-    ▼
-Edge function ejecuta INSERT en Supabase
-    │
-    ▼
-IA confirma: "✅ Contacto creado exitosamente"
-```
+| Paso | Antes | Después |
+|------|-------|---------|
+| 1. Usuario envía mensaje | Mensaje se guarda, UI espera refetch | Mensaje aparece inmediatamente (optimistic) |
+| 2. Streaming inicia | Puede mostrar área vacía | Mantiene mensajes locales durante streaming |
+| 3. Respuesta completa | Espera invalidación del query | Actualiza cache optimísticamente, UI fluida |
 
-### Verificación
+### Resultado Esperado
 
-Después de implementar:
-1. Probar creando un contacto con todos los datos incluyendo email
-2. Verificar en los logs que aparece `"Executing tool: create_contact"`
-3. Confirmar que el contacto aparece en la página de Contactos
+- Los mensajes aparecen inmediatamente al enviar
+- El área de chat nunca queda vacía durante transiciones
+- El streaming se muestra correctamente en tiempo real
+- Las conversaciones del historial muestran sus mensajes al seleccionarlas
 
