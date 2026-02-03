@@ -1,62 +1,96 @@
 
-## Plan: Corregir Input del Chat en Panel Expandido
+
+## Plan: Corregir Function Calling del Asistente de IA
 
 ### Problema Identificado
-Cuando el panel de chat está expandido (drawer abierto), el input fijo en la parte inferior queda oculto detrás del drawer. Esto deja al usuario sin posibilidad de continuar escribiendo mensajes.
 
-### Solución
+El asistente de IA no está ejecutando las herramientas (function calling) para crear contactos. En su lugar, responde conversacionalmente como si hubiera completado la acción, pero **no inserta datos en la base de datos**.
 
-Agregar un input dentro del panel expandido (`GlobalChatPanel`) para que cuando el drawer esté abierto, el usuario pueda escribir desde ahí.
+Evidencia de los logs:
+- Se llama a la API con `tools` configuradas
+- **Nunca aparece** el log `"Executing tool: create_contact"`
+- El contacto no existe en la tabla `contacts` (consultas devuelven `[]`)
 
-### Cambios a Realizar
+### Causas Probables
 
-#### 1. `src/components/chat/GlobalChatPanel.tsx`
-- Agregar un footer con un input de texto dentro del drawer
-- Reutilizar la misma lógica del contexto (`inputValue`, `setInputValue`, `sendMessage`)
-- El input dentro del panel tendrá el mismo diseño que el input global
+1. **Problema con el modelo**: `google/gemini-3-flash-preview` puede no estar manejando correctamente `tool_choice: "auto"` o las definiciones de tools
+2. **Email no proporcionado**: El usuario no dio email, pero en lugar de pedir ese dato obligatorio, la IA "inventó" que creó el contacto
+3. **Falta instrucción explícita**: El system prompt no es lo suficientemente enfático sobre **siempre usar** las funciones
 
-#### 2. `src/components/chat/GlobalChatInput.tsx`
-- Ocultar el input cuando el panel está abierto (`isPanelOpen`) para evitar duplicados
-- Solo mostrar cuando el panel está cerrado
+### Solución Propuesta
 
-### Diseño Visual del Panel Corregido
+Modificar la edge function `supabase/functions/chat/index.ts`:
 
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│ [Historial]  │                  MENSAJES                            │
-│              │                                                       │
-│ Conversación │  👤 "agregar contacto"                               │
-│ 1            │                                                       │
-│ Conversación │  ✨ "¡Claro que sí! Para crear un contacto..."       │
-│ 2            │                                                       │
-│              │                                                       │
-│              ├───────────────────────────────────────────────────────│
-│              │ ✨ [  Escribe tu mensaje aquí...        ] [Enviar]   │
-└──────────────┴───────────────────────────────────────────────────────┘
+#### 1. Cambiar el modelo a uno más confiable con function calling
+```typescript
+// Cambiar de:
+model: "google/gemini-3-flash-preview"
+
+// A:
+model: "google/gemini-2.5-flash" // Más estable para function calling
 ```
 
-### Flujo Mejorado
+#### 2. Reforzar el system prompt
+Agregar instrucciones más explícitas para que el modelo **siempre** use las funciones:
 
-| Estado del Panel | Comportamiento del Input |
-|------------------|--------------------------|
-| Cerrado | Input fijo visible en la parte inferior de la pantalla |
-| Abierto | Input dentro del drawer, input fijo oculto |
+```typescript
+// En buildSystemPrompt, agregar al final:
+## REGLAS ESTRICTAS:
+1. NUNCA digas que creaste algo sin usar la función correspondiente
+2. Si el usuario pide crear un contacto, USA create_contact - NO simules la creación
+3. Si faltan datos obligatorios (email para contactos, nombre para empresas), PRIMERO pregunta por esos datos
+4. Solo confirma la creación DESPUÉS de recibir el resultado de la función
+```
 
-### Archivos a Modificar
+#### 3. Mejorar el logging para debug
+```typescript
+console.log("AI response choice:", JSON.stringify(choice, null, 2));
+```
+
+#### 4. Considerar tool_choice más estricto
+```typescript
+// Opcionalmente forzar uso de herramientas cuando el mensaje sugiere creación:
+tool_choice: messages[messages.length - 1]?.content?.toLowerCase().includes('crear') 
+  ? { type: "function", function: { name: "create_contact" } }
+  : "auto"
+```
+
+### Cambios en Archivos
 
 | Archivo | Cambio |
 |---------|--------|
-| `src/components/chat/GlobalChatPanel.tsx` | Agregar footer con input dentro del drawer |
-| `src/components/chat/GlobalChatInput.tsx` | Ocultar cuando `isPanelOpen` es true |
+| `supabase/functions/chat/index.ts` | Cambiar modelo, reforzar prompt, mejorar logging |
 
-### Detalles de Implementación
+### Flujo Corregido
 
-**GlobalChatPanel.tsx:**
-- Agregar un `div` con clase `border-t` como footer
-- Incluir `Textarea` con el mismo estilo del input global
-- Conectar a `inputValue`, `setInputValue`, `sendMessage` del contexto
-- Manejar `Enter` para enviar
+```text
+Usuario: "crear contacto Johnatan George 3122554920 Neuman Ceo"
+    │
+    ▼
+IA detecta intención de crear contacto
+    │
+    ▼ (ANTES: respondía conversacionalmente ❌)
+    ▼ (AHORA: usa función create_contact)
+    │
+IA responde: "Necesito el email para crear el contacto. ¿Cuál es?"
+    │
+    ▼
+Usuario proporciona email
+    │
+    ▼
+IA llama create_contact({ first_name: "Johnatan", last_name: "George", ... })
+    │
+    ▼
+Edge function ejecuta INSERT en Supabase
+    │
+    ▼
+IA confirma: "✅ Contacto creado exitosamente"
+```
 
-**GlobalChatInput.tsx:**
-- Agregar condición: si `isPanelOpen` es true, retornar `null` (no renderizar)
-- Esto evita tener dos inputs visibles al mismo tiempo
+### Verificación
+
+Después de implementar:
+1. Probar creando un contacto con todos los datos incluyendo email
+2. Verificar en los logs que aparece `"Executing tool: create_contact"`
+3. Confirmar que el contacto aparece en la página de Contactos
+
