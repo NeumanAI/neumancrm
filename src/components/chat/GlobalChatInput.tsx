@@ -24,6 +24,9 @@ export function GlobalChatInput() {
     }
   };
 
+  // Hide when panel is open - input is inside the panel instead
+  if (isPanelOpen) return null;
+
   return (
     <motion.div
       initial={{ y: 100 }}
