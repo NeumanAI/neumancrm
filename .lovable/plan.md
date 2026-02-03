@@ -1,136 +1,96 @@
 
+## Implementación: Chat de IA Omnipresente
 
-## Plan: Integrar IA Real al Chat con Lovable AI Gateway
+El plan fue aprobado. Aquí está el resumen detallado de los cambios a implementar:
 
-### Respuesta a tu pregunta
+### Archivos a Crear
 
-**¡Sí, absolutamente puedes cambiarla después!** La arquitectura que implementaremos está diseñada para ser intercambiable:
+#### 1. `src/contexts/ChatContext.tsx`
+Contexto global que maneja:
+- Estado del panel (abierto/cerrado)
+- Lista de conversaciones desde Supabase
+- Conversación seleccionada y mensajes
+- Lógica de envío con streaming
+- Auto-apertura del panel al enviar mensaje
 
-- La lógica de IA vive en una **Edge Function** (backend)
-- El frontend solo llama a esa función, sin saber qué modelo hay detrás
-- Para cambiar de proveedor, solo modificas la Edge Function
+#### 2. `src/components/chat/ChatMessages.tsx`
+Componente reutilizable que muestra:
+- Lista de mensajes con avatares
+- Renderizado de Markdown para respuestas de IA
+- Indicador de "Pensando..." mientras carga
+- Quick actions cuando no hay mensajes
+- Auto-scroll al nuevo contenido
+
+#### 3. `src/components/chat/ChatConversationList.tsx`
+Sidebar del panel expandido:
+- Botón "Nueva Conversación"
+- Conversaciones agrupadas por fecha (Hoy, Ayer, Más antiguas)
+- Selección visual de conversación activa
+
+#### 4. `src/components/chat/GlobalChatInput.tsx`
+Barra fija en la parte inferior:
+- Input de texto siempre visible
+- Botón de enviar
+- Botón para expandir/colapsar panel
+- Altura fija de ~60px
+
+#### 5. `src/components/chat/GlobalChatPanel.tsx`
+Panel expandible usando Drawer (vaul):
+- Se abre desde la parte inferior
+- Altura de ~70vh del viewport
+- Contiene ChatConversationList (sidebar)
+- Contiene ChatMessages (área principal)
+- Input integrado en el footer
+
+### Archivos a Modificar
+
+#### 6. `src/components/layout/AppLayout.tsx`
+- Importar ChatProvider y GlobalChatInput
+- Envolver contenido en ChatProvider
+- Agregar GlobalChatInput después del main
+- Ajustar padding-bottom del main para dejar espacio al input
+
+#### 7. `src/components/layout/Sidebar.tsx`
+- Remover el item `/chat` del array `navItems`
+
+#### 8. `src/App.tsx`
+- Remover import de Chat page
+- Remover la ruta `/chat`
+
+### Archivo a Eliminar
+
+#### 9. `src/pages/Chat.tsx`
+- Ya no es necesario (funcionalidad movida a componentes globales)
+
+### Flujo de Usuario
 
 ```text
-┌────────────────────────────────────────────────────────────────┐
-│                    ARQUITECTURA FLEXIBLE                       │
-├────────────────────────────────────────────────────────────────┤
-│                                                                │
-│   FRONTEND (Chat.tsx)                                          │
-│        │                                                       │
-│        │ POST /functions/v1/chat                               │
-│        ▼                                                       │
-│   ┌─────────────────────────────────────────────────────────┐ │
-│   │              EDGE FUNCTION (chat)                        │ │
-│   │  ┌─────────────────────────────────────────────────┐    │ │
-│   │  │           Aquí se cambia el proveedor            │    │ │
-│   │  │                                                   │    │ │
-│   │  │  AHORA:    Lovable AI Gateway (Gemini/GPT)       │    │ │
-│   │  │  DESPUÉS:  Tu API personalizada                  │    │ │
-│   │  │            OpenAI directo                        │    │ │
-│   │  │            Anthropic Claude                       │    │ │
-│   │  │            Cualquier otro                        │    │ │
-│   │  └─────────────────────────────────────────────────┘    │ │
-│   └─────────────────────────────────────────────────────────┘ │
-│                                                                │
-└────────────────────────────────────────────────────────────────┘
+1. Usuario en cualquier página
+   │
+   ▼
+2. Ve barra de input fija abajo: "✨ Pregúntame algo..."
+   │
+   ├─────────────────────────────────┐
+   ▼                                 ▼
+3a. Escribe y presiona Enter    3b. Click en ▲ para expandir
+   │                                 │
+   ▼                                 ▼
+4. Panel se expande              4. Ve historial completo
+   automáticamente                   de conversaciones
+   │                                 │
+   ▼                                 ▼
+5. Respuesta aparece             5. Puede cambiar entre
+   con streaming                     conversaciones
 ```
 
----
+### Dependencias Utilizadas
+- `vaul` - Ya instalado, para el Drawer
+- `framer-motion` - Ya instalado, para animaciones
+- `react-markdown` - Ya instalado, para renderizar respuestas
+- `date-fns` - Ya instalado, para agrupar conversaciones
 
-### Lo que vamos a implementar
-
-#### 1. Edge Function `chat`
-
-Crear una función backend que:
-- Recibe mensajes del usuario
-- Incluye contexto del CRM (contactos, oportunidades, tareas)
-- Llama al Lovable AI Gateway
-- Devuelve respuestas en streaming (token por token)
-- Maneja errores elegantemente (429, 402)
-
-#### 2. Actualizar Frontend (Chat.tsx)
-
-- Reemplazar la función mock `getAIResponse()` 
-- Implementar streaming real (tokens llegan uno por uno)
-- Mostrar respuesta progresivamente mientras se genera
-
----
-
-### Flujo de la conversación
-
-```text
-Usuario escribe: "¿Cuántos contactos tengo?"
-                    │
-                    ▼
-        Frontend envía a Edge Function
-                    │
-                    ▼
-        Edge Function construye contexto:
-        - System prompt del CRM
-        - Historial de conversación
-        - Datos relevantes del usuario
-                    │
-                    ▼
-        Llama a Lovable AI Gateway
-        (google/gemini-3-flash-preview)
-                    │
-                    ▼
-        Streaming de respuesta
-        Token por token
-                    │
-                    ▼
-        Usuario ve: "Tienes 15 contactos..."
-        (apareciendo progresivamente)
-```
-
----
-
-### Archivos a crear/modificar
-
-| Archivo | Acción | Descripción |
-|---------|--------|-------------|
-| `supabase/functions/chat/index.ts` | Crear | Edge function con Lovable AI |
-| `supabase/config.toml` | Modificar | Registrar la función |
-| `src/pages/Chat.tsx` | Modificar | Integrar streaming real |
-
----
-
-### Cómo cambiar a API personalizada (futuro)
-
-Cuando quieras usar tu propia API, solo cambiarás esto en la Edge Function:
-
-```typescript
-// AHORA - Lovable AI Gateway
-const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-  headers: { Authorization: `Bearer ${LOVABLE_API_KEY}` },
-  body: JSON.stringify({ model: "google/gemini-3-flash-preview", ... })
-});
-
-// DESPUÉS - Tu API personalizada
-const response = await fetch("https://tu-api.com/chat", {
-  headers: { Authorization: `Bearer ${TU_API_KEY}` },
-  body: JSON.stringify({ prompt: ... })
-});
-```
-
-El frontend **no cambia nada** - sigue llamando a `/functions/v1/chat`.
-
----
-
-### System Prompt del CRM
-
-El asistente tendrá conocimiento sobre:
-- Que es un asistente de CRM
-- Cómo ayudar con contactos, empresas, pipeline y tareas
-- Respuestas en español
-- Formato markdown para mejor presentación
-
----
-
-### Beneficios de esta arquitectura
-
-- **Seguridad**: Las API keys nunca llegan al navegador
-- **Flexibilidad**: Cambias de IA sin tocar el frontend
-- **Performance**: Streaming para respuestas instantáneas
-- **Escalabilidad**: Edge Functions escalan automáticamente
-
+### Resultado Esperado
+- Chat visible en todas las páginas protegidas
+- Acceso instantáneo sin cambiar de ruta
+- Historial de conversaciones en panel expandido
+- Experiencia "AI First" similar a ChatGPT/Claude
