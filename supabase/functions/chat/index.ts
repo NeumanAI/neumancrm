@@ -289,17 +289,25 @@ async function executeTool(supabase: any, userId: string, toolName: string, args
   }
 }
 
-// Get user ID from auth token
-async function getUserId(supabase: any): Promise<string | null> {
+// Get user ID from JWT token using getClaims
+async function getUserIdFromToken(supabase: any, authHeader: string | null): Promise<string | null> {
+  if (!authHeader?.startsWith('Bearer ')) {
+    console.error("No valid auth header");
+    return null;
+  }
+  
   try {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error || !user) {
-      console.error("Error getting user:", error);
+    const token = authHeader.replace('Bearer ', '');
+    const { data, error } = await supabase.auth.getClaims(token);
+    
+    if (error || !data?.claims) {
+      console.error("Error getting claims:", error);
       return null;
     }
-    return user.id;
+    
+    return data.claims.sub;
   } catch (error) {
-    console.error("Error in getUserId:", error);
+    console.error("Error in getUserIdFromToken:", error);
     return null;
   }
 }
@@ -337,7 +345,7 @@ serve(async (req) => {
     );
 
     // Get user ID for tool execution
-    const userId = await getUserId(supabase);
+    const userId = await getUserIdFromToken(supabase, authHeader);
     if (!userId) {
       return new Response(
         JSON.stringify({ error: "Usuario no autenticado" }),
