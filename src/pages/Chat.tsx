@@ -30,18 +30,20 @@ async function streamChat({
   onDelta,
   onDone,
   onError,
+  accessToken,
 }: {
   messages: { role: string; content: string }[];
   onDelta: (deltaText: string) => void;
   onDone: () => void;
   onError: (error: string) => void;
+  accessToken?: string;
 }) {
   try {
     const resp = await fetch(CHAT_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        Authorization: accessToken ? `Bearer ${accessToken}` : `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
       body: JSON.stringify({ messages }),
     });
@@ -234,10 +236,14 @@ export default function Chat() {
       // Prepare messages for AI (without timestamps)
       const aiMessages = currentMessages.map(m => ({ role: m.role, content: m.content }));
 
+      // Get current session for auth token
+      const { data: { session } } = await supabase.auth.getSession();
+
       let assistantContent = '';
 
       await streamChat({
         messages: aiMessages,
+        accessToken: session?.access_token,
         onDelta: (chunk) => {
           assistantContent += chunk;
           setStreamingContent(assistantContent);
