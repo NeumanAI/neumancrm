@@ -4,6 +4,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { Loader2 } from 'lucide-react';
+import { ChatProvider } from '@/contexts/ChatContext';
+import { GlobalChatInput } from '@/components/chat/GlobalChatInput';
+import { GlobalChatPanel } from '@/components/chat/GlobalChatPanel';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -26,14 +29,18 @@ export function AppLayout({ children }: AppLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen flex w-full bg-background">
-      <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
-      <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
-        <Header onMenuClick={() => setSidebarCollapsed(!sidebarCollapsed)} />
-        <main className="flex-1 overflow-auto p-6">
-          {children}
-        </main>
+    <ChatProvider>
+      <div className="min-h-screen flex w-full bg-background">
+        <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
+        <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
+          <Header onMenuClick={() => setSidebarCollapsed(!sidebarCollapsed)} />
+          <main className="flex-1 overflow-auto p-6 pb-24">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+      <GlobalChatInput />
+      <GlobalChatPanel />
+    </ChatProvider>
   );
 }
