@@ -22,7 +22,6 @@ interface SidebarProps {
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/chat', icon: MessageSquare, label: 'Chat IA' },
   { to: '/contacts', icon: Users, label: 'Contactos' },
   { to: '/companies', icon: Building2, label: 'Empresas' },
   { to: '/pipeline', icon: TrendingUp, label: 'Pipeline' },

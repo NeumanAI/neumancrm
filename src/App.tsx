@@ -9,7 +9,6 @@ import { AppLayout } from "@/components/layout/AppLayout";
 // Pages
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
-import Chat from "./pages/Chat";
 import Contacts from "./pages/Contacts";
 import Companies from "./pages/Companies";
 import Pipeline from "./pages/Pipeline";
@@ -32,7 +31,6 @@ const App = () => (
             
             {/* Protected routes with layout */}
             <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
-            <Route path="/chat" element={<AppLayout><Chat /></AppLayout>} />
             <Route path="/contacts" element={<AppLayout><Contacts /></AppLayout>} />
             <Route path="/companies" element={<AppLayout><Companies /></AppLayout>} />
             <Route path="/pipeline" element={<AppLayout><Pipeline /></AppLayout>} />
