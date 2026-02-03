@@ -1,0 +1,481 @@
+import { useState, useEffect } from 'react';
+import { useOpportunities, usePipeline } from '@/hooks/useOpportunities';
+import { useCompanies } from '@/hooks/useCompanies';
+import { useContacts } from '@/hooks/useContacts';
+import { Opportunity, Stage } from '@/types/crm';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { EmptyState } from '@/components/ui/empty-state';
+import { TrendingUp, Plus, Building2, User, Calendar, DollarSign, Loader2 } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { motion } from 'framer-motion';
+import { toast } from 'sonner';
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCorners,
+} from '@dnd-kit/core';
+import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { cn } from '@/lib/utils';
+
+// Opportunity Card Component
+function OpportunityCard({ opportunity, isDragging }: { opportunity: Opportunity; isDragging?: boolean }) {
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency: opportunity.currency || 'USD',
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
+  return (
+    <Card className={cn(
+      'border shadow-card cursor-grab active:cursor-grabbing transition-all',
+      isDragging && 'opacity-50 rotate-3 scale-105 shadow-lg'
+    )}>
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <h4 className="font-medium text-sm line-clamp-2">{opportunity.title}</h4>
+        </div>
+        
+        <div className="text-xl font-bold text-primary">
+          {formatCurrency(Number(opportunity.value))}
+        </div>
+        
+        {opportunity.companies && (
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <Building2 className="h-3.5 w-3.5" />
+            <span className="truncate">{opportunity.companies.name}</span>
+          </div>
+        )}
+        
+        {opportunity.contacts && (
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <User className="h-3.5 w-3.5" />
+            <span className="truncate">
+              {opportunity.contacts.first_name} {opportunity.contacts.last_name}
+            </span>
+          </div>
+        )}
+        
+        {opportunity.expected_close_date && (
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <Calendar className="h-3.5 w-3.5" />
+            <span>{format(parseISO(opportunity.expected_close_date), 'dd MMM', { locale: es })}</span>
+          </div>
+        )}
+        
+        <div className="pt-2 border-t">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">Probabilidad</span>
+            <Badge variant="secondary" className="text-xs">
+              {opportunity.probability}%
+            </Badge>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Sortable Opportunity Card
+function SortableOpportunityCard({ opportunity }: { opportunity: Opportunity }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: opportunity.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <OpportunityCard opportunity={opportunity} isDragging={isDragging} />
+    </div>
+  );
+}
+
+// Stage Column Component
+function StageColumn({ 
+  stage, 
+  opportunities, 
+  onAddClick 
+}: { 
+  stage: Stage; 
+  opportunities: Opportunity[];
+  onAddClick: (stageId: string) => void;
+}) {
+  const totalValue = opportunities.reduce((sum, o) => sum + Number(o.value || 0), 0);
+  
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency: 'USD',
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }).format(value);
+  };
+
+  return (
+    <div className="flex-shrink-0 w-80 flex flex-col bg-muted/30 rounded-xl p-3 max-h-[calc(100vh-250px)]">
+      {/* Column Header */}
+      <div className="flex items-center justify-between mb-3 pb-3 border-b">
+        <div className="flex items-center gap-2">
+          <div 
+            className="w-3 h-3 rounded-full" 
+            style={{ backgroundColor: stage.color }}
+          />
+          <h3 className="font-semibold text-sm">{stage.name}</h3>
+          <Badge variant="secondary" className="text-xs">
+            {opportunities.length}
+          </Badge>
+        </div>
+        <span className="text-sm font-medium text-muted-foreground">
+          {formatCurrency(totalValue)}
+        </span>
+      </div>
+
+      {/* Opportunities */}
+      <div className="flex-1 overflow-y-auto space-y-3 min-h-[200px]">
+        <SortableContext
+          items={opportunities.map(o => o.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {opportunities.map((opp) => (
+            <SortableOpportunityCard key={opp.id} opportunity={opp} />
+          ))}
+        </SortableContext>
+      </div>
+
+      {/* Add Button */}
+      <Button 
+        variant="ghost" 
+        className="w-full mt-3 border-2 border-dashed hover:border-primary/50"
+        onClick={() => onAddClick(stage.id)}
+      >
+        <Plus className="h-4 w-4 mr-2" />
+        Añadir
+      </Button>
+    </div>
+  );
+}
+
+export default function Pipeline() {
+  const { opportunities, isLoading: oppsLoading, createOpportunity, updateOpportunity } = useOpportunities();
+  const { pipeline, stages, isLoading: pipelineLoading, createPipeline } = usePipeline();
+  const { companies } = useCompanies();
+  const { contacts } = useContacts();
+  
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedStageId, setSelectedStageId] = useState<string>('');
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    title: '',
+    value: '',
+    company_id: '',
+    contact_id: '',
+    expected_close_date: '',
+    description: '',
+  });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 10,
+      },
+    })
+  );
+
+  // Create pipeline if it doesn't exist
+  useEffect(() => {
+    if (!pipelineLoading && !pipeline) {
+      createPipeline.mutate();
+    }
+  }, [pipelineLoading, pipeline]);
+
+  const openCreateDialog = (stageId: string) => {
+    setSelectedStageId(stageId);
+    setFormData({
+      title: '',
+      value: '',
+      company_id: '',
+      contact_id: '',
+      expected_close_date: '',
+      description: '',
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.title) {
+      toast.error('El título es requerido');
+      return;
+    }
+
+    try {
+      await createOpportunity.mutateAsync({
+        title: formData.title,
+        value: parseFloat(formData.value) || 0,
+        company_id: formData.company_id || undefined,
+        contact_id: formData.contact_id || undefined,
+        pipeline_id: pipeline?.id,
+        stage_id: selectedStageId,
+        expected_close_date: formData.expected_close_date || undefined,
+        description: formData.description || undefined,
+      });
+      setIsDialogOpen(false);
+    } catch (error) {
+      // Error handled by mutation
+    }
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over) return;
+
+    const activeOpp = opportunities.find(o => o.id === active.id);
+    if (!activeOpp) return;
+
+    // Check if dropped on a stage
+    const targetStage = stages.find(s => s.id === over.id);
+    if (targetStage && activeOpp.stage_id !== targetStage.id) {
+      updateOpportunity.mutate({
+        id: activeOpp.id,
+        stage_id: targetStage.id,
+        probability: targetStage.probability,
+      });
+      toast.success(`Movido a ${targetStage.name}`);
+      return;
+    }
+
+    // Check if dropped on another opportunity
+    const targetOpp = opportunities.find(o => o.id === over.id);
+    if (targetOpp && activeOpp.stage_id !== targetOpp.stage_id) {
+      updateOpportunity.mutate({
+        id: activeOpp.id,
+        stage_id: targetOpp.stage_id,
+      });
+    }
+  };
+
+  const activeOpportunity = activeId ? opportunities.find(o => o.id === activeId) : null;
+
+  const isLoading = oppsLoading || pipelineLoading;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const openOpportunities = opportunities.filter(o => o.status === 'open');
+
+  // Calculate total pipeline value
+  const totalValue = openOpportunities.reduce((sum, o) => sum + Number(o.value || 0), 0);
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency: 'USD',
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }).format(value);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-6 h-full"
+    >
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Pipeline</h1>
+          <p className="text-muted-foreground">
+            {formatCurrency(totalValue)} total · {openOpportunities.length} oportunidades
+          </p>
+        </div>
+        <Button onClick={() => stages[0] && openCreateDialog(stages[0].id)} className="gradient-primary">
+          <Plus className="mr-2 h-4 w-4" />
+          Nueva Oportunidad
+        </Button>
+      </div>
+
+      {/* Kanban Board */}
+      {stages.length === 0 ? (
+        <EmptyState
+          icon={<TrendingUp className="h-8 w-8" />}
+          title="Configurando pipeline..."
+          description="Tu pipeline se está creando. Por favor espera un momento."
+        />
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex gap-4 overflow-x-auto pb-4">
+            {stages.filter(s => !s.is_closed_lost).map((stage) => (
+              <StageColumn
+                key={stage.id}
+                stage={stage}
+                opportunities={openOpportunities.filter(o => o.stage_id === stage.id)}
+                onAddClick={openCreateDialog}
+              />
+            ))}
+          </div>
+
+          <DragOverlay>
+            {activeOpportunity && (
+              <OpportunityCard opportunity={activeOpportunity} isDragging />
+            )}
+          </DragOverlay>
+        </DndContext>
+      )}
+
+      {/* Create Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nueva Oportunidad</DialogTitle>
+            <DialogDescription>
+              Añade una nueva oportunidad a tu pipeline
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">Título *</Label>
+              <Input
+                id="title"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="Proyecto de implementación"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="value">Valor</Label>
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="value"
+                  type="number"
+                  value={formData.value}
+                  onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                  placeholder="50000"
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="opp_company">Empresa</Label>
+              <Select
+                value={formData.company_id}
+                onValueChange={(value) => setFormData({ ...formData, company_id: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona una empresa" />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="opp_contact">Contacto</Label>
+              <Select
+                value={formData.contact_id}
+                onValueChange={(value) => setFormData({ ...formData, contact_id: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un contacto" />
+                </SelectTrigger>
+                <SelectContent>
+                  {contacts.map((contact) => (
+                    <SelectItem key={contact.id} value={contact.id}>
+                      {contact.first_name} {contact.last_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="expected_close_date">Fecha esperada de cierre</Label>
+              <Input
+                id="expected_close_date"
+                type="date"
+                value={formData.expected_close_date}
+                onChange={(e) => setFormData({ ...formData, expected_close_date: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="opp_description">Descripción</Label>
+              <Textarea
+                id="opp_description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Detalles de la oportunidad..."
+                rows={3}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="gradient-primary">
+                Crear
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </motion.div>
+  );
+}
