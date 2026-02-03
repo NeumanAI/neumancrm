@@ -6,6 +6,67 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Tool definitions for function calling
+const tools = [
+  {
+    type: "function",
+    function: {
+      name: "create_contact",
+      description: "Crea un nuevo contacto en el CRM. Usa esta función cuando el usuario pida crear o añadir un contacto.",
+      parameters: {
+        type: "object",
+        properties: {
+          first_name: { type: "string", description: "Nombre del contacto" },
+          last_name: { type: "string", description: "Apellido del contacto" },
+          email: { type: "string", description: "Email del contacto (requerido)" },
+          phone: { type: "string", description: "Teléfono del contacto" },
+          job_title: { type: "string", description: "Cargo o puesto" },
+          notes: { type: "string", description: "Notas adicionales" },
+        },
+        required: ["email"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_company",
+      description: "Crea una nueva empresa en el CRM. Usa esta función cuando el usuario pida crear o añadir una empresa.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Nombre de la empresa (requerido)" },
+          industry: { type: "string", description: "Industria o sector" },
+          website: { type: "string", description: "Sitio web" },
+          phone: { type: "string", description: "Teléfono" },
+          city: { type: "string", description: "Ciudad" },
+          country: { type: "string", description: "País" },
+          description: { type: "string", description: "Descripción de la empresa" },
+        },
+        required: ["name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_task",
+      description: "Crea una nueva tarea o actividad en el CRM. Usa esta función cuando el usuario pida crear una tarea, recordatorio o actividad.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título de la tarea (requerido)" },
+          description: { type: "string", description: "Descripción de la tarea" },
+          type: { type: "string", enum: ["call", "email", "meeting", "task", "follow_up"], description: "Tipo de actividad" },
+          priority: { type: "string", enum: ["low", "medium", "high"], description: "Prioridad" },
+          due_date: { type: "string", description: "Fecha de vencimiento en formato YYYY-MM-DD" },
+        },
+        required: ["title"],
+      },
+    },
+  },
+];
+
 const buildSystemPrompt = (crmContext: {
   contactsCount: number;
   companiesCount: number;
@@ -45,9 +106,17 @@ ${crmContext.upcomingTasks.length > 0
 
 ## Tus capacidades:
 - **Consultar datos**: Puedes informar sobre contactos, empresas, oportunidades y tareas del usuario
+- **Crear registros**: Puedes crear contactos, empresas y tareas usando las funciones disponibles
 - **Análisis**: Proporcionar insights sobre la actividad comercial basándote en los datos reales
 - **Recomendaciones**: Sugerir acciones basadas en el estado actual del CRM
-- **Navegación**: Guiar al usuario a las secciones correctas del CRM
+
+## IMPORTANTE - Creación de registros:
+Cuando el usuario te pida crear un contacto, empresa o tarea, DEBES usar las funciones correspondientes:
+- Para crear contactos: usa la función create_contact
+- Para crear empresas: usa la función create_company  
+- Para crear tareas: usa la función create_task
+
+Pregunta los datos necesarios si el usuario no los proporciona (especialmente el email para contactos y el nombre para empresas).
 
 ## Directrices:
 - Responde siempre en español
@@ -68,7 +137,6 @@ ${crmContext.upcomingTasks.length > 0
 
 async function fetchCRMContext(supabase: any) {
   try {
-    // Fetch counts and data in parallel
     const [
       contactsResult,
       companiesResult,
@@ -130,6 +198,112 @@ async function fetchCRMContext(supabase: any) {
   }
 }
 
+// Execute tool calls
+async function executeTool(supabase: any, userId: string, toolName: string, args: any): Promise<{ success: boolean; message: string; data?: any }> {
+  console.log(`Executing tool: ${toolName} with args:`, args);
+  
+  try {
+    switch (toolName) {
+      case "create_contact": {
+        const { data, error } = await supabase
+          .from('contacts')
+          .insert({
+            user_id: userId,
+            email: args.email,
+            first_name: args.first_name || null,
+            last_name: args.last_name || null,
+            phone: args.phone || null,
+            job_title: args.job_title || null,
+            notes: args.notes || null,
+          })
+          .select()
+          .single();
+        
+        if (error) throw error;
+        return {
+          success: true,
+          message: `✅ Contacto creado exitosamente: ${args.first_name || ''} ${args.last_name || ''} (${args.email})`,
+          data,
+        };
+      }
+      
+      case "create_company": {
+        const { data, error } = await supabase
+          .from('companies')
+          .insert({
+            user_id: userId,
+            name: args.name,
+            industry: args.industry || null,
+            website: args.website || null,
+            phone: args.phone || null,
+            city: args.city || null,
+            country: args.country || null,
+            description: args.description || null,
+          })
+          .select()
+          .single();
+        
+        if (error) throw error;
+        return {
+          success: true,
+          message: `✅ Empresa creada exitosamente: ${args.name}`,
+          data,
+        };
+      }
+      
+      case "create_task": {
+        const { data, error } = await supabase
+          .from('activities')
+          .insert({
+            user_id: userId,
+            title: args.title,
+            description: args.description || null,
+            type: args.type || 'task',
+            priority: args.priority || 'medium',
+            due_date: args.due_date || null,
+            completed: false,
+          })
+          .select()
+          .single();
+        
+        if (error) throw error;
+        return {
+          success: true,
+          message: `✅ Tarea creada exitosamente: ${args.title}`,
+          data,
+        };
+      }
+      
+      default:
+        return {
+          success: false,
+          message: `❌ Función desconocida: ${toolName}`,
+        };
+    }
+  } catch (error) {
+    console.error(`Error executing tool ${toolName}:`, error);
+    return {
+      success: false,
+      message: `❌ Error al ejecutar ${toolName}: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+    };
+  }
+}
+
+// Get user ID from auth token
+async function getUserId(supabase: any): Promise<string | null> {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+      console.error("Error getting user:", error);
+      return null;
+    }
+    return user.id;
+  } catch (error) {
+    console.error("Error in getUserId:", error);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -150,10 +324,8 @@ serve(async (req) => {
       );
     }
 
-    // Get user's auth token from request
     const authHeader = req.headers.get("Authorization");
     
-    // Create Supabase client with user's token for RLS
     const supabase = createClient(
       SUPABASE_URL!,
       SUPABASE_ANON_KEY!,
@@ -164,16 +336,22 @@ serve(async (req) => {
       }
     );
 
-    // Fetch real CRM data
-    console.log("Fetching CRM context for user...");
-    const crmContext = await fetchCRMContext(supabase);
-    console.log("CRM context:", JSON.stringify(crmContext, null, 2));
+    // Get user ID for tool execution
+    const userId = await getUserId(supabase);
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: "Usuario no autenticado" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    // Build dynamic system prompt with real data
+    console.log("Fetching CRM context for user:", userId);
+    const crmContext = await fetchCRMContext(supabase);
     const systemPrompt = buildSystemPrompt(crmContext);
 
-    console.log("Calling Lovable AI Gateway with", messages.length, "messages");
+    console.log("Calling Lovable AI Gateway with", messages.length, "messages and tools");
 
+    // First call with tools (non-streaming to handle tool calls)
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -186,7 +364,9 @@ serve(async (req) => {
           { role: "system", content: systemPrompt },
           ...messages,
         ],
-        stream: true,
+        tools,
+        tool_choice: "auto",
+        stream: false, // Non-streaming first to handle tool calls
       }),
     });
 
@@ -214,7 +394,84 @@ serve(async (req) => {
       );
     }
 
-    return new Response(response.body, {
+    const aiResponse = await response.json();
+    const choice = aiResponse.choices?.[0];
+    
+    // Check if AI wants to call tools
+    if (choice?.message?.tool_calls && choice.message.tool_calls.length > 0) {
+      console.log("AI requested tool calls:", choice.message.tool_calls);
+      
+      const toolResults: { tool_call_id: string; role: string; content: string }[] = [];
+      
+      for (const toolCall of choice.message.tool_calls) {
+        const args = typeof toolCall.function.arguments === 'string' 
+          ? JSON.parse(toolCall.function.arguments)
+          : toolCall.function.arguments;
+        
+        const result = await executeTool(supabase, userId, toolCall.function.name, args);
+        
+        toolResults.push({
+          tool_call_id: toolCall.id,
+          role: "tool",
+          content: JSON.stringify(result),
+        });
+      }
+      
+      // Second call with tool results (streaming)
+      const followUpResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...messages,
+            choice.message,
+            ...toolResults,
+          ],
+          stream: true,
+        }),
+      });
+
+      if (!followUpResponse.ok) {
+        const errorText = await followUpResponse.text();
+        console.error("Follow-up AI error:", errorText);
+        
+        // Return tool results directly if follow-up fails
+        const toolMessage = toolResults.map(r => JSON.parse(r.content).message).join('\n');
+        return new Response(
+          `data: ${JSON.stringify({ choices: [{ delta: { content: toolMessage } }] })}\n\ndata: [DONE]\n\n`,
+          { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } }
+        );
+      }
+
+      return new Response(followUpResponse.body, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      });
+    }
+    
+    // No tool calls - stream the response directly
+    // Re-call with streaming since first call was non-streaming
+    const streamResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...messages,
+        ],
+        stream: true,
+      }),
+    });
+
+    return new Response(streamResponse.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
 
