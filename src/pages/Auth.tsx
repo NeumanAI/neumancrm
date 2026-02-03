@@ -139,7 +139,7 @@ export default function Auth() {
                     </div>
                   </div>
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="flex-col gap-3">
                   <Button 
                     type="submit" 
                     className="w-full gradient-primary hover:opacity-90 transition-opacity"
@@ -147,6 +147,18 @@ export default function Auth() {
                   >
                     {isLoading ? 'Ingresando...' : 'Iniciar Sesión'}
                     <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    disabled={isLoading}
+                    onClick={() => {
+                      setEmail('dev@neumancrm.com');
+                      setPassword('dev123456');
+                    }}
+                  >
+                    🔧 Usar cuenta de desarrollo
                   </Button>
                 </CardFooter>
               </form>
