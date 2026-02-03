@@ -62,7 +62,8 @@ export default function Auth() {
             toast.error(error.message);
           }
         } else {
-          toast.success('¡Cuenta creada! Revisa tu email para confirmar.');
+          toast.success('¡Cuenta creada exitosamente!');
+          navigate('/dashboard');
         }
       }
     } finally {
