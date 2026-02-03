@@ -1,96 +1,62 @@
 
-## Implementación: Chat de IA Omnipresente
+## Plan: Corregir Input del Chat en Panel Expandido
 
-El plan fue aprobado. Aquí está el resumen detallado de los cambios a implementar:
+### Problema Identificado
+Cuando el panel de chat está expandido (drawer abierto), el input fijo en la parte inferior queda oculto detrás del drawer. Esto deja al usuario sin posibilidad de continuar escribiendo mensajes.
 
-### Archivos a Crear
+### Solución
 
-#### 1. `src/contexts/ChatContext.tsx`
-Contexto global que maneja:
-- Estado del panel (abierto/cerrado)
-- Lista de conversaciones desde Supabase
-- Conversación seleccionada y mensajes
-- Lógica de envío con streaming
-- Auto-apertura del panel al enviar mensaje
+Agregar un input dentro del panel expandido (`GlobalChatPanel`) para que cuando el drawer esté abierto, el usuario pueda escribir desde ahí.
 
-#### 2. `src/components/chat/ChatMessages.tsx`
-Componente reutilizable que muestra:
-- Lista de mensajes con avatares
-- Renderizado de Markdown para respuestas de IA
-- Indicador de "Pensando..." mientras carga
-- Quick actions cuando no hay mensajes
-- Auto-scroll al nuevo contenido
+### Cambios a Realizar
 
-#### 3. `src/components/chat/ChatConversationList.tsx`
-Sidebar del panel expandido:
-- Botón "Nueva Conversación"
-- Conversaciones agrupadas por fecha (Hoy, Ayer, Más antiguas)
-- Selección visual de conversación activa
+#### 1. `src/components/chat/GlobalChatPanel.tsx`
+- Agregar un footer con un input de texto dentro del drawer
+- Reutilizar la misma lógica del contexto (`inputValue`, `setInputValue`, `sendMessage`)
+- El input dentro del panel tendrá el mismo diseño que el input global
 
-#### 4. `src/components/chat/GlobalChatInput.tsx`
-Barra fija en la parte inferior:
-- Input de texto siempre visible
-- Botón de enviar
-- Botón para expandir/colapsar panel
-- Altura fija de ~60px
+#### 2. `src/components/chat/GlobalChatInput.tsx`
+- Ocultar el input cuando el panel está abierto (`isPanelOpen`) para evitar duplicados
+- Solo mostrar cuando el panel está cerrado
 
-#### 5. `src/components/chat/GlobalChatPanel.tsx`
-Panel expandible usando Drawer (vaul):
-- Se abre desde la parte inferior
-- Altura de ~70vh del viewport
-- Contiene ChatConversationList (sidebar)
-- Contiene ChatMessages (área principal)
-- Input integrado en el footer
+### Diseño Visual del Panel Corregido
+
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│ [Historial]  │                  MENSAJES                            │
+│              │                                                       │
+│ Conversación │  👤 "agregar contacto"                               │
+│ 1            │                                                       │
+│ Conversación │  ✨ "¡Claro que sí! Para crear un contacto..."       │
+│ 2            │                                                       │
+│              │                                                       │
+│              ├───────────────────────────────────────────────────────│
+│              │ ✨ [  Escribe tu mensaje aquí...        ] [Enviar]   │
+└──────────────┴───────────────────────────────────────────────────────┘
+```
+
+### Flujo Mejorado
+
+| Estado del Panel | Comportamiento del Input |
+|------------------|--------------------------|
+| Cerrado | Input fijo visible en la parte inferior de la pantalla |
+| Abierto | Input dentro del drawer, input fijo oculto |
 
 ### Archivos a Modificar
 
-#### 6. `src/components/layout/AppLayout.tsx`
-- Importar ChatProvider y GlobalChatInput
-- Envolver contenido en ChatProvider
-- Agregar GlobalChatInput después del main
-- Ajustar padding-bottom del main para dejar espacio al input
+| Archivo | Cambio |
+|---------|--------|
+| `src/components/chat/GlobalChatPanel.tsx` | Agregar footer con input dentro del drawer |
+| `src/components/chat/GlobalChatInput.tsx` | Ocultar cuando `isPanelOpen` es true |
 
-#### 7. `src/components/layout/Sidebar.tsx`
-- Remover el item `/chat` del array `navItems`
+### Detalles de Implementación
 
-#### 8. `src/App.tsx`
-- Remover import de Chat page
-- Remover la ruta `/chat`
+**GlobalChatPanel.tsx:**
+- Agregar un `div` con clase `border-t` como footer
+- Incluir `Textarea` con el mismo estilo del input global
+- Conectar a `inputValue`, `setInputValue`, `sendMessage` del contexto
+- Manejar `Enter` para enviar
 
-### Archivo a Eliminar
-
-#### 9. `src/pages/Chat.tsx`
-- Ya no es necesario (funcionalidad movida a componentes globales)
-
-### Flujo de Usuario
-
-```text
-1. Usuario en cualquier página
-   │
-   ▼
-2. Ve barra de input fija abajo: "✨ Pregúntame algo..."
-   │
-   ├─────────────────────────────────┐
-   ▼                                 ▼
-3a. Escribe y presiona Enter    3b. Click en ▲ para expandir
-   │                                 │
-   ▼                                 ▼
-4. Panel se expande              4. Ve historial completo
-   automáticamente                   de conversaciones
-   │                                 │
-   ▼                                 ▼
-5. Respuesta aparece             5. Puede cambiar entre
-   con streaming                     conversaciones
-```
-
-### Dependencias Utilizadas
-- `vaul` - Ya instalado, para el Drawer
-- `framer-motion` - Ya instalado, para animaciones
-- `react-markdown` - Ya instalado, para renderizar respuestas
-- `date-fns` - Ya instalado, para agrupar conversaciones
-
-### Resultado Esperado
-- Chat visible en todas las páginas protegidas
-- Acceso instantáneo sin cambiar de ruta
-- Historial de conversaciones en panel expandido
-- Experiencia "AI First" similar a ChatGPT/Claude
+**GlobalChatInput.tsx:**
+- Agregar condición: si `isPanelOpen` es true, retornar `null` (no renderizar)
+- Esto evita tener dos inputs visibles al mismo tiempo
