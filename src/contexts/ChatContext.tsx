@@ -122,8 +122,7 @@ interface ChatContextType {
   setSelectedConversationId: (id: string | null) => void;
   startNewConversation: () => void;
   
-  // Messages
-  messages: ChatMessage[];
+  // Messages - now using local state for reliability
   displayMessages: ChatMessage[];
   
   // Input
@@ -155,6 +154,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   
+  // Local messages state for reliable display during streaming
+  const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
+  const [isStreaming, setIsStreaming] = useState(false);
+  
   // Refs
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -175,11 +178,24 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  // Get current conversation
+  // Get current conversation from cache
   const currentConversation = conversations.find(c => c.id === selectedConversationId);
-  const messages = currentConversation?.messages || [];
 
-  // Create conversation mutation
+  // Sync local messages with current conversation when not streaming
+  useEffect(() => {
+    if (!isStreaming && currentConversation) {
+      setLocalMessages(currentConversation.messages);
+    }
+  }, [currentConversation, isStreaming, selectedConversationId]);
+
+  // Reset local messages when starting new conversation
+  useEffect(() => {
+    if (!selectedConversationId) {
+      setLocalMessages([]);
+    }
+  }, [selectedConversationId]);
+
+  // Create conversation mutation with optimistic update
   const createConversation = useMutation({
     mutationFn: async (firstMessage: string) => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -203,12 +219,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       return { ...data, messages: initialMessages };
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['ai_conversations'] });
+      // Update local messages immediately
+      setLocalMessages(data.messages);
       setSelectedConversationId(data.id);
+      queryClient.invalidateQueries({ queryKey: ['ai_conversations'] });
     },
   });
 
-  // Update conversation mutation
+  // Update conversation mutation with optimistic updates
   const updateConversation = useMutation({
     mutationFn: async ({ id, messages }: { id: string; messages: ChatMessage[] }) => {
       const { error } = await supabase
@@ -220,8 +238,37 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         .eq('id', id);
       
       if (error) throw error;
+      return { id, messages };
     },
-    onSuccess: () => {
+    onMutate: async ({ id, messages }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['ai_conversations'] });
+      
+      // Snapshot the previous value
+      const previous = queryClient.getQueryData<AIConversation[]>(['ai_conversations']);
+      
+      // Optimistically update the cache
+      queryClient.setQueryData<AIConversation[]>(['ai_conversations'], (old) =>
+        old?.map(conv => 
+          conv.id === id 
+            ? { ...conv, messages, last_message_at: new Date().toISOString() }
+            : conv
+        ) ?? []
+      );
+      
+      // Also update local messages immediately
+      setLocalMessages(messages);
+      
+      return { previous };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previous) {
+        queryClient.setQueryData(['ai_conversations'], context.previous);
+      }
+      toast.error('Error al guardar el mensaje');
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['ai_conversations'] });
     },
   });
@@ -244,6 +291,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     const userMessage = inputValue.trim();
     setInputValue('');
     setIsLoading(true);
+    setIsStreaming(true);
     setStreamingContent('');
     
     // Auto-open panel when sending message
@@ -253,21 +301,25 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
     try {
       let conversationId = selectedConversationId;
-      let currentMessages = [...messages];
+      let currentMessages = [...localMessages];
 
+      // Add user message to local state immediately for instant feedback
+      const userMsg: ChatMessage = {
+        role: 'user',
+        content: userMessage,
+        timestamp: new Date().toISOString(),
+      };
+      
       if (!conversationId) {
         // Create new conversation
+        setLocalMessages([userMsg]); // Show user message immediately
         const newConv = await createConversation.mutateAsync(userMessage);
         conversationId = newConv.id;
         currentMessages = newConv.messages;
       } else {
         // Add user message to existing conversation
-        const userMsg: ChatMessage = {
-          role: 'user',
-          content: userMessage,
-          timestamp: new Date().toISOString(),
-        };
-        currentMessages = [...messages, userMsg];
+        currentMessages = [...localMessages, userMsg];
+        setLocalMessages(currentMessages); // Show user message immediately
         await updateConversation.mutateAsync({
           id: conversationId,
           messages: currentMessages,
@@ -297,31 +349,37 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             timestamp: new Date().toISOString(),
           };
           
+          const finalMessages = [...currentMessages, aiResponse];
+          
           await updateConversation.mutateAsync({
             id: conversationId!,
-            messages: [...currentMessages, aiResponse],
+            messages: finalMessages,
           });
           
+          setLocalMessages(finalMessages);
           setStreamingContent('');
+          setIsStreaming(false);
           setIsLoading(false);
         },
         onError: (error) => {
           toast.error(error);
           setStreamingContent('');
+          setIsStreaming(false);
           setIsLoading(false);
         },
       });
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Error al enviar el mensaje');
+      setIsStreaming(false);
       setIsLoading(false);
     }
-  }, [inputValue, isLoading, isPanelOpen, selectedConversationId, messages, createConversation, updateConversation]);
+  }, [inputValue, isLoading, isPanelOpen, selectedConversationId, localMessages, createConversation, updateConversation]);
 
-  // Combine stored messages with streaming content for display
+  // Combine local messages with streaming content for display
   const displayMessages = streamingContent 
-    ? [...messages, { role: 'assistant' as const, content: streamingContent, timestamp: new Date().toISOString() }]
-    : messages;
+    ? [...localMessages, { role: 'assistant' as const, content: streamingContent, timestamp: new Date().toISOString() }]
+    : localMessages;
 
   return (
     <ChatContext.Provider
@@ -334,7 +392,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         selectedConversationId,
         setSelectedConversationId,
         startNewConversation,
-        messages,
         displayMessages,
         inputValue,
         setInputValue,
