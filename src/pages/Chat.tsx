@@ -9,11 +9,13 @@ import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { MessageSquare, Plus, Send, Sparkles, User, Loader2 } from 'lucide-react';
-import { format, parseISO, isToday, isYesterday } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { parseISO, isToday, isYesterday } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
+import { toast } from 'sonner';
+
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
 const quickActions = [
   'Crear un nuevo contacto',
@@ -22,12 +24,106 @@ const quickActions = [
   'Resumen de actividad',
 ];
 
+// Streaming chat function
+async function streamChat({
+  messages,
+  onDelta,
+  onDone,
+  onError,
+}: {
+  messages: { role: string; content: string }[];
+  onDelta: (deltaText: string) => void;
+  onDone: () => void;
+  onError: (error: string) => void;
+}) {
+  try {
+    const resp = await fetch(CHAT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({ messages }),
+    });
+
+    if (!resp.ok) {
+      const errorData = await resp.json().catch(() => ({ error: "Error de conexión" }));
+      onError(errorData.error || `Error ${resp.status}`);
+      return;
+    }
+
+    if (!resp.body) {
+      onError("No se recibió respuesta del servidor");
+      return;
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let textBuffer = "";
+    let streamDone = false;
+
+    while (!streamDone) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      textBuffer += decoder.decode(value, { stream: true });
+
+      let newlineIndex: number;
+      while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+        let line = textBuffer.slice(0, newlineIndex);
+        textBuffer = textBuffer.slice(newlineIndex + 1);
+
+        if (line.endsWith("\r")) line = line.slice(0, -1);
+        if (line.startsWith(":") || line.trim() === "") continue;
+        if (!line.startsWith("data: ")) continue;
+
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === "[DONE]") {
+          streamDone = true;
+          break;
+        }
+
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+          if (content) onDelta(content);
+        } catch {
+          textBuffer = line + "\n" + textBuffer;
+          break;
+        }
+      }
+    }
+
+    // Final flush
+    if (textBuffer.trim()) {
+      for (let raw of textBuffer.split("\n")) {
+        if (!raw) continue;
+        if (raw.endsWith("\r")) raw = raw.slice(0, -1);
+        if (raw.startsWith(":") || raw.trim() === "") continue;
+        if (!raw.startsWith("data: ")) continue;
+        const jsonStr = raw.slice(6).trim();
+        if (jsonStr === "[DONE]") continue;
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+          if (content) onDelta(content);
+        } catch { /* ignore */ }
+      }
+    }
+
+    onDone();
+  } catch (error) {
+    console.error("Stream error:", error);
+    onError("Error de conexión con el asistente");
+  }
+}
+
 export default function Chat() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [streamingContent, setStreamingContent] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -102,7 +198,7 @@ export default function Chat() {
   // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, streamingContent]);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
@@ -110,61 +206,67 @@ export default function Chat() {
     const userMessage = inputValue.trim();
     setInputValue('');
     setIsLoading(true);
+    setStreamingContent('');
 
     try {
-      if (!selectedConversationId) {
+      let conversationId = selectedConversationId;
+      let currentMessages = [...messages];
+
+      if (!conversationId) {
         // Create new conversation
         const newConv = await createConversation.mutateAsync(userMessage);
-        
-        // Simulate AI response (replace with actual API call)
-        setTimeout(async () => {
-          const aiResponse: ChatMessage = {
-            role: 'assistant',
-            content: getAIResponse(userMessage),
-            timestamp: new Date().toISOString(),
-          };
-          
-          const updatedMessages = [
-            ...newConv.messages,
-            aiResponse,
-          ];
-          
-          await updateConversation.mutateAsync({
-            id: newConv.id,
-            messages: updatedMessages,
-          });
-          setIsLoading(false);
-        }, 1000);
+        conversationId = newConv.id;
+        currentMessages = newConv.messages;
       } else {
-        // Add to existing conversation
+        // Add user message to existing conversation
         const userMsg: ChatMessage = {
           role: 'user',
           content: userMessage,
           timestamp: new Date().toISOString(),
         };
-        
-        const updatedMessages = [...messages, userMsg];
+        currentMessages = [...messages, userMsg];
         await updateConversation.mutateAsync({
-          id: selectedConversationId,
-          messages: updatedMessages,
+          id: conversationId,
+          messages: currentMessages,
         });
+      }
 
-        // Simulate AI response
-        setTimeout(async () => {
+      // Prepare messages for AI (without timestamps)
+      const aiMessages = currentMessages.map(m => ({ role: m.role, content: m.content }));
+
+      let assistantContent = '';
+
+      await streamChat({
+        messages: aiMessages,
+        onDelta: (chunk) => {
+          assistantContent += chunk;
+          setStreamingContent(assistantContent);
+        },
+        onDone: async () => {
+          // Save complete response
           const aiResponse: ChatMessage = {
             role: 'assistant',
-            content: getAIResponse(userMessage),
+            content: assistantContent,
             timestamp: new Date().toISOString(),
           };
           
           await updateConversation.mutateAsync({
-            id: selectedConversationId,
-            messages: [...updatedMessages, aiResponse],
+            id: conversationId!,
+            messages: [...currentMessages, aiResponse],
           });
+          
+          setStreamingContent('');
           setIsLoading(false);
-        }, 1000);
-      }
+        },
+        onError: (error) => {
+          toast.error(error);
+          setStreamingContent('');
+          setIsLoading(false);
+        },
+      });
     } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error('Error al enviar el mensaje');
       setIsLoading(false);
     }
   };
@@ -178,28 +280,7 @@ export default function Chat() {
 
   const startNewConversation = () => {
     setSelectedConversationId(null);
-  };
-
-  const getAIResponse = (userMessage: string): string => {
-    const lowerMsg = userMessage.toLowerCase();
-    
-    if (lowerMsg.includes('contacto') || lowerMsg.includes('crear')) {
-      return '¡Por supuesto! Para crear un nuevo contacto, puedo ayudarte. Ve a la sección de **Contactos** en el menú lateral y haz clic en "+ Nuevo Contacto". \n\nTambién puedes decirme los datos del contacto y yo lo crearé por ti:\n- Nombre\n- Email\n- Empresa\n- Cargo';
-    }
-    
-    if (lowerMsg.includes('pipeline') || lowerMsg.includes('oportunidad')) {
-      return 'Tu **Pipeline de Ventas** te permite visualizar todas tus oportunidades en un tablero Kanban. Cada columna representa una etapa del proceso de venta:\n\n1. 📋 Lead\n2. ✅ Calificado\n3. 📅 Reunión\n4. 📄 Propuesta\n5. 🤝 Negociación\n6. 🎉 Ganado\n\nPuedes arrastrar las oportunidades entre etapas para actualizar su estado.';
-    }
-    
-    if (lowerMsg.includes('tarea') || lowerMsg.includes('hoy')) {
-      return 'Aquí tienes un resumen de tus tareas:\n\n- Revisa tus tareas pendientes en la sección **Tareas** del menú\n- Puedes filtrar por: Pendientes, Hoy, Esta Semana, Completadas\n- Cada tarea tiene una prioridad asignada\n\n¿Quieres que te ayude a crear una nueva tarea?';
-    }
-    
-    if (lowerMsg.includes('resumen') || lowerMsg.includes('actividad')) {
-      return '📊 **Resumen de Actividad**\n\nTu CRM está funcionando correctamente. Aquí tienes algunas métricas:\n\n- Puedes ver estadísticas detalladas en el **Dashboard**\n- El gráfico de pipeline muestra la evolución de tus ventas\n- La distribución por etapa te ayuda a identificar cuellos de botella\n\n¿Hay algo específico que te gustaría analizar?';
-    }
-    
-    return '¡Hola! Soy tu asistente de CRM. Puedo ayudarte con:\n\n- 👥 **Gestionar contactos y empresas**\n- 💰 **Administrar tu pipeline de ventas**\n- ✅ **Organizar tus tareas**\n- 📊 **Analizar tu actividad comercial**\n\n¿En qué puedo ayudarte hoy?';
+    setStreamingContent('');
   };
 
   const groupConversationsByDate = (convs: AIConversation[]) => {
@@ -224,6 +305,11 @@ export default function Chat() {
   };
 
   const groupedConversations = groupConversationsByDate(conversations);
+
+  // Combine stored messages with streaming content for display
+  const displayMessages = streamingContent 
+    ? [...messages, { role: 'assistant' as const, content: streamingContent, timestamp: new Date().toISOString() }]
+    : messages;
 
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-4">
@@ -314,14 +400,14 @@ export default function Chat() {
         {/* Messages */}
         <ScrollArea className="flex-1 p-6">
           <div className="max-w-3xl mx-auto space-y-6">
-            {messages.length === 0 ? (
+            {displayMessages.length === 0 ? (
               <div className="text-center py-12">
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl gradient-primary mb-4">
                   <Sparkles className="h-8 w-8 text-white" />
                 </div>
                 <h2 className="text-xl font-semibold mb-2">¿En qué puedo ayudarte?</h2>
                 <p className="text-muted-foreground mb-6">
-                  Soy tu asistente de CRM. Puedo ayudarte a gestionar contactos, pipeline y tareas.
+                  Soy tu asistente de CRM con IA. Puedo ayudarte a gestionar contactos, pipeline y tareas.
                 </p>
                 <div className="flex flex-wrap justify-center gap-2">
                   {quickActions.map((action) => (
@@ -341,9 +427,9 @@ export default function Chat() {
               </div>
             ) : (
               <AnimatePresence mode="popLayout">
-                {messages.map((msg, index) => (
+                {displayMessages.map((msg, index) => (
                   <motion.div
-                    key={index}
+                    key={`${index}-${msg.content.slice(0, 20)}`}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
@@ -387,7 +473,7 @@ export default function Chat() {
               </AnimatePresence>
             )}
             
-            {isLoading && (
+            {isLoading && !streamingContent && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
