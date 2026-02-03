@@ -126,6 +126,15 @@ Pregunta los datos necesarios si el usuario no los proporciona (especialmente el
 - Si el usuario pregunta algo que no puedes hacer, sugiere alternativas
 - Mantén un tono profesional pero cercano
 
+## REGLAS ESTRICTAS DE FUNCTION CALLING:
+1. **NUNCA** digas que creaste algo sin usar la función correspondiente
+2. Si el usuario pide crear un contacto, **DEBES** usar create_contact - NO simules la creación
+3. Si el usuario pide crear una empresa, **DEBES** usar create_company - NO simules la creación
+4. Si el usuario pide crear una tarea, **DEBES** usar create_task - NO simules la creación
+5. Si faltan datos obligatorios (email para contactos, nombre para empresas), **PRIMERO** pregunta por esos datos
+6. Solo confirma la creación **DESPUÉS** de recibir el resultado exitoso de la función
+7. Si la función falla, informa al usuario del error específico
+
 ## Navegación del CRM:
 - **Dashboard** (/dashboard): Vista general con estadísticas
 - **Contactos** (/contacts): Gestión de personas
@@ -367,7 +376,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           ...messages,
@@ -405,9 +414,11 @@ serve(async (req) => {
     const aiResponse = await response.json();
     const choice = aiResponse.choices?.[0];
     
+    console.log("AI response choice:", JSON.stringify(choice, null, 2));
+    
     // Check if AI wants to call tools
     if (choice?.message?.tool_calls && choice.message.tool_calls.length > 0) {
-      console.log("AI requested tool calls:", choice.message.tool_calls);
+      console.log("AI requested tool calls:", JSON.stringify(choice.message.tool_calls, null, 2));
       
       const toolResults: { tool_call_id: string; role: string; content: string }[] = [];
       
@@ -433,7 +444,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "google/gemini-2.5-flash",
           messages: [
             { role: "system", content: systemPrompt },
             ...messages,
@@ -462,6 +473,7 @@ serve(async (req) => {
     }
     
     // No tool calls - stream the response directly
+    console.log("No tool calls detected, streaming response");
     // Re-call with streaming since first call was non-streaming
     const streamResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -470,7 +482,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           ...messages,
