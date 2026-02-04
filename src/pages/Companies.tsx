@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCompanies } from '@/hooks/useCompanies';
 import { Company } from '@/types/crm';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
 export default function Companies() {
+  const navigate = useNavigate();
   const { companies, isLoading, createCompany, updateCompany, deleteCompany } = useCompanies();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -165,7 +167,11 @@ export default function Companies() {
             </TableHeader>
             <TableBody>
               {filteredCompanies.map((company) => (
-                <TableRow key={company.id} className="cursor-pointer hover:bg-muted/50">
+                <TableRow 
+                  key={company.id} 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => navigate(`/companies/${company.id}`)}
+                >
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 rounded-lg bg-secondary/10 flex items-center justify-center text-sm font-medium text-secondary">
@@ -213,7 +219,7 @@ export default function Companies() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                       <Button
                         variant="ghost"
                         size="icon"
