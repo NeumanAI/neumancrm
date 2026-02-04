@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSuperAdmin, OrganizationWithAdmin } from '@/hooks/useSuperAdmin';
 import { Button } from '@/components/ui/button';
@@ -22,35 +22,58 @@ import {
   ShieldCheck, 
   Users, 
   X,
-  ArrowLeft
+  ArrowLeft,
+  Pencil,
+  Plus,
+  Globe,
+  Palette
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { EditOrganizationDialog } from '@/components/admin/EditOrganizationDialog';
+import { CreateOrganizationDialog } from '@/components/admin/CreateOrganizationDialog';
+import { DomainsTab } from '@/components/admin/DomainsTab';
 
 function OrganizationRow({ 
   org, 
   onApprove, 
   onReject,
+  onEdit,
   isApproving,
   isRejecting,
 }: { 
   org: OrganizationWithAdmin;
   onApprove: () => void;
   onReject: () => void;
+  onEdit: () => void;
   isApproving: boolean;
   isRejecting: boolean;
 }) {
+  const hasCustomBranding = org.logo_url || org.custom_domain;
+  
   return (
     <TableRow>
       <TableCell>
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Building2 className="h-5 w-5 text-primary" />
+          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden">
+            {org.logo_url ? (
+              <img src={org.logo_url} alt={org.name} className="h-full w-full object-contain" />
+            ) : (
+              <Building2 className="h-5 w-5 text-primary" />
+            )}
           </div>
           <div>
-            <p className="font-medium">{org.name}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-medium">{org.name}</p>
+              {hasCustomBranding && (
+                <Badge variant="outline" className="text-xs">
+                  <Palette className="h-3 w-3 mr-1" />
+                  Marca blanca
+                </Badge>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
-              {org.admin_email || 'Sin admin'}
+              {org.custom_domain || org.admin_email || 'Sin admin'}
             </p>
           </div>
         </div>
@@ -80,25 +103,32 @@ function OrganizationRow({
         )}
       </TableCell>
       <TableCell className="text-right">
-        {org.is_approved ? (
+        <div className="flex gap-2 justify-end">
           <Button 
             size="sm" 
-            variant="outline"
-            className="text-destructive hover:text-destructive"
-            onClick={onReject}
-            disabled={isRejecting}
+            variant="ghost"
+            onClick={onEdit}
           >
-            {isRejecting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <>
-                <X className="h-4 w-4 mr-1" />
-                Revocar
-              </>
-            )}
+            <Pencil className="h-4 w-4" />
           </Button>
-        ) : (
-          <div className="flex gap-2 justify-end">
+          {org.is_approved ? (
+            <Button 
+              size="sm" 
+              variant="outline"
+              className="text-destructive hover:text-destructive"
+              onClick={onReject}
+              disabled={isRejecting}
+            >
+              {isRejecting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <X className="h-4 w-4 mr-1" />
+                  Revocar
+                </>
+              )}
+            </Button>
+          ) : (
             <Button 
               size="sm" 
               variant="default"
@@ -114,8 +144,8 @@ function OrganizationRow({
                 </>
               )}
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </TableCell>
     </TableRow>
   );
@@ -130,8 +160,16 @@ export default function Admin() {
     approvedOrganizations,
     approveOrganization,
     rejectOrganization,
+    updateOrganization,
+    createOrganization,
     refetchOrgs,
+    domains,
+    domainsLoading,
+    deleteDomain,
   } = useSuperAdmin();
+
+  const [editingOrg, setEditingOrg] = useState<OrganizationWithAdmin | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   // Redirect if not super-admin
   useEffect(() => {
@@ -139,6 +177,16 @@ export default function Admin() {
       navigate('/dashboard', { replace: true });
     }
   }, [isSuperAdmin, isLoading, navigate]);
+
+  const handleSaveOrg = async (data: any) => {
+    await updateOrganization.mutateAsync(data);
+    setEditingOrg(null);
+  };
+
+  const handleCreateOrg = async (data: any) => {
+    await createOrganization.mutateAsync(data);
+    setShowCreateDialog(false);
+  };
 
   if (isLoading) {
     return (
@@ -151,6 +199,10 @@ export default function Admin() {
   if (!isSuperAdmin) {
     return null;
   }
+
+  const whitelabelCount = [...pendingOrganizations, ...approvedOrganizations].filter(
+    org => org.logo_url || org.custom_domain
+  ).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -170,23 +222,32 @@ export default function Admin() {
               </div>
               <div>
                 <h1 className="text-xl font-bold">Panel de Administración</h1>
-                <p className="text-sm text-muted-foreground">Gestión de empresas</p>
+                <p className="text-sm text-muted-foreground">Gestión de empresas y marca blanca</p>
               </div>
             </div>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => refetchOrgs()}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Actualizar
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => refetchOrgs()}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Actualizar
+            </Button>
+            <Button 
+              size="sm"
+              onClick={() => setShowCreateDialog(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Nueva empresa
+            </Button>
+          </div>
         </div>
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Pendientes</CardDescription>
@@ -205,6 +266,14 @@ export default function Admin() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
+              <CardDescription>Marca blanca</CardDescription>
+              <CardTitle className="text-3xl text-primary">
+                {whitelabelCount}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
               <CardDescription>Total empresas</CardDescription>
               <CardTitle className="text-3xl">
                 {pendingOrganizations.length + approvedOrganizations.length}
@@ -217,7 +286,7 @@ export default function Admin() {
           <CardHeader>
             <CardTitle>Empresas</CardTitle>
             <CardDescription>
-              Gestiona las empresas registradas en la plataforma
+              Gestiona las empresas registradas y configura marca blanca
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -235,6 +304,15 @@ export default function Admin() {
                 <TabsTrigger value="approved" className="gap-2">
                   <Check className="h-4 w-4" />
                   Aprobadas
+                </TabsTrigger>
+                <TabsTrigger value="domains" className="gap-2">
+                  <Globe className="h-4 w-4" />
+                  Dominios
+                  {domains.length > 0 && (
+                    <Badge variant="secondary" className="ml-1">
+                      {domains.length}
+                    </Badge>
+                  )}
                 </TabsTrigger>
               </TabsList>
 
@@ -262,6 +340,7 @@ export default function Admin() {
                           org={org}
                           onApprove={() => approveOrganization.mutate(org.id)}
                           onReject={() => rejectOrganization.mutate(org.id)}
+                          onEdit={() => setEditingOrg(org)}
                           isApproving={approveOrganization.isPending}
                           isRejecting={rejectOrganization.isPending}
                         />
@@ -295,6 +374,7 @@ export default function Admin() {
                           org={org}
                           onApprove={() => approveOrganization.mutate(org.id)}
                           onReject={() => rejectOrganization.mutate(org.id)}
+                          onEdit={() => setEditingOrg(org)}
                           isApproving={approveOrganization.isPending}
                           isRejecting={rejectOrganization.isPending}
                         />
@@ -303,10 +383,36 @@ export default function Admin() {
                   </Table>
                 )}
               </TabsContent>
+
+              <TabsContent value="domains">
+                <DomainsTab
+                  domains={domains}
+                  isLoading={domainsLoading}
+                  onDeleteDomain={(id) => deleteDomain.mutate(id)}
+                  isDeleting={deleteDomain.isPending}
+                />
+              </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Organization Dialog */}
+      <EditOrganizationDialog
+        open={!!editingOrg}
+        onOpenChange={(open) => !open && setEditingOrg(null)}
+        organization={editingOrg}
+        onSave={handleSaveOrg}
+        isSaving={updateOrganization.isPending}
+      />
+
+      {/* Create Organization Dialog */}
+      <CreateOrganizationDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        onCreate={handleCreateOrg}
+        isCreating={createOrganization.isPending}
+      />
     </div>
   );
 }
