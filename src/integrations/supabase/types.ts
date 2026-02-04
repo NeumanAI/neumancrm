@@ -1206,6 +1206,7 @@ export type Database = {
           name: string
           organization_type: string
           parent_organization_id: string | null
+          pending_admin_email: string | null
           plan: string
           primary_color: string | null
           secondary_color: string | null
@@ -1226,6 +1227,7 @@ export type Database = {
           name: string
           organization_type?: string
           parent_organization_id?: string | null
+          pending_admin_email?: string | null
           plan?: string
           primary_color?: string | null
           secondary_color?: string | null
@@ -1246,6 +1248,7 @@ export type Database = {
           name?: string
           organization_type?: string
           parent_organization_id?: string | null
+          pending_admin_email?: string | null
           plan?: string
           primary_color?: string | null
           secondary_color?: string | null
