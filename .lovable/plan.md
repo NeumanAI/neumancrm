@@ -1,338 +1,318 @@
 
 
-# Plan: Modulo de Conversaciones Omnicanal
+# Plan: Panel de Configuración de Canales de Conversación
 
-## Vision General
+## Resumen Ejecutivo
 
-Implementar un centro de comunicaciones unificado que permita a los usuarios ver, interactuar y gestionar conversaciones de multiples canales (Webchat, WhatsApp/ManyChat, Instagram) desde una sola interfaz dentro del CRM.
+Crear una interfaz completa en **Configuración → Integraciones** que permita a los usuarios activar, configurar y gestionar todos los canales de conversación (ManyChat, Webchat, Gmail) de forma visual e intuitiva, con instrucciones paso a paso y validación de conexión.
 
 ---
 
-## Arquitectura del Sistema
+## Vista General de la Solución
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                           CANALES DE ENTRADA                                    │
-├───────────────┬───────────────┬───────────────┬───────────────┬───────────────┤
-│   WEBCHAT     │   WHATSAPP    │   INSTAGRAM   │     EMAIL     │    FUTURO     │
-│  (Widget)     │  (ManyChat)   │  (ManyChat)   │   (Gmail)     │   (SMS, etc)  │
-└───────┬───────┴───────┬───────┴───────┬───────┴───────┬───────┴───────────────┘
-        │               │               │               │
-        ▼               ▼               ▼               ▼
-┌────────────────────────────────────────────────────────────────────────────────┐
-│                        EDGE FUNCTIONS (WEBHOOKS)                                │
-├───────────────┬───────────────┬───────────────┬───────────────────────────────┤
-│  n8n-chat     │manychat-webhook│ instagram-    │    process-emails             │
-│  (nuevo)      │   (nuevo)     │ webhook       │    (existente)                │
-│               │               │  (nuevo)      │                               │
-└───────┬───────┴───────┬───────┴───────┬───────┴───────┬───────────────────────┘
-        │               │               │               │
-        ▼               ▼               ▼               ▼
-┌────────────────────────────────────────────────────────────────────────────────┐
-│                        TABLAS DE CONVERSACIONES                                 │
-├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                │
-│  ┌─────────────────────────┐     ┌─────────────────────────────────────────┐  │
-│  │   conversations         │     │   conversation_messages                  │  │
-│  │                         │     │                                          │  │
-│  │  - id                   │     │  - id                                    │  │
-│  │  - user_id              │◄────│  - conversation_id                       │  │
-│  │  - contact_id (FK)      │     │  - content                               │  │
-│  │  - channel              │     │  - is_from_contact                       │  │
-│  │  - external_id          │     │  - message_type (text/image/file)        │  │
-│  │  - status               │     │  - metadata                              │  │
-│  │  - assigned_to          │     │  - created_at                            │  │
-│  │  - unread_count         │     │                                          │  │
-│  │  - last_message_at      │     └─────────────────────────────────────────┘  │
-│  │  - metadata             │                                                   │
-│  └─────────────────────────┘                                                   │
-│                                                                                │
-└────────────────────────────────────────────────────────────────────────────────┘
-        │
-        ▼
-┌────────────────────────────────────────────────────────────────────────────────┐
-│                              FRONTEND                                           │
+│                    CONFIGURACIÓN → INTEGRACIONES                                │
 ├────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                │
 │  ┌──────────────────────────────────────────────────────────────────────────┐ │
-│  │                     /conversations                                        │ │
-│  │  ┌────────────────┬───────────────────────────────────────────────────┐  │ │
-│  │  │  SIDEBAR       │              CHAT VIEW                             │  │ │
-│  │  │                │                                                    │  │ │
-│  │  │ ┌────────────┐ │  ┌──────────────────────────────────────────────┐ │  │ │
-│  │  │ │ Filtros    │ │  │  Header: Contacto + Canal + Asignar         │ │  │ │
-│  │  │ │ - Canal    │ │  ├──────────────────────────────────────────────┤ │  │ │
-│  │  │ │ - Estado   │ │  │                                              │ │  │ │
-│  │  │ │ - Asignado │ │  │     Mensajes en burbujas                     │ │  │ │
-│  │  │ └────────────┘ │  │     (con timestamps y estado)                │ │  │ │
-│  │  │                │  │                                              │ │  │ │
-│  │  │ ┌────────────┐ │  │                                              │ │  │ │
-│  │  │ │ Conv 1     │ │  ├──────────────────────────────────────────────┤ │  │ │
-│  │  │ │ WA - Juan  │ │  │  Input: Responder / Notas internas          │ │  │ │
-│  │  │ ├────────────┤ │  │  + Adjuntar + Templates                     │ │  │ │
-│  │  │ │ Conv 2     │ │  └──────────────────────────────────────────────┘ │  │ │
-│  │  │ │ Web - Ana  │ │                                                    │  │ │
-│  │  │ └────────────┘ │  ┌──────────────────────────────────────────────┐ │  │ │
-│  │  │                │  │  Panel lateral: Info contacto + Acciones     │ │  │ │
-│  │  └────────────────┴──┴──────────────────────────────────────────────┘ │  │ │
+│  │  GMAIL (existente)                                              [OAuth]  │ │
+│  │  ✓ Conectado - juan@empresa.com                                         │ │
 │  └──────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                │
+│  ┌──────────────────────────────────────────────────────────────────────────┐ │
+│  │  MANYCHAT                                                      [Nuevo]   │ │
+│  │  Conecta WhatsApp, Instagram y Messenger                                │ │
+│  │                                                                          │ │
+│  │  ┌─────────────────────────────────────────────────────────────────────┐│ │
+│  │  │  Paso 1: Ingresa tu API Key de ManyChat                            ││ │
+│  │  │  [●●●●●●●●●●●●●●●●●●●●]  [Guardar]                                 ││ │
+│  │  │                                                                     ││ │
+│  │  │  Paso 2: Configura el webhook en ManyChat                          ││ │
+│  │  │  URL: https://xxx.supabase.co/functions/v1/manychat-webhook       ││ │
+│  │  │  [Copiar URL]                                                       ││ │
+│  │  │                                                                     ││ │
+│  │  │  Paso 3: Agrega estos campos en tu flujo de ManyChat              ││ │
+│  │  │  - crm_user_id: "tu-user-id"                                       ││ │
+│  │  │  - crm_organization_id: "tu-org-id"                                ││ │
+│  │  │  [Copiar valores]                                                   ││ │
+│  │  │                                                                     ││ │
+│  │  │  [Probar conexión]                                                 ││ │
+│  │  └─────────────────────────────────────────────────────────────────────┘│ │
+│  │                                                                          │ │
+│  │  Canales habilitados:                                                    │ │
+│  │  [✓] WhatsApp  [✓] Instagram  [✓] Messenger                             │ │
+│  └──────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                │
+│  ┌──────────────────────────────────────────────────────────────────────────┐ │
+│  │  WEBCHAT                                                       [Nuevo]   │ │
+│  │  Widget de chat para tu sitio web                                       │ │
+│  │                                                                          │ │
+│  │  Estado: Activo                                                          │ │
+│  │  Respuestas automáticas: Desactivadas / n8n configurado                 │ │
+│  │                                                                          │ │
+│  │  [Configurar Widget]  [Obtener código de inserción]                     │ │
+│  └──────────────────────────────────────────────────────────────────────────┘ │
+│                                                                                │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Parte 1: Esquema de Base de Datos
+## Nuevos Canales a Configurar
 
-### Nuevas Tablas
+### 1. ManyChat (WhatsApp, Instagram, Messenger)
 
-| Tabla | Descripcion |
-|-------|-------------|
-| `conversations` | Sesiones de conversacion por canal y contacto |
-| `conversation_messages` | Mensajes individuales dentro de cada conversacion |
+| Elemento | Descripción |
+|----------|-------------|
+| API Key | Token de API para enviar mensajes salientes |
+| Webhook URL | URL que ManyChat llamará al recibir mensajes |
+| Campos CRM | `crm_user_id` y `crm_organization_id` para vincular conversaciones |
+| Test de conexión | Verificar que la API Key es válida |
 
-### Estructura de conversations
+### 2. Webchat
 
-| Campo | Tipo | Descripcion |
-|-------|------|-------------|
-| id | uuid | Identificador unico |
-| user_id | uuid | Propietario del CRM |
-| organization_id | uuid | Organizacion (multi-tenant) |
-| contact_id | uuid | Contacto vinculado (opcional, se puede vincular despues) |
-| channel | text | 'webchat', 'whatsapp', 'instagram', 'email', 'messenger' |
-| external_id | text | ID externo (session_id, subscriber_id, etc.) |
-| external_name | text | Nombre del visitante/suscriptor |
-| external_email | text | Email si disponible |
-| external_phone | text | Telefono si disponible |
-| external_avatar | text | URL del avatar |
-| status | text | 'open', 'pending', 'resolved', 'archived' |
-| assigned_to | uuid | Miembro del equipo asignado |
-| unread_count | int | Mensajes no leidos |
-| last_message_at | timestamptz | Ultimo mensaje |
-| last_message_preview | text | Preview del ultimo mensaje |
-| metadata | jsonb | Datos adicionales del canal |
-| created_at | timestamptz | Fecha creacion |
-| updated_at | timestamptz | Fecha actualizacion |
+| Elemento | Descripción |
+|----------|-------------|
+| Habilitado | Toggle para activar/desactivar el canal |
+| URL de n8n (opcional) | Webhook para respuestas automáticas con IA |
+| Código embebible | Script para insertar el widget en sitios externos |
+| Personalización | Colores, mensaje de bienvenida, posición |
 
-### Estructura de conversation_messages
+### 3. Gmail (ya existente, mejorar)
 
-| Campo | Tipo | Descripcion |
-|-------|------|-------------|
-| id | uuid | Identificador unico |
-| conversation_id | uuid | FK a conversations |
-| content | text | Contenido del mensaje |
-| is_from_contact | boolean | true = cliente, false = agente/bot |
-| sender_name | text | Nombre del remitente |
-| message_type | text | 'text', 'image', 'file', 'audio', 'video' |
-| attachment_url | text | URL del archivo adjunto si aplica |
-| is_bot | boolean | Si fue respuesta automatica |
-| is_internal_note | boolean | Notas internas (no visibles al cliente) |
-| read_at | timestamptz | Cuando fue leido |
-| metadata | jsonb | Datos adicionales |
-| created_at | timestamptz | Fecha creacion |
-
-### Politicas RLS
-
-- Filtrar por `user_id` o `organization_id` segun arquitectura multi-tenant
-- Permitir a miembros del equipo ver conversaciones de su organizacion
+- Ya funciona con OAuth
+- Agregar sección de "canales activos" para mostrar junto a ManyChat y Webchat
 
 ---
 
-## Parte 2: Edge Functions
+## Cambios en Base de Datos
 
-### 2.1 n8n-chat (Webchat)
+### Actualizar tipos de provider en `integrations`
 
-Procesa mensajes del widget de chat flotante y los almacena en el modelo unificado.
+El campo `provider` actualmente solo acepta `'gmail' | 'whatsapp'`. Necesitamos expandirlo para soportar:
 
-**Flujo:**
-1. Recibe mensaje del widget
-2. Busca o crea conversacion por session_id
-3. Guarda mensaje del usuario
-4. Llama a n8n para obtener respuesta
-5. Guarda respuesta del bot
-6. Retorna respuesta al widget
+- `gmail` (existente)
+- `whatsapp` (existente pero se fusionará con manychat)
+- `manychat` (nuevo - agrupa WhatsApp, Instagram, Messenger)
+- `webchat` (nuevo)
 
-### 2.2 manychat-webhook (WhatsApp/Instagram/Messenger)
+### Estructura de metadata por provider
 
-Recibe webhooks de ManyChat y sincroniza conversaciones.
+**ManyChat:**
+```json
+{
+  "api_key_configured": true,
+  "channels_enabled": ["whatsapp", "instagram", "messenger"],
+  "last_test_at": "2024-01-15T...",
+  "test_status": "success"
+}
+```
 
-**Flujo:**
-1. Recibe payload de ManyChat (subscriber + message)
-2. Busca o crea conversacion por subscriber_id
-3. Detecta canal (whatsapp, instagram, messenger)
-4. Guarda mensaje entrante
-5. Actualiza datos del suscriptor
-6. Opcionalmente vincula a contacto existente por telefono/email
-
-### 2.3 send-conversation-reply (Nuevo)
-
-Permite enviar respuestas desde el dashboard a traves de ManyChat API.
-
-**Flujo:**
-1. Recibe mensaje a enviar + conversation_id
-2. Obtiene subscriber_id del canal
-3. Llama a ManyChat API para enviar mensaje
-4. Guarda el mensaje enviado en la DB
+**Webchat:**
+```json
+{
+  "widget_enabled": true,
+  "n8n_webhook_url": "https://...",
+  "widget_config": {
+    "position": "bottom-right",
+    "primary_color": "#3B82F6",
+    "welcome_message": "¡Hola! ¿En qué podemos ayudarte?"
+  }
+}
+```
 
 ---
 
-## Parte 3: Componentes Frontend
+## Cambios en el Código
 
-### 3.1 Nueva Pagina: /conversations
+### 1. Actualizar tipos (`src/types/integrations.ts`)
 
-**Archivo:** `src/pages/Conversations.tsx`
-
-Layout de 3 columnas:
-1. **Sidebar izquierdo**: Lista de conversaciones con filtros
-2. **Centro**: Vista de chat con mensajes
-3. **Derecho (opcional)**: Panel de info del contacto
-
-### 3.2 Componentes Principales
-
-| Componente | Funcion |
-|------------|---------|
-| `ConversationList` | Lista filtrable de conversaciones |
-| `ConversationItem` | Tarjeta individual con preview |
-| `ConversationView` | Visor de mensajes con input |
-| `MessageBubble` | Burbuja de mensaje estilizada |
-| `ConversationFilters` | Filtros por canal, estado, asignado |
-| `ContactInfoPanel` | Panel lateral con datos del contacto |
-| `AssignConversation` | Dropdown para asignar a miembro |
-| `ConversationActions` | Marcar resuelto, archivar, vincular contacto |
-
-### 3.3 Hook: useConversations
-
-Maneja CRUD de conversaciones con React Query y suscripcion Realtime.
+Expandir el tipo `Integration` para incluir los nuevos providers:
 
 ```typescript
-// Funcionalidades
-- fetchConversations(filters)
-- fetchMessages(conversationId)
-- sendMessage(conversationId, content)
-- markAsRead(conversationId)
-- updateStatus(conversationId, status)
-- assignConversation(conversationId, userId)
-- linkToContact(conversationId, contactId)
+export interface Integration {
+  id: string;
+  user_id: string;
+  provider: 'gmail' | 'manychat' | 'webchat';
+  // ... resto igual
+}
+
+export interface ManyChatConfig {
+  api_key_configured: boolean;
+  channels_enabled: ('whatsapp' | 'instagram' | 'messenger')[];
+  last_test_at?: string;
+  test_status?: 'success' | 'error' | 'pending';
+}
+
+export interface WebchatConfig {
+  widget_enabled: boolean;
+  n8n_webhook_url?: string;
+  widget_config: {
+    position: 'bottom-right' | 'bottom-left';
+    primary_color: string;
+    welcome_message: string;
+  };
+}
 ```
 
-### 3.4 Widget de Chat (Opcional)
+### 2. Actualizar hook (`src/hooks/useIntegrations.ts`)
 
-**Archivo:** `src/components/conversations/ChatWidget.tsx`
+- Agregar función `getIntegration` para `manychat` y `webchat`
+- Agregar mutación para guardar API Key de ManyChat
+- Agregar mutación para configurar Webchat
 
-Widget flotante para embeber en sitios web externos del usuario.
+### 3. Refactorizar `IntegrationsTab.tsx`
 
----
+Dividir en componentes más pequeños:
+- `GmailIntegrationCard.tsx` (extraer lógica existente)
+- `ManyChatIntegrationCard.tsx` (nuevo)
+- `WebchatIntegrationCard.tsx` (nuevo)
 
-## Parte 4: Integracion con IA del CRM
+### 4. Crear componente `ManyChatIntegrationCard.tsx`
 
-Extender el asistente de chat para gestionar conversaciones:
+**Funcionalidades:**
+- Input enmascarado para API Key
+- Botón para guardar API Key (llama a Edge Function que guarda en secrets)
+- Sección de instrucciones con webhook URL copiable
+- Valores de CRM (user_id, organization_id) copiables
+- Botón "Probar conexión" que valida la API Key
+- Checkboxes para canales habilitados
 
-### Nuevas Tools
+### 5. Crear componente `WebchatIntegrationCard.tsx`
 
-| Tool | Descripcion |
-|------|-------------|
-| `get_conversations` | Lista conversaciones con filtros |
-| `get_conversation_messages` | Obtiene mensajes de una conversacion |
-| `send_reply` | Responde a una conversacion |
-| `assign_conversation` | Asigna conversacion a un miembro |
-| `resolve_conversation` | Marca como resuelta |
-| `link_conversation_to_contact` | Vincula con contacto existente |
+**Funcionalidades:**
+- Toggle para habilitar/deshabilitar
+- Input para URL de n8n (opcional)
+- Sección de personalización del widget
+- Botón para obtener código de inserción (genera script embebible)
+- Vista previa del widget
 
-### Ejemplos de Uso
+### 6. Crear Edge Function `save-integration-secret`
 
-- "Muestrame las conversaciones abiertas de WhatsApp"
-- "Responde a la conversacion de Juan diciendo que le enviaremos la propuesta manana"
-- "Asigna las conversaciones pendientes a Maria"
-- "Cuantas conversaciones sin responder tenemos hoy?"
+Nueva función para guardar API Keys de forma segura:
+- Recibe: `{ provider: string, api_key: string }`
+- Guarda en Supabase secrets (vía SQL o API interna)
+- Actualiza la integración con `api_key_configured: true`
 
----
+### 7. Crear Edge Function `test-manychat-connection`
 
-## Parte 5: Realtime y Notificaciones
-
-### Suscripcion Realtime
-
-```sql
-ALTER PUBLICATION supabase_realtime ADD TABLE public.conversations;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.conversation_messages;
-```
-
-### Notificaciones
-
-- Nueva conversacion entrante
-- Mensaje nuevo en conversacion asignada
-- Conversacion sin responder por X tiempo
+Valida que la API Key de ManyChat es correcta:
+- Llama a la API de ManyChat para obtener info de la cuenta
+- Retorna resultado de validación
 
 ---
 
-## Orden de Implementacion
+## Flujo de Configuración para el Usuario
 
-### Fase 1: Base de Datos (Migracion SQL)
-1. Crear tabla `conversations`
-2. Crear tabla `conversation_messages`
-3. Configurar RLS con soporte multi-tenant
-4. Habilitar Realtime
+### Configurar ManyChat (WhatsApp/Instagram)
 
-### Fase 2: Edge Functions
-1. Crear `n8n-chat` para webchat
-2. Crear `manychat-webhook` para WhatsApp/Instagram
-3. Crear `send-conversation-reply` para respuestas salientes
+1. El usuario va a **Configuración → Integraciones**
+2. En la tarjeta de ManyChat, hace clic en "Configurar"
+3. Sigue los pasos visuales:
+   - **Paso 1:** Ingresa su API Key de ManyChat (obtenida de manychat.com → Settings → API)
+   - **Paso 2:** Copia la Webhook URL y la pega en ManyChat (Flow → External Request)
+   - **Paso 3:** Copia los valores `crm_user_id` y `crm_organization_id` para agregarlos al flujo
+4. Hace clic en "Probar conexión" para verificar
+5. Activa los canales deseados (WhatsApp, Instagram, Messenger)
 
-### Fase 3: Frontend - Estructura Base
-1. Crear hook `useConversations.ts`
-2. Crear pagina `/conversations`
-3. Agregar ruta en `App.tsx`
-4. Agregar item en Sidebar
+### Configurar Webchat
 
-### Fase 4: Frontend - Componentes
-1. `ConversationList` con filtros
-2. `ConversationView` con mensajes
-3. `MessageBubble` con estilos por canal
-4. `ConversationActions` (asignar, resolver, vincular)
-
-### Fase 5: Realtime y UX
-1. Suscripcion a nuevos mensajes
-2. Indicador de "escribiendo..."
-3. Sonido de notificacion
-4. Badge de no leidos en sidebar
-
-### Fase 6: Integracion IA
-1. Agregar tools de conversaciones al chat
-2. Actualizar system prompt con contexto
-
----
-
-## Resultado Esperado
-
-Al completar la implementacion:
-
-1. **Inbox Unificado**: Ver todas las conversaciones de todos los canales en un solo lugar
-2. **Respuesta Omnicanal**: Responder a WhatsApp, Instagram y Webchat desde el CRM
-3. **Vinculacion Automatica**: Conectar visitantes anonimos con contactos existentes
-4. **Colaboracion**: Asignar conversaciones a miembros del equipo
-5. **IA Integrada**: Gestionar conversaciones mediante lenguaje natural
-6. **Tiempo Real**: Notificaciones y actualizaciones instantaneas
-7. **Historial Completo**: Todo queda registrado y vinculado al contacto
+1. El usuario va a **Configuración → Integraciones**
+2. En la tarjeta de Webchat, hace clic en "Configurar"
+3. Activa el widget
+4. (Opcional) Configura la URL de n8n para respuestas automáticas
+5. Personaliza colores y mensaje de bienvenida
+6. Copia el código de inserción y lo pega en su sitio web
 
 ---
 
 ## Archivos a Crear/Modificar
 
-| Tipo | Archivo | Accion |
+| Tipo | Archivo | Acción |
 |------|---------|--------|
-| SQL | Nueva migracion | Crear tablas conversations y conversation_messages |
-| Edge Function | `supabase/functions/n8n-chat/index.ts` | Crear |
-| Edge Function | `supabase/functions/manychat-webhook/index.ts` | Crear |
-| Edge Function | `supabase/functions/send-conversation-reply/index.ts` | Crear |
-| Hook | `src/hooks/useConversations.ts` | Crear |
-| Hook | `src/hooks/useNotificationSound.ts` | Crear |
-| Tipos | `src/types/conversations.ts` | Crear |
-| Pagina | `src/pages/Conversations.tsx` | Crear |
-| Componente | `src/components/conversations/ConversationList.tsx` | Crear |
-| Componente | `src/components/conversations/ConversationView.tsx` | Crear |
-| Componente | `src/components/conversations/MessageBubble.tsx` | Crear |
-| Componente | `src/components/conversations/ConversationFilters.tsx` | Crear |
-| Componente | `src/components/conversations/ChatWidget.tsx` | Crear (opcional) |
-| Router | `src/App.tsx` | Agregar ruta /conversations |
-| Sidebar | `src/components/layout/Sidebar.tsx` | Agregar item Conversaciones |
-| Edge Function | `supabase/functions/chat/index.ts` | Agregar tools de conversaciones |
-| Config | `supabase/config.toml` | Agregar nuevas funciones |
+| Tipos | `src/types/integrations.ts` | Modificar - agregar tipos para ManyChat y Webchat |
+| Hook | `src/hooks/useIntegrations.ts` | Modificar - agregar soporte para nuevos providers |
+| Componente | `src/components/settings/IntegrationsTab.tsx` | Modificar - refactorizar layout |
+| Componente | `src/components/settings/GmailIntegrationCard.tsx` | Crear - extraer lógica existente |
+| Componente | `src/components/settings/ManyChatIntegrationCard.tsx` | Crear |
+| Componente | `src/components/settings/WebchatIntegrationCard.tsx` | Crear |
+| Componente | `src/components/settings/WebchatWidgetPreview.tsx` | Crear |
+| Componente | `src/components/settings/IntegrationSteps.tsx` | Crear - componente reutilizable de pasos |
+| Edge Function | `supabase/functions/save-integration-secret/index.ts` | Crear |
+| Edge Function | `supabase/functions/test-manychat-connection/index.ts` | Crear |
+| Config | `supabase/config.toml` | Modificar - agregar nuevas funciones |
+
+---
+
+## Orden de Implementación
+
+### Fase 1: Preparación
+1. Actualizar tipos en `src/types/integrations.ts`
+2. Actualizar hook `useIntegrations.ts` con nuevos métodos
+
+### Fase 2: Edge Functions
+1. Crear `save-integration-secret` para guardar API Keys
+2. Crear `test-manychat-connection` para validar conexión
+
+### Fase 3: Componentes de UI
+1. Crear `IntegrationSteps.tsx` (componente reutilizable)
+2. Extraer `GmailIntegrationCard.tsx` del código existente
+3. Crear `ManyChatIntegrationCard.tsx` con instrucciones paso a paso
+4. Crear `WebchatIntegrationCard.tsx` con código embebible
+5. Refactorizar `IntegrationsTab.tsx` para usar los nuevos componentes
+
+### Fase 4: Widget Embebible
+1. Crear `WebchatWidgetPreview.tsx` para vista previa
+2. Generar código de inserción para sitios externos
+
+---
+
+## Resultado Esperado
+
+Al completar esta implementación:
+
+1. **Configuración Visual**: Panel intuitivo para configurar todos los canales
+2. **Instrucciones Claras**: Pasos numerados con valores copiables
+3. **Validación de Conexión**: Botón para probar que todo funciona
+4. **Código Embebible**: Script listo para copiar e insertar en sitios web
+5. **Gestión Centralizada**: Todos los canales en un solo lugar
+6. **Seguridad**: API Keys guardadas de forma segura en secrets
+
+---
+
+## Sección Técnica
+
+### Guardado de API Keys
+
+Las API Keys se guardarán de dos formas:
+1. **En metadata** de la tabla `integrations`: Solo un flag `api_key_configured: true`
+2. **En Supabase Secrets**: El valor real de la API Key, accesible solo desde Edge Functions
+
+### Código del Widget Webchat
+
+El código generado para insertar en sitios externos será similar a:
+
+```html
+<script>
+  (function() {
+    var script = document.createElement('script');
+    script.src = 'https://tu-proyecto.lovable.app/webchat-widget.js';
+    script.async = true;
+    script.dataset.crmUserId = 'USER_ID';
+    script.dataset.crmOrgId = 'ORG_ID';
+    script.dataset.primaryColor = '#3B82F6';
+    document.body.appendChild(script);
+  })();
+</script>
+```
+
+### Test de Conexión ManyChat
+
+```typescript
+// Llamada a la API de ManyChat para verificar
+const response = await fetch('https://api.manychat.com/fb/page/getInfo', {
+  headers: { 'Authorization': `Bearer ${apiKey}` }
+});
+```
 
