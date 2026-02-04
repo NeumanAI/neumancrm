@@ -1,260 +1,118 @@
 
+## Diagnóstico (por qué pasa)
+- El mensaje “credenciales no son” corresponde a un **fallo de autenticación** (contraseña incorrecta / no existe contraseña / estás intentando entrar en el entorno equivocado). No es un problema del panel de Super Admin en sí.
+- En tu backend de pruebas, **jogedu@gmail.com sí existe y sí es Super Admin** (hay registro en `public.super_admins` para ese usuario). Por eso, una vez logre iniciar sesión, debería poder entrar a `/admin`.
+- Ahora mismo la app solo ofrece **login con email + contraseña**. Si no recuerdas la contraseña real de `jogedu@gmail.com` (o si esa cuenta se creó por enlace/ invitación y nunca se definió contraseña), el login seguirá fallando.
 
-# Plan: Sistema de Sub-Clientes para Resellers de Marca Blanca
+## Objetivo
+1) Permitir recuperar acceso sin conocer la contraseña (recuperación por email y/o “magic link”).  
+2) Evitar que un Super Admin quede atrapado en “pendiente de aprobación”.  
+3) Reducir confusiones entre entorno de pruebas vs publicado (y el botón “cuenta dev”).
 
-## Resumen Ejecutivo
+---
 
-Implementar un sistema jerárquico de 3 niveles que permite a los resellers de marca blanca (whitelabel) crear y gestionar sus propios clientes finales, mientras que tú (Super Admin) mantienes control total sobre todo el sistema.
+## Cambios propuestos (implementación)
 
-## Modelo de Jerarquía
+### A) Agregar “Olvidé mi contraseña” + pantalla “Restablecer contraseña”
+**Archivos**
+- `src/pages/Auth.tsx` (principal)
 
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│                        NIVEL 1: SUPER ADMIN                         │
-│                   (Tú - Control total del sistema)                   │
-│                                                                     │
-│  • Ve TODAS las organizaciones (resellers + directos + sub-clientes)│
-│  • Puede crear/editar/eliminar cualquier organización               │
-│  • Aprueba resellers y clientes directos                            │
-│  • Accede a /admin con panel completo                               │
-└─────────────────────┬───────────────────────────────────────────────┘
-                      │
-       ┌──────────────┴──────────────┐
-       │                             │
-       ▼                             ▼
-┌─────────────────────┐   ┌─────────────────────────────────────────┐
-│  CLIENTE DIRECTO    │   │         RESELLER (MARCA BLANCA)         │
-│  (organization_type │   │     (organization_type = 'whitelabel')  │
-│    = 'direct')      │   │                                         │
-│                     │   │  • Ve SUS sub-clientes únicamente        │
-│  • No tiene sub-    │   │  • Puede crear sub-clientes             │
-│    clientes         │   │  • Accede a /reseller-admin (nuevo)     │
-│  • Usa marca        │   │  • Los sub-clientes ven su marca        │
-│    NeumanCRM        │   │  • No puede ver otros resellers         │
-└─────────────────────┘   └────────────────┬────────────────────────┘
-                                           │
-                          ┌────────────────┼────────────────┐
-                          │                │                │
-                          ▼                ▼                ▼
-                   ┌───────────┐    ┌───────────┐    ┌───────────┐
-                   │Sub-cliente│    │Sub-cliente│    │Sub-cliente│
-                   │    #1     │    │    #2     │    │    #3     │
-                   └───────────┘    └───────────┘    └───────────┘
-```
+**UI / Flujo**
+1. En la pestaña “Iniciar sesión”, agregar link: **“¿Olvidaste tu contraseña?”**.
+2. Al tocarlo, mostrar un pequeño formulario (mismo diseño del Card) para:
+   - ingresar email
+   - botón “Enviar enlace”
+3. Enviar email con:
+   - `supabase.auth.resetPasswordForEmail(email, { redirectTo: \`\${window.location.origin}/auth?mode=reset\` })`
+4. Cuando el usuario haga clic en el enlace del correo, vuelve a `/auth` con un “recovery session” en la URL.
+5. `Auth.tsx` detecta ese modo y muestra un formulario “Nueva contraseña” + “Confirmar contraseña”.
+6. Al confirmar:
+   - validar con zod (mínimo 6, máximo 72, confirmación coincide)
+   - `supabase.auth.updateUser({ password: newPassword })`
+   - toast éxito + `navigate('/dashboard')`
 
-## Cambios en Base de Datos
+**Detalles técnicos**
+- Detección del modo “reset”:
+  - por query: `mode=reset`
+  - y/o por hash: `window.location.hash.includes('type=recovery')`
+- Manejar errores comunes:
+  - email inválido
+  - rate limiting
+  - sesión de recovery ausente (mostrar mensaje para volver a pedir el email)
 
-### 1. Agregar columna `parent_organization_id` a `organizations`
+---
 
-```sql
-ALTER TABLE public.organizations 
-ADD COLUMN parent_organization_id UUID REFERENCES public.organizations(id);
+### B) Agregar “Iniciar sesión con enlace” (Magic Link) como alternativa rápida
+**Archivos**
+- `src/pages/Auth.tsx`
 
-CREATE INDEX idx_organizations_parent ON public.organizations(parent_organization_id);
+**UI / Flujo**
+- En “Iniciar sesión”, agregar botón secundario: **“Enviar enlace de acceso”**.
+- Acción:
+  - `supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: \`\${window.location.origin}/dashboard\` } })`
+- El usuario entra desde el email sin contraseña y cae autenticado.
+- Esto resuelve el caso típico: “no recuerdo contraseña” o “esta cuenta nunca tuvo contraseña”.
 
-COMMENT ON COLUMN public.organizations.parent_organization_id IS 
-  'ID del reseller padre. NULL = organización raíz (directo o reseller)';
-```
+**Nota de producto**
+- Mantendremos también el login por contraseña; el enlace es opcional.
 
-### 2. Nueva función para verificar si el usuario es admin de un reseller
+---
 
-```sql
-CREATE OR REPLACE FUNCTION public.is_reseller_admin()
-RETURNS BOOLEAN
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT EXISTS (
-    SELECT 1 
-    FROM public.team_members tm
-    INNER JOIN public.organizations o ON tm.organization_id = o.id
-    WHERE tm.user_id = auth.uid()
-      AND tm.role = 'admin'
-      AND tm.is_active = true
-      AND o.organization_type = 'whitelabel'
-  )
-$$;
-```
+### C) Fix: Super Admin no debe quedar atrapado en “Pendiente de aprobación”
+**Archivo**
+- `src/pages/PendingApproval.tsx`
 
-### 3. Función para obtener el ID del reseller del usuario actual
+**Cambio**
+- Importar `useSuperAdmin()`
+- Cambiar la condición de redirección:
+  - antes: solo redirige si `organization.is_approved`
+  - después: redirige si `organization.is_approved || isSuperAdmin`
+- Resultado: aunque su organización esté pendiente, un Super Admin puede entrar al CRM y al panel `/admin`.
 
-```sql
-CREATE OR REPLACE FUNCTION public.get_reseller_organization_id()
-RETURNS UUID
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT o.id
-  FROM public.team_members tm
-  INNER JOIN public.organizations o ON tm.organization_id = o.id
-  WHERE tm.user_id = auth.uid()
-    AND tm.role = 'admin'
-    AND tm.is_active = true
-    AND o.organization_type = 'whitelabel'
-  LIMIT 1
-$$;
-```
+---
 
-### 4. Actualizar políticas RLS para `organizations`
+### D) Evitar confusión: botón “Usar cuenta de desarrollo” solo en preview
+**Archivo**
+- `src/pages/Auth.tsx`
 
-```sql
--- Resellers pueden ver sus sub-clientes
-CREATE POLICY "Resellers can view their sub-organizations"
-ON public.organizations
-FOR SELECT
-USING (
-  parent_organization_id = get_reseller_organization_id()
-  AND is_reseller_admin()
-);
+**Cambio**
+- Mostrar el botón “🔧 Usar cuenta de desarrollo” únicamente si estás en URL de preview (por ejemplo:
+  - `hostname` contiene `id-preview` o `lovableproject`)
+- En la URL publicada se oculta para que no intentes entrar con un usuario que quizá solo existe en pruebas.
 
--- Resellers pueden crear sub-clientes
-CREATE POLICY "Resellers can create sub-organizations"
-ON public.organizations
-FOR INSERT
-WITH CHECK (
-  parent_organization_id = get_reseller_organization_id()
-  AND is_reseller_admin()
-  AND organization_type = 'direct'
-);
+---
 
--- Resellers pueden actualizar sus sub-clientes
-CREATE POLICY "Resellers can update their sub-organizations"
-ON public.organizations
-FOR UPDATE
-USING (
-  parent_organization_id = get_reseller_organization_id()
-  AND is_reseller_admin()
-);
-```
+### E) (Opcional, recomendado) Indicador de entorno en la pantalla de Auth
+**Archivo**
+- `src/pages/Auth.tsx`
 
-## Nuevos Archivos a Crear
+**Cambio**
+- Un texto pequeño bajo el título:
+  - “Entorno de pruebas” si es preview
+  - “Entorno publicado” si es el dominio final
+- Esto ayuda a entender por qué un usuario puede existir en un entorno y no en el otro.
 
-### 1. `src/hooks/useResellerAdmin.ts`
-Hook para manejar operaciones de reseller admin:
-- Obtener sub-clientes de su organización
-- Crear nuevos sub-clientes
-- Aprobar/revocar sub-clientes
-- Estadísticas del reseller
+---
 
-### 2. `src/pages/ResellerAdmin.tsx`
-Panel de administración para resellers:
-- Lista de sus sub-clientes
-- Botón para crear nuevo sub-cliente
-- Estadísticas de uso
-- Sin acceso a configuración de marca (ya la tiene el Super Admin)
+## Pruebas (checklist)
+1. En la app publicada:
+   - intentar login con `jogedu@gmail.com` (si falla contraseña) → usar “Olvidé mi contraseña” o “Enviar enlace”.
+   - confirmar que al entrar puedes abrir `/admin` y no te expulsa.
+2. Probar que un usuario NO super admin:
+   - si su organización no está aprobada → cae en `/pending-approval`
+3. Probar que un super admin:
+   - aunque su organización no esté aprobada → NO queda atrapado en `/pending-approval`
+4. Verificar que el botón “cuenta dev” no aparece en producción.
 
-### 3. `src/components/reseller/CreateSubClientDialog.tsx`
-Diálogo simplificado para crear sub-clientes:
-- Nombre de la empresa
-- Email del admin
-- Estado de aprobación
-- Hereda el branding del reseller padre
+---
 
-## Archivos a Modificar
+## Riesgos / Consideraciones
+- La recuperación por email depende de que puedas recibir correos (spam/promociones).
+- Si tu backend requiere configurar URLs de redirección, usaremos el panel de Lovable Cloud para añadir la URL publicada y la preview a los redirects permitidos (si hiciera falta).
 
-### 1. `src/hooks/useSuperAdmin.ts`
-- Incluir `parent_organization_id` en interfaces
-- Agregar filtros para ver jerarquía
-- Función para asignar sub-cliente a reseller
+---
 
-### 2. `src/pages/Admin.tsx`
-- Mostrar estructura jerárquica
-- Indicar qué organizaciones son sub-clientes
-- Permitir mover sub-clientes entre resellers
-
-### 3. `src/components/layout/Sidebar.tsx`
-- Agregar enlace a `/reseller-admin` para admins de whitelabel
-- Ocultar `/admin` para usuarios normales (ya funciona)
-
-### 4. `src/components/layout/AppLayout.tsx`
-- Verificar si usuario es reseller admin
-- Pasar prop correspondiente al Sidebar
-
-### 5. `src/App.tsx`
-- Agregar ruta `/reseller-admin`
-
-### 6. `src/hooks/useTeam.ts`
-- Incluir `parent_organization_id` en la interfaz `Organization`
-
-## Flujo de Usuario
-
-### Para ti (Super Admin):
-```text
-1. Creas un reseller de marca blanca (Acme CRM)
-2. El admin del reseller se registra
-3. El reseller accede a /reseller-admin
-4. El reseller crea sus propios clientes
-5. Tú ves todo en /admin con estructura jerárquica
-```
-
-### Para el Reseller (Marca Blanca):
-```text
-1. Accede a su dashboard normal del CRM
-2. Ve enlace "Administración" en sidebar
-3. En /reseller-admin ve sus sub-clientes
-4. Puede crear nuevos sub-clientes
-5. Los sub-clientes ven el branding del reseller
-```
-
-## Lógica de Branding para Sub-Clientes
-
-Los sub-clientes heredan automáticamente el branding del reseller padre:
-
-```typescript
-// Al crear sub-cliente
-const subClient = {
-  name: formData.name,
-  parent_organization_id: resellerOrgId,
-  organization_type: 'direct', // Los sub-clientes son tipo "direct"
-  // Hereda branding del padre
-  logo_url: parentOrg.logo_url,
-  primary_color: parentOrg.primary_color,
-  secondary_color: parentOrg.secondary_color,
-  // El dominio del padre aplica a sub-clientes
-};
-```
-
-## Orden de Implementación
-
-| Paso | Descripción | Tipo |
-|------|-------------|------|
-| 1 | Migración: agregar `parent_organization_id` | DB |
-| 2 | Migración: crear funciones `is_reseller_admin()` y `get_reseller_organization_id()` | DB |
-| 3 | Migración: actualizar políticas RLS | DB |
-| 4 | Crear `src/hooks/useResellerAdmin.ts` | Frontend |
-| 5 | Crear `src/pages/ResellerAdmin.tsx` | Frontend |
-| 6 | Crear `src/components/reseller/CreateSubClientDialog.tsx` | Frontend |
-| 7 | Actualizar Sidebar para mostrar enlace a resellers | Frontend |
-| 8 | Agregar ruta en App.tsx | Frontend |
-| 9 | Actualizar `src/pages/Admin.tsx` para mostrar jerarquía | Frontend |
-
-## Consideraciones de Seguridad
-
-1. **Aislamiento de datos**: Los resellers solo ven sus propios sub-clientes
-2. **RLS en cascada**: Los sub-clientes heredan las mismas restricciones RLS
-3. **Validación server-side**: Las funciones SECURITY DEFINER previenen escalación de privilegios
-4. **Sin acceso cruzado**: Un reseller no puede ver datos de otro reseller
-
-## Vista Final del Admin (Super Admin)
-
-```text
-┌────────────────────────────────────────────────────────┐
-│ Panel de Administración                                │
-├────────────────────────────────────────────────────────┤
-│ [Todos] [Directos] [Marca Blanca] [Sub-clientes]       │
-├────────────────────────────────────────────────────────┤
-│ ▶ Acme CRM (Marca Blanca)                     ✓ Aprobada│
-│   └─ Cliente Final 1                          ✓ Aprobada│
-│   └─ Cliente Final 2                          ✓ Aprobada│
-│                                                        │
-│ ▶ Beta Solutions (Marca Blanca)               ✓ Aprobada│
-│   └─ Empresa ABC                              ⏳ Pendiente│
-│                                                        │
-│ ▷ Mi Empresa Directa (Directo)                ✓ Aprobada│
-└────────────────────────────────────────────────────────┘
-```
-
+## Entregable
+- Login recuperable por email + magic link
+- Super Admin siempre puede salir de “pendiente”
+- Menos confusión entre pruebas y producción
