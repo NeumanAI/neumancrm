@@ -11,6 +11,7 @@ import { format, isToday, isTomorrow, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { AIInsightsCard } from '@/components/dashboard/AIInsightsCard';
 import { 
   AreaChart, 
   Area, 
@@ -92,6 +93,11 @@ export default function Dashboard() {
           <p className="text-muted-foreground">Resumen de tu actividad comercial</p>
         </div>
       </div>
+
+      {/* AI Insights */}
+      <motion.div variants={item}>
+        <AIInsightsCard />
+      </motion.div>
 
       {/* Stats Grid */}
       <motion.div variants={item} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
