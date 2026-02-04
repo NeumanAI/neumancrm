@@ -1,196 +1,209 @@
 
-# Plan: Sistema de Autorización de Empresas con Panel Super-Admin
 
-## Resumen
+# Plan: Sistema Multi-Tenant con Branding por Dominio
 
-Implementar un sistema simple donde:
-1. Las nuevas empresas se registran pero quedan **pendientes de autorización**
-2. Tú tienes un **panel de super-admin** para ver y aprobar empresas
-3. Mientras no estén aprobadas, los usuarios ven una pantalla de "cuenta pendiente"
-4. Una vez aprobadas, tienen **acceso completo** (sin límites de plan por ahora)
+## Resumen Ejecutivo
 
----
+Implementar un sistema de marca blanca donde cada organización puede tener su propio dominio/subdominio personalizado, con branding independiente (logo, colores, nombre), pero todo funcionando desde una única base de código y base de datos.
 
-## Flujo de Usuario
+## Arquitectura Actual vs Propuesta
 
 ```text
-NUEVO USUARIO SE REGISTRA
-         │
-         ▼
-┌─────────────────────────────────────┐
-│  Se crea organización automática    │
-│  con is_approved = FALSE            │
-└─────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────┐
-│  Usuario ve pantalla:               │
-│  "Tu cuenta está pendiente de       │
-│   aprobación. Te notificaremos      │
-│   cuando esté lista."               │
-│                                     │
-│  [Cerrar Sesión]                    │
-└─────────────────────────────────────┘
+ACTUAL:
++------------------+     +------------------+
+|     branding     |     |  organizations   |
++------------------+     +------------------+
+| user_id (FK)     |     | id               |
+| logo_url         |     | name             |
+| primary_color    |     | slug             |
+| secondary_color  |     | is_approved      |
+| company_name     |     | ...              |
++------------------+     +------------------+
+(branding por usuario)   (sin branding)
 
-         MIENTRAS TANTO...
-
-┌─────────────────────────────────────┐
-│  SUPER-ADMIN (Tú)                   │
-│  Ve lista de empresas pendientes    │
-│  [Aprobar] [Rechazar]               │
-└─────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────┐
-│  Click "Aprobar"                    │
-│  → is_approved = TRUE               │
-│  → Usuario ahora puede usar el CRM  │
-└─────────────────────────────────────┘
+PROPUESTA:
++------------------+     +----------------------+
+|  organizations   |     |   organization       |
++------------------+     |   _domains           |
+| id               |     +----------------------+
+| name             |<----| organization_id (FK) |
+| slug             |     | domain               |
+| logo_url    NEW  |     | is_primary           |
+| primary_color    |     | is_verified          |
+| secondary_color  |     | verified_at          |
+| favicon_url NEW  |     +----------------------+
+| ...              |
++------------------+
+(branding por org)
 ```
-
----
 
 ## Cambios en Base de Datos
 
-### 1. Agregar campo a tabla `organizations`
+### 1. Migrar branding a organizations
 
-| Campo | Tipo | Default | Descripción |
-|-------|------|---------|-------------|
-| `is_approved` | boolean | false | Si la empresa fue autorizada |
-| `approved_at` | timestamptz | null | Cuándo se aprobó |
-| `approved_by` | uuid | null | Quién la aprobó |
+Agregar columnas a la tabla `organizations`:
+- `logo_url` (text, nullable) - URL del logo de la organización
+- `favicon_url` (text, nullable) - URL del favicon
+- `primary_color` (text, default '#3B82F6')
+- `secondary_color` (text, default '#8B5CF6')
+- `custom_domain` (text, nullable, unique) - Dominio personalizado (ej: crm.miempresa.com)
 
-### 2. Nueva tabla `super_admins`
+### 2. Crear tabla organization_domains (opcional para múltiples dominios)
 
-Tabla para identificar a los administradores de la plataforma (ustedes):
-
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| `id` | uuid | PK |
-| `user_id` | uuid | Referencia a auth.users |
-| `created_at` | timestamptz | Fecha de creación |
-
-### 3. Función para verificar si es super-admin
+Para soportar múltiples dominios por organización en el futuro:
 
 ```sql
-CREATE OR REPLACE FUNCTION public.is_super_admin()
-RETURNS BOOLEAN
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.super_admins
-    WHERE user_id = auth.uid()
-  )
-$$;
+CREATE TABLE organization_domains (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  domain TEXT NOT NULL UNIQUE,
+  is_primary BOOLEAN DEFAULT false,
+  is_verified BOOLEAN DEFAULT false,
+  verified_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
 ```
 
-### 4. Políticas RLS para super_admins
+## Flujo de Detección de Branding
 
-- Super-admins pueden ver **TODAS** las organizaciones
-- Super-admins pueden actualizar cualquier organización (para aprobar)
-
----
-
-## Componentes a Crear
-
-### 1. Página `/pending-approval`
-
-Pantalla que ven los usuarios cuando su empresa aún no está aprobada:
-
-- Mensaje claro de que están pendientes
-- Información de contacto (opcional)
-- Botón de cerrar sesión
-- Auto-refresh cada 30 segundos para detectar aprobación
-
-### 2. Página `/admin`
-
-Panel exclusivo para super-admins con:
-
-**Tab: Empresas Pendientes**
-- Lista de organizaciones con `is_approved = false`
-- Muestra: nombre, email del admin, fecha de registro
-- Botones: [Aprobar] [Rechazar]
-
-**Tab: Empresas Aprobadas**
-- Lista de todas las empresas activas
-- Estadísticas: usuarios, contactos, oportunidades
-- Opción de desactivar si es necesario
-
-### 3. Modificar `AppLayout.tsx`
-
-Agregar verificación:
-- Si `organization.is_approved === false` → Redirigir a `/pending-approval`
-- Si es super-admin → Mostrar enlace a `/admin` en el menú
-
----
+```text
+Usuario accede a: crm.clienteX.com
+                      |
+                      v
++---------------------------------------------+
+|  App detecta hostname en window.location   |
++---------------------------------------------+
+                      |
+                      v
++---------------------------------------------+
+|  Buscar en organization_domains o          |
+|  organizations.custom_domain               |
++---------------------------------------------+
+                      |
+         +------------+------------+
+         |                         |
+   Dominio encontrado       Dominio NO encontrado
+         |                         |
+         v                         v
++------------------+    +------------------------+
+| Cargar branding  |    | Usar branding default  |
+| de esa org       |    | (neumancrm.lovable.app)|
++------------------+    +------------------------+
+         |
+         v
++------------------+
+| Aplicar CSS vars |
+| logo, colores    |
++------------------+
+```
 
 ## Archivos a Crear/Modificar
 
-| Tipo | Archivo | Acción |
-|------|---------|--------|
-| SQL | Nueva migración | Agregar campos a organizations, crear tabla super_admins |
-| Página | `src/pages/PendingApproval.tsx` | Crear - Pantalla de espera |
-| Página | `src/pages/Admin.tsx` | Crear - Panel super-admin |
-| Hook | `src/hooks/useSuperAdmin.ts` | Crear - Lógica de super-admin |
-| Hook | `src/hooks/useTeam.ts` | Modificar - Agregar is_approved |
-| Layout | `src/components/layout/AppLayout.tsx` | Modificar - Verificar aprobación |
-| Layout | `src/components/layout/Sidebar.tsx` | Modificar - Mostrar enlace Admin |
-| Router | `src/App.tsx` | Agregar rutas nuevas |
+### Nuevos Archivos
 
----
+| Archivo | Propósito |
+|---------|-----------|
+| `src/hooks/useBranding.ts` | Hook para detectar dominio y cargar branding de la organización |
+| `src/contexts/BrandingContext.tsx` | Contexto global para branding (logo, colores, nombre) |
+| `src/components/layout/BrandingProvider.tsx` | Componente que aplica el branding dinámicamente |
+
+### Archivos a Modificar
+
+| Archivo | Cambios |
+|---------|---------|
+| `src/main.tsx` | Envolver App con BrandingProvider |
+| `src/pages/Auth.tsx` | Mostrar logo/nombre dinámico según dominio |
+| `src/components/layout/Sidebar.tsx` | Mostrar logo de organización en lugar de hardcoded |
+| `src/pages/Settings.tsx` | Mover configuración de branding a nivel de organización (solo admins) |
+| `src/hooks/useTeam.ts` | Agregar campos de branding a Organization interface |
+
+## Detalles Técnicos
+
+### Hook useBranding
+
+```typescript
+// Pseudocódigo del hook
+function useBranding() {
+  const hostname = window.location.hostname;
+  
+  // Query para buscar organización por dominio
+  const { data: orgBranding } = useQuery({
+    queryKey: ['branding', hostname],
+    queryFn: async () => {
+      // Buscar primero en organization_domains
+      // Si no encuentra, buscar en organizations.custom_domain
+      // Si aún no encuentra, retornar branding default
+    },
+    staleTime: Infinity, // El branding no cambia frecuentemente
+  });
+  
+  return {
+    logo: orgBranding?.logo_url || defaultLogo,
+    companyName: orgBranding?.name || 'CRM AI',
+    primaryColor: orgBranding?.primary_color || '#3B82F6',
+    secondaryColor: orgBranding?.secondary_color || '#8B5CF6',
+    isWhiteLabel: !!orgBranding?.custom_domain,
+  };
+}
+```
+
+### Aplicación Dinámica de Colores
+
+El `BrandingProvider` aplicará los colores via CSS variables al montar:
+
+```typescript
+useEffect(() => {
+  if (branding) {
+    document.documentElement.style.setProperty('--primary', hexToHsl(branding.primaryColor));
+    document.documentElement.style.setProperty('--secondary', hexToHsl(branding.secondaryColor));
+  }
+}, [branding]);
+```
+
+### Panel de Administración de Dominios (para ti como Super Admin)
+
+En la página `/admin`, agregar una sección para:
+1. Ver todos los dominios configurados
+2. Asignar dominio personalizado a una organización
+3. Subir logo/favicon para cada organización
+
+### Panel de Branding (para admins de cada organización)
+
+En `/settings` > "Marca", los admins de cada organización podrán:
+1. Cambiar colores primario/secundario
+2. Subir logo (guardado en Supabase Storage)
+3. Ver su dominio asignado (solo lectura, asignado por super admin)
+
+## Consideraciones de DNS y Dominios
+
+Para que los dominios personalizados funcionen:
+
+1. **Subdominios de lovable.app**: Funcionan automáticamente (ej: `cliente1.neumancrm.lovable.app`)
+
+2. **Dominios externos** (ej: `crm.miempresa.com`): Requieren:
+   - Que el cliente configure un CNAME apuntando a tu dominio publicado
+   - Configurar el dominio en Lovable (Settings > Domains)
 
 ## Orden de Implementación
 
-### Fase 1: Base de Datos
-1. Crear migración SQL
-2. Agregar tu usuario a `super_admins` (te pediré tu user_id)
-3. Actualizar función de trigger para crear orgs con `is_approved = false`
-
-### Fase 2: Hooks
-1. Crear `useSuperAdmin.ts` para operaciones de admin
-2. Modificar `useTeam.ts` para incluir `is_approved`
-
-### Fase 3: UI
-1. Crear página `PendingApproval.tsx`
-2. Crear página `Admin.tsx` con tabs
-3. Modificar `AppLayout.tsx` para detectar aprobación
-4. Agregar enlace en Sidebar para super-admins
-
----
+1. **Fase 1 - Base de datos**: Migración para agregar campos de branding a organizations
+2. **Fase 2 - Context/Hook**: Crear BrandingContext y useBranding
+3. **Fase 3 - UI Dinámica**: Modificar Sidebar, Auth, Header para usar branding dinámico
+4. **Fase 4 - Panel Admin**: Agregar gestión de branding en /admin para super admins
+5. **Fase 5 - Panel Org**: Actualizar Settings para que admins de org configuren su marca
 
 ## Seguridad
 
-### RLS Policies
+- RLS: Solo super admins pueden asignar dominios
+- RLS: Solo admins de cada org pueden modificar su propio branding (colores, logo)
+- Validación: Dominios deben ser únicos en toda la plataforma
+- El campo `custom_domain` tendrá constraint UNIQUE
 
-```sql
--- Super-admins pueden ver todas las organizaciones
-CREATE POLICY "Super admins can view all orgs"
-ON public.organizations FOR SELECT
-TO authenticated
-USING (
-  id = get_user_organization_id() 
-  OR is_super_admin()
-);
+## Beneficios del Enfoque
 
--- Super-admins pueden actualizar cualquier organización
-CREATE POLICY "Super admins can update any org"
-ON public.organizations FOR UPDATE
-TO authenticated
-USING (is_super_admin());
-```
+1. **Un solo código**: Cualquier mejora se refleja en todos los clientes automáticamente
+2. **Una sola base de datos**: Fácil de mantener y escalar
+3. **Branding independiente**: Cada cliente ve "su" CRM con su marca
+4. **Control centralizado**: Tú como super admin controlas qué dominios puede usar cada cliente
+5. **Escalable**: Preparado para agregar más opciones de personalización en el futuro
 
-### Protección de rutas
-
-- `/admin` solo accesible si `is_super_admin()` retorna true
-- Verificación tanto en frontend como en backend (RLS)
-
----
-
-## Antes de Empezar
-
-Necesito que me proporciones:
-1. **Tu email de usuario** en el CRM (para agregarte como super-admin)
-
-O si prefieres, puedo hacer que el primer usuario registrado sea automáticamente super-admin.
