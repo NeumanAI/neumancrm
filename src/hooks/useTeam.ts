@@ -49,10 +49,10 @@ export function useTeam() {
       const { data, error } = await supabase
         .from('organizations')
         .select('*')
-        .single();
+        .maybeSingle();
       
       if (error) throw error;
-      return data as Organization;
+      return data as Organization | null;
     },
     enabled: !!user,
   });

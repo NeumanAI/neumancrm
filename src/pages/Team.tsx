@@ -12,6 +12,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,7 +48,8 @@ import {
   UserMinus,
   Users,
   Activity,
-  Building2
+  Building2,
+  RefreshCw
 } from 'lucide-react';
 
 const roleConfig: Record<TeamRole, { label: string; icon: React.ReactNode; color: string }> = {
@@ -102,6 +104,21 @@ export default function Team() {
       <div className="container mx-auto p-6 space-y-6">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-[400px] w-full" />
+      </div>
+    );
+  }
+
+  // Show empty state if no organization exists
+  if (!organization) {
+    return (
+      <div className="container mx-auto p-6">
+        <EmptyState
+          icon={<Building2 className="h-8 w-8" />}
+          title="No tienes una organización configurada"
+          description="Tu cuenta no está asociada a ninguna organización. Esto puede ocurrir si tu cuenta fue creada antes del sistema de equipos. Por favor, recarga la página o contacta soporte."
+          actionLabel="Recargar Página"
+          onAction={() => window.location.reload()}
+        />
       </div>
     );
   }
