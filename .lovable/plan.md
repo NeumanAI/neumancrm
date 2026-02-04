@@ -1,328 +1,361 @@
 
-# Plan: Sistema de Gestión de Datos para CRM
+# Plan: Auto-Captura + Notificaciones + Tools Avanzados
 
 ## Resumen Ejecutivo
 
-Implementar un módulo completo de gestión de datos que incluye importación/exportación de datos, detección de duplicados, operaciones masivas, y registro de auditoría. Todo sin modificar las funcionalidades existentes del CRM.
+Implementar tres sistemas complementarios para el CRM:
+1. **Parte A**: Auto-Captura de Emails y WhatsApp mediante integraciones en Settings
+2. **Parte B**: Sistema de Notificaciones Inteligentes con centro de notificaciones
+3. **Parte C**: 7 Tools adicionales para el Chat IA
+
+Todo sin modificar el codigo existente (chat, paginas, layout, hooks).
 
 ---
 
-## Fase 1: Base de Datos (Migraciones)
+## Fase 1: Base de Datos (Nuevas Tablas)
 
-### Nuevas Tablas a Crear
+### Tablas Requeridas
 
-| Tabla | Propósito |
+| Tabla | Proposito |
 |-------|-----------|
-| `import_jobs` | Registro de trabajos de importación con progreso y resultados |
-| `export_jobs` | Registro de exportaciones con links de descarga |
-| `duplicates` | Duplicados detectados pendientes de revisión |
-| `audit_log` | Historial completo de cambios en el CRM |
-| `backups` | Metadatos de respaldos automáticos |
+| `integrations` | Estado de conexiones Gmail/WhatsApp |
+| `email_sync_logs` | Historial de emails procesados |
+| `notifications` | Centro de notificaciones del usuario |
+| `notification_preferences` | Configuracion de alertas |
 
-### Storage Bucket
+### Estructura SQL
 
-Crear bucket `data-files` para almacenar archivos de importación/exportación.
+```sql
+-- Integraciones externas
+CREATE TABLE integrations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  provider TEXT NOT NULL, -- 'gmail', 'whatsapp'
+  is_active BOOLEAN DEFAULT false,
+  access_token TEXT,
+  refresh_token TEXT,
+  token_expires_at TIMESTAMP,
+  last_synced_at TIMESTAMP,
+  sync_status TEXT, -- 'idle', 'syncing', 'error'
+  error_message TEXT,
+  metadata JSONB,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id, provider)
+);
 
-### Triggers Automáticos
+-- Notificaciones
+CREATE TABLE notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  type TEXT NOT NULL, -- 'task_due', 'deal_update', 'new_contact', 'email_sync'
+  title TEXT NOT NULL,
+  message TEXT,
+  entity_type TEXT, -- 'contact', 'company', 'opportunity', 'task'
+  entity_id UUID,
+  is_read BOOLEAN DEFAULT false,
+  action_url TEXT,
+  priority TEXT DEFAULT 'normal', -- 'low', 'normal', 'high', 'urgent'
+  created_at TIMESTAMP DEFAULT NOW()
+);
 
-Crear triggers en `contacts`, `companies` y `opportunities` para registrar automáticamente todos los cambios en `audit_log`.
+-- Preferencias de notificaciones
+CREATE TABLE notification_preferences (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL UNIQUE,
+  task_reminders BOOLEAN DEFAULT true,
+  deal_updates BOOLEAN DEFAULT true,
+  new_contacts BOOLEAN DEFAULT true,
+  email_sync BOOLEAN DEFAULT true,
+  browser_notifications BOOLEAN DEFAULT false,
+  email_notifications BOOLEAN DEFAULT false,
+  reminder_hours INTEGER DEFAULT 24,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+```
 
 ---
 
-## Fase 2: Nuevas Dependencias
-
-```
-papaparse    - Parseo de archivos CSV
-xlsx         - Lectura/escritura de archivos Excel  
-react-dropzone - Componente de drag & drop para uploads
-```
-
----
-
-## Fase 3: Estructura de Archivos
+## Fase 2: Estructura de Archivos Nuevos
 
 ```text
 src/
-├── pages/
-│   └── DataManagement.tsx           # Nueva página principal
 ├── components/
-│   └── data-management/
-│       ├── ImportTab.tsx            # Tab de importación
-│       ├── ExportTab.tsx            # Tab de exportación
-│       ├── DuplicatesTab.tsx        # Tab de duplicados
-│       ├── BulkOperationsTab.tsx    # Tab de operaciones masivas
-│       ├── AuditLogTab.tsx          # Tab de auditoría
-│       ├── ColumnMappingDialog.tsx  # Modal para mapear columnas
-│       ├── MergeDialog.tsx          # Modal para fusionar duplicados
-│       └── DataPreviewTable.tsx     # Preview de datos a importar
+│   ├── settings/
+│   │   └── IntegrationsTab.tsx        # NUEVA - Tab de integraciones
+│   └── notifications/
+│       ├── NotificationCenter.tsx      # NUEVA - Panel de notificaciones
+│       ├── NotificationBell.tsx        # NUEVA - Icono campana con badge
+│       ├── NotificationItem.tsx        # NUEVA - Item individual
+│       └── NotificationPreferences.tsx # NUEVA - Config de notificaciones
 ├── hooks/
-│   ├── useImportJobs.ts             # Hook para importaciones
-│   ├── useExportJobs.ts             # Hook para exportaciones
-│   ├── useDuplicates.ts             # Hook para duplicados
-│   └── useAuditLog.ts               # Hook para auditoría
+│   ├── useIntegrations.ts              # NUEVO - Hook para integraciones
+│   ├── useNotifications.ts             # NUEVO - Hook para notificaciones
+│   └── useNotificationPreferences.ts   # NUEVO - Hook para preferencias
 ├── types/
-│   └── data-management.ts           # Tipos TypeScript
-supabase/
-└── functions/
-    ├── process-import/index.ts      # Edge function para procesar imports
-    ├── process-export/index.ts      # Edge function para generar exports
-    └── scan-duplicates/index.ts     # Edge function para detectar duplicados
+│   └── integrations.ts                 # NUEVO - Tipos de integraciones
+supabase/functions/
+├── gmail-auth/index.ts                 # NUEVO - OAuth con Gmail
+├── gmail-callback/index.ts             # NUEVO - Callback OAuth
+├── process-emails/index.ts             # NUEVO - Procesa emails con IA
+├── ingest-whatsapp-conversation/       # NUEVO - Webhook WhatsApp
+├── check-notifications/index.ts        # NUEVO - Genera notificaciones
+└── chat/index.ts                       # MODIFICAR - Anadir 7 tools
 ```
 
 ---
 
-## Fase 4: Componentes por Tab
+## Fase 3: Parte A - Integraciones en Settings
 
-### Tab 1: Importar Datos
+### IntegrationsTab.tsx
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ Paso 1: Selecciona tipo de datos                            │
-│ ○ Contactos   ○ Empresas   ○ Oportunidades   ○ Tareas      │
-│                                                              │
-│ Paso 2: Sube tu archivo                                     │
-│ ┌────────────────────────────────────────────────────────┐ │
-│ │  Arrastra archivo aquí o haz click                     │ │
-│ │  Formatos: CSV, Excel (.xlsx)  ·  Máximo: 10 MB        │ │
-│ └────────────────────────────────────────────────────────┘ │
-│                                                              │
-│ Paso 3: Mapeo de columnas (automático + editable)          │
-│                                                              │
-│ Paso 4: Opciones                                            │
-│ ☐ Actualizar existentes  ☐ Saltar duplicados               │
-│                                                              │
-│ [Iniciar Importación]                                       │
-│                                                              │
-│ ─────────── Importaciones Recientes ───────────            │
-│ contactos.csv  ✓ Completado  156/160 registros             │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Funcionalidades:**
-- Drag & drop de archivos CSV/Excel
-- Preview de primeras 5 filas
-- Auto-mapeo inteligente de columnas
-- Progress bar en tiempo real
-- Historial de importaciones
-
-### Tab 2: Exportar Datos
+Componente para gestionar conexiones:
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│ ¿Qué deseas exportar?                                       │
-│ ☑ Contactos     ☐ Oportunidades                            │
-│ ☑ Empresas      ☐ Tareas                                   │
-│                                                              │
-│ Formato: ○ CSV  ● Excel  ○ JSON                            │
-│                                                              │
-│ Filtros opcionales:                                         │
-│ Fecha: [Desde ▼] [Hasta ▼]                                │
-│                                                              │
-│ [Exportar Datos]                                            │
-│                                                              │
-│ ─────────── Exportaciones Recientes ───────────            │
-│ export-2024-02-03.xlsx  [Descargar]  Expira en 5 días     │
-└─────────────────────────────────────────────────────────────┘
++----------------------------------------------------------+
+| GMAIL                                    [No conectado]   |
+| Captura automatica de emails cada 5 minutos              |
+|                                                           |
+| Al conectar Gmail:                                        |
+| * Extrae contactos y empresas mencionadas                |
+| * Detecta oportunidades de venta                         |
+| * Identifica tareas y compromisos                        |
+|                                                           |
+| [Conectar Gmail]                                          |
++----------------------------------------------------------+
+| WHATSAPP                                 [No conectado]   |
+| Captura de conversaciones desde tu plataforma            |
+|                                                           |
+| Webhook URL: .../functions/v1/ingest-whatsapp            |
+| Metodo: POST                                              |
+|                                                           |
+| [Habilitar WhatsApp]                                      |
++----------------------------------------------------------+
 ```
 
-**Funcionalidades:**
-- Selección múltiple de entidades
-- Formatos CSV, Excel, JSON
-- Filtros por fecha
-- Links de descarga con expiración
+### Edge Functions para Gmail
 
-### Tab 3: Duplicados
+**gmail-auth**: Genera URL de OAuth de Google
+- Usa `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET`
+- Scopes: gmail.readonly, gmail.labels
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ [Buscar Duplicados]     12 posibles encontrados            │
-│                                                              │
-│ ┌────────────────────────────────────────────────────────┐ │
-│ │ Juan Pérez              ←→        Juan Perez           │ │
-│ │ juan@acme.com                      juan@acme.com        │ │
-│ │ +57 300 123 4567                   +573001234567        │ │
-│ │                                                         │ │
-│ │ Coincidencia: 95%  (email, teléfono)                   │ │
-│ │                                                         │ │
-│ │ [Fusionar] [No es duplicado] [Ignorar]                 │ │
-│ └────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-```
+**gmail-callback**: Recibe tokens de Google
+- Guarda access_token y refresh_token en `integrations`
+- Activa sincronizacion
 
-**Algoritmo de detección:**
-- Email exacto = 100% match
-- Teléfono normalizado = 80% match
-- Nombre similar + mismo dominio = 70% match
+**process-emails**: Ejecuta cada 5 min (cron) o manual
+- Lee emails nuevos via Gmail API
+- Usa IA para extraer: contactos, empresas, tareas, oportunidades
+- Crea registros en CRM
+- Registra en timeline
 
-### Tab 4: Operaciones Masivas
+### Webhook WhatsApp
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ 1. Entidad: ○ Contactos  ○ Empresas  ○ Oportunidades      │
-│                                                              │
-│ 2. Filtros:                                                  │
-│    [Campo ▼] [Operador ▼] [Valor]  [+ Añadir]             │
-│                                                              │
-│ 3. Vista previa: 45 registros seleccionados                │
-│                                                              │
-│ 4. Acción:                                                   │
-│    ○ Actualizar campo(s)                                    │
-│    ○ Eliminar registros                                     │
-│                                                              │
-│ [Ejecutar]  [Vista Previa]                                  │
-│                                                              │
-│ ⚠ Esta acción no se puede deshacer                          │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Tab 5: Auditoría
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ Filtros: [Acción ▼] [Entidad ▼] [Fecha ▼]                 │
-│                                                              │
-│ Hace 5 minutos                                              │
-│ Usuario actualizó contacto "Ana Pérez"                     │
-│ Campo: phone                                                 │
-│ Antes: +57 300 111 1111 → Después: +57 300 222 2222        │
-│                                                              │
-│ Hace 2 horas                                                │
-│ Sistema importó 156 contactos                               │
-│ Archivo: contactos-enero.csv                                │
-│                                                              │
-│ [Exportar Log]                                              │
-└─────────────────────────────────────────────────────────────┘
-```
+**ingest-whatsapp-conversation**:
+- Recibe conversaciones via POST
+- Valida API key en header
+- Procesa con IA para extraer datos
+- Crea/actualiza contactos
 
 ---
 
-## Fase 5: Edge Functions
+## Fase 4: Parte B - Sistema de Notificaciones
 
-### 1. process-import
+### Componentes UI
 
-Procesa archivos de importación en segundo plano:
-- Lee archivo del storage
-- Valida datos (emails, teléfonos)
-- Inserta registros en lotes
-- Actualiza progreso en `import_jobs`
-- Registra en `audit_log`
+**NotificationBell.tsx** (para Header):
+```text
+[Campana con badge rojo: 3]
+```
 
-### 2. process-export
+**NotificationCenter.tsx** (Dropdown):
+```text
++----------------------------------+
+| Notificaciones            [Mark all]|
++----------------------------------+
+| * Tarea vence hoy                |
+|   "Llamar a Juan Perez"          |
+|   Hace 2 horas                   |
++----------------------------------+
+| * Nuevo contacto desde email     |
+|   Ana Garcia se agrego           |
+|   Hace 5 horas                   |
++----------------------------------+
+| Ver todas ->                     |
++----------------------------------+
+```
 
-Genera archivos de exportación:
-- Consulta datos según filtros
-- Genera CSV/Excel/JSON
-- Sube a storage
-- Actualiza `export_jobs` con URL
+**NotificationPreferences.tsx** (en Settings):
+```text
++------------------------------------------+
+| Preferencias de Notificaciones           |
++------------------------------------------+
+| [x] Recordatorios de tareas              |
+| [x] Actualizaciones de oportunidades     |
+| [x] Nuevos contactos importados          |
+| [x] Sincronizacion de emails             |
++------------------------------------------+
+| Recordar tareas con: [24] horas antes    |
++------------------------------------------+
+```
 
-### 3. scan-duplicates
-
-Detecta duplicados potenciales:
-- Compara emails exactos
-- Normaliza y compara teléfonos
-- Calcula similitud de nombres
-- Inserta resultados en `duplicates`
-
----
-
-## Fase 6: Integración en Navegación
-
-Agregar al Sidebar (sin modificar items existentes):
+### Hook useNotifications
 
 ```typescript
-// Añadir después de Settings
-{ to: '/data-management', icon: Database, label: 'Datos' }
+// Funcionalidades:
+- Listar notificaciones no leidas
+- Marcar como leida
+- Marcar todas como leidas
+- Contador para badge
+- Suscripcion realtime para actualizaciones
 ```
 
-Agregar ruta en App.tsx:
+### Edge Function check-notifications
+
+Ejecuta cada 15 minutos (cron):
+1. Busca tareas que vencen pronto
+2. Busca oportunidades actualizadas
+3. Crea notificaciones en tabla
+4. (Opcional) Envia push/email
+
+---
+
+## Fase 5: Parte C - 7 Tools Adicionales para Chat
+
+### Tools a Agregar en chat/index.ts
+
+| Tool | Descripcion |
+|------|-------------|
+| `create_opportunity` | Crear nueva oportunidad de venta |
+| `update_opportunity_stage` | Mover deal a otra etapa |
+| `search_contacts` | Buscar contactos por nombre/email |
+| `search_companies` | Buscar empresas por nombre/dominio |
+| `get_pipeline_summary` | Resumen del pipeline actual |
+| `schedule_meeting` | Crear reunion/tarea tipo meeting |
+| `add_note` | Agregar nota a contacto/empresa |
+
+### Definiciones de Tools
 
 ```typescript
-<Route path="/data-management" element={<AppLayout><DataManagement /></AppLayout>} />
-```
-
----
-
-## Tipos TypeScript Nuevos
-
-```typescript
-interface ImportJob {
-  id: string;
-  user_id: string;
-  filename: string;
-  file_size?: number;
-  entity_type: 'contacts' | 'companies' | 'opportunities' | 'activities';
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
-  progress: number;
-  total_rows: number;
-  successful_rows: number;
-  failed_rows: number;
-  errors?: ImportError[];
-  column_mapping?: Record<string, string>;
-  created_at: string;
-}
-
-interface Duplicate {
-  id: string;
-  entity_type: 'contacts' | 'companies';
-  entity_id_1: string;
-  entity_id_2: string;
-  similarity_score: number;
-  matching_fields: string[];
-  status: 'pending' | 'merged' | 'dismissed';
-}
-
-interface AuditLogEntry {
-  id: string;
-  action: 'create' | 'update' | 'delete' | 'import' | 'export';
-  entity_type: string;
-  entity_id?: string;
-  old_values?: Record<string, any>;
-  new_values?: Record<string, any>;
-  created_at: string;
-}
-```
-
----
-
-## Orden de Implementación
-
-| Paso | Tarea | Archivos |
-|------|-------|----------|
-| 1 | Crear migración con tablas y triggers | SQL Migration |
-| 2 | Crear storage bucket | SQL Migration |
-| 3 | Agregar nuevos tipos TypeScript | `src/types/data-management.ts` |
-| 4 | Crear hooks de datos | `src/hooks/useImportJobs.ts`, etc. |
-| 5 | Crear página principal | `src/pages/DataManagement.tsx` |
-| 6 | Crear componentes de tabs | `src/components/data-management/*.tsx` |
-| 7 | Agregar ruta y navegación | `src/App.tsx`, `src/components/layout/Sidebar.tsx` |
-| 8 | Crear edge functions | `supabase/functions/*/index.ts` |
-| 9 | Actualizar config.toml | `supabase/config.toml` |
-
----
-
-## Consideraciones de Seguridad
-
-1. **RLS en todas las tablas nuevas** - Usuarios solo ven sus propios datos
-2. **Validación de archivos** - Límite de 10MB, solo CSV/Excel
-3. **Sanitización de datos** - Prevenir inyección SQL en imports
-4. **Expiración de links** - Exports expiran en 7 días
-5. **Confirmación de acciones destructivas** - Modal antes de bulk delete
-
----
-
-## Dependencias a Instalar
-
-```json
+// create_opportunity
 {
-  "papaparse": "^5.4.1",
-  "xlsx": "^0.18.5",
-  "react-dropzone": "^14.2.3"
+  name: "create_opportunity",
+  description: "Crea una nueva oportunidad de venta",
+  parameters: {
+    title: { type: "string", required: true },
+    value: { type: "number" },
+    company_name: { type: "string" },
+    contact_email: { type: "string" },
+    expected_close_date: { type: "string" }
+  }
+}
+
+// update_opportunity_stage
+{
+  name: "update_opportunity_stage",
+  description: "Mueve una oportunidad a otra etapa del pipeline",
+  parameters: {
+    opportunity_title: { type: "string" },
+    new_stage: { type: "string" } // "Contacto", "Propuesta", etc.
+  }
+}
+
+// search_contacts
+{
+  name: "search_contacts",
+  description: "Busca contactos por nombre o email",
+  parameters: {
+    query: { type: "string", required: true }
+  }
+}
+
+// search_companies
+{
+  name: "search_companies", 
+  description: "Busca empresas por nombre o dominio",
+  parameters: {
+    query: { type: "string", required: true }
+  }
+}
+
+// get_pipeline_summary
+{
+  name: "get_pipeline_summary",
+  description: "Obtiene resumen del pipeline con valor por etapa",
+  parameters: {}
+}
+
+// schedule_meeting
+{
+  name: "schedule_meeting",
+  description: "Programa una reunion con un contacto",
+  parameters: {
+    title: { type: "string", required: true },
+    contact_email: { type: "string" },
+    date: { type: "string" },
+    time: { type: "string" },
+    description: { type: "string" }
+  }
+}
+
+// add_note
+{
+  name: "add_note",
+  description: "Agrega una nota a un contacto o empresa",
+  parameters: {
+    entity_type: { type: "string" }, // "contact" o "company"
+    entity_identifier: { type: "string" }, // email o nombre
+    note_content: { type: "string", required: true }
+  }
 }
 ```
 
-Y tipos para desarrollo:
-```json
-{
-  "@types/papaparse": "^5.3.14"
-}
-```
+---
+
+## Fase 6: Modificaciones Minimas a Archivos Existentes
+
+### Settings.tsx
+- Reemplazar tab "Integraciones" estatico con `<IntegrationsTab />`
+
+### Header.tsx  
+- Agregar `<NotificationBell />` antes del menu de usuario
+
+### config.toml
+- Agregar nuevas edge functions
+
+---
+
+## Orden de Implementacion
+
+| Paso | Tarea |
+|------|-------|
+| 1 | Crear migracion SQL para tablas nuevas |
+| 2 | Crear tipos TypeScript en `src/types/integrations.ts` |
+| 3 | Crear hooks: `useIntegrations`, `useNotifications`, `useNotificationPreferences` |
+| 4 | Crear componente `IntegrationsTab.tsx` |
+| 5 | Crear componentes de notificaciones |
+| 6 | Crear edge functions de Gmail |
+| 7 | Crear edge function de WhatsApp |
+| 8 | Crear edge function de notificaciones |
+| 9 | Modificar `chat/index.ts` para agregar 7 tools |
+| 10 | Integrar componentes en Settings y Header |
+
+---
+
+## Secrets Necesarios
+
+Para Gmail OAuth:
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+
+---
+
+## Consideraciones Tecnicas
+
+1. **RLS** en todas las tablas nuevas - usuarios solo ven sus datos
+2. **Realtime** habilitado en `notifications` para actualizaciones en vivo
+3. **Cron jobs** para process-emails (cada 5 min) y check-notifications (cada 15 min)
+4. **Error handling** robusto en edge functions
+5. **Validacion** de webhook WhatsApp con API key
+6. **Token refresh** automatico para Gmail
