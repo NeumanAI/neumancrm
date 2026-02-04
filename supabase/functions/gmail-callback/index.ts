@@ -6,6 +6,7 @@ serve(async (req) => {
     const url = new URL(req.url);
     const code = url.searchParams.get("code");
     const error = url.searchParams.get("error");
+    const stateParam = url.searchParams.get("state");
 
     if (error) {
       console.error("OAuth error:", error);
@@ -18,6 +19,24 @@ serve(async (req) => {
     if (!code) {
       return new Response(
         `<html><body><script>window.close();</script><p>No se recibió código de autorización. Puedes cerrar esta ventana.</p></body></html>`,
+        { headers: { "Content-Type": "text/html" } }
+      );
+    }
+
+    // Parse state to get user_id
+    let userId = "";
+    if (stateParam) {
+      try {
+        const stateData = JSON.parse(atob(stateParam));
+        userId = stateData.user_id || "";
+      } catch (e) {
+        console.error("Failed to parse state:", e);
+      }
+    }
+
+    if (!userId) {
+      return new Response(
+        `<html><body><p>Error: No se pudo identificar al usuario. Por favor intenta de nuevo.</p></body></html>`,
         { headers: { "Content-Type": "text/html" } }
       );
     }
@@ -59,19 +78,47 @@ serve(async (req) => {
     });
     const userInfo = await userInfoResponse.json();
 
-    console.log("Gmail connected for:", userInfo.email);
+    console.log("Gmail connected for user:", userId, "email:", userInfo.email);
 
-    // For now, we'll store with a placeholder user_id
-    // In production, you'd pass the user_id through state parameter
+    // Store tokens in integrations table
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-    // Note: In a real implementation, you'd pass user_id via OAuth state parameter
-    // For demo purposes, we'll just show success
-    console.log("Gmail OAuth successful for:", userInfo.email);
+    // Check if integration exists
+    const { data: existing } = await supabase
+      .from("integrations")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("provider", "gmail")
+      .single();
 
-    // Redirect back to settings page
-    const appUrl = SUPABASE_URL!.replace('.supabase.co', '.lovable.app').replace('https://vzqjoiapwgsbvsknrlqk', 'https://id-preview--f39b1419-0f85-429c-8c47-e4f064263d68');
-    
+    const integrationData = {
+      user_id: userId,
+      provider: "gmail",
+      is_active: true,
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      token_expires_at: new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString(),
+      sync_status: "idle",
+      error_message: null,
+      metadata: {
+        email: userInfo.email,
+        connected_at: new Date().toISOString(),
+      },
+    };
+
+    if (existing) {
+      await supabase
+        .from("integrations")
+        .update(integrationData)
+        .eq("id", existing.id);
+    } else {
+      await supabase
+        .from("integrations")
+        .insert(integrationData);
+    }
+
+    console.log("Gmail integration saved for user:", userId);
+
     return new Response(
       `<html>
         <head><meta charset="utf-8"></head>
@@ -80,6 +127,14 @@ serve(async (req) => {
             <h2 style="color: #22c55e; margin-bottom: 16px;">✓ Gmail conectado exitosamente</h2>
             <p style="color: #666;">Email: ${userInfo.email}</p>
             <p style="color: #999; font-size: 14px; margin-top: 20px;">Puedes cerrar esta ventana y volver a la aplicación.</p>
+            <script>
+              setTimeout(() => {
+                if (window.opener) {
+                  window.opener.postMessage({ type: 'gmail-connected' }, '*');
+                }
+                window.close();
+              }, 2000);
+            </script>
           </div>
         </body>
       </html>`,

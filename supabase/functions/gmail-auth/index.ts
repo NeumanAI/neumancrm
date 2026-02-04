@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.4?target
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 serve(async (req) => {
@@ -26,12 +26,28 @@ serve(async (req) => {
       );
     }
 
-    // Build OAuth URL
+    // Get user_id from auth header
+    const authHeader = req.headers.get("Authorization");
+    let userId = "";
+    
+    if (authHeader?.startsWith("Bearer ")) {
+      const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+      const userSupabase = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      
+      const { data: { user } } = await userSupabase.auth.getUser();
+      userId = user?.id || "";
+    }
+
+    // Build OAuth URL with state containing user_id
     const redirectUri = `${SUPABASE_URL}/functions/v1/gmail-callback`;
     const scopes = [
       "https://www.googleapis.com/auth/gmail.readonly",
       "https://www.googleapis.com/auth/userinfo.email",
     ].join(" ");
+
+    const state = JSON.stringify({ user_id: userId });
 
     const params = new URLSearchParams({
       client_id: GOOGLE_CLIENT_ID,
@@ -40,11 +56,12 @@ serve(async (req) => {
       scope: scopes,
       access_type: "offline",
       prompt: "consent",
+      state: btoa(state),
     });
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 
-    console.log("Generated Gmail OAuth URL");
+    console.log("Generated Gmail OAuth URL for user:", userId);
 
     return new Response(
       JSON.stringify({ authUrl }),

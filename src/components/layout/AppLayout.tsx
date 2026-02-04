@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { DailyBriefModal } from './DailyBriefModal';
 import { Loader2 } from 'lucide-react';
 import { ChatProvider } from '@/contexts/ChatContext';
 import { GlobalChatInput } from '@/components/chat/GlobalChatInput';
@@ -41,6 +42,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       </div>
       <GlobalChatInput />
       <GlobalChatPanel />
+      <DailyBriefModal />
     </ChatProvider>
   );
 }
