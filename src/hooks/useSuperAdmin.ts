@@ -25,6 +25,7 @@ export interface OrganizationWithAdmin {
   secondary_color: string | null;
   custom_domain: string | null;
   organization_type: OrganizationType;
+  parent_organization_id: string | null;
 }
 
 export interface OrganizationDomain {
@@ -90,6 +91,7 @@ export function useSuperAdmin() {
           return {
             ...org,
             organization_type: (org.organization_type || 'direct') as OrganizationType,
+            parent_organization_id: org.parent_organization_id || null,
             admin_email: admins?.[0]?.email || null,
             admin_name: admins?.[0]?.full_name || null,
             member_count: count || 0,
@@ -350,8 +352,13 @@ export function useSuperAdmin() {
   // Derived data
   const pendingOrganizations = organizations.filter(org => !org.is_approved);
   const approvedOrganizations = organizations.filter(org => org.is_approved);
-  const directOrganizations = organizations.filter(org => org.organization_type === 'direct');
+  const rootOrganizations = organizations.filter(org => !org.parent_organization_id);
+  const subClientOrganizations = organizations.filter(org => !!org.parent_organization_id);
+  const directOrganizations = organizations.filter(org => org.organization_type === 'direct' && !org.parent_organization_id);
   const whitelabelOrganizations = organizations.filter(org => org.organization_type === 'whitelabel');
+
+  // Helper to get sub-clients of a parent organization
+  const getSubClientsOf = (parentId: string) => organizations.filter(org => org.parent_organization_id === parentId);
 
   return {
     isSuperAdmin,
@@ -359,8 +366,11 @@ export function useSuperAdmin() {
     organizations,
     pendingOrganizations,
     approvedOrganizations,
+    rootOrganizations,
+    subClientOrganizations,
     directOrganizations,
     whitelabelOrganizations,
+    getSubClientsOf,
     approveOrganization,
     rejectOrganization,
     updateOrganization,

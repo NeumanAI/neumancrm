@@ -14,6 +14,7 @@ import {
   UsersRound,
   MessageSquare,
   ShieldCheck,
+  Store,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +26,7 @@ interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
   isSuperAdmin?: boolean;
+  isResellerAdmin?: boolean;
 }
 
 const navItems = [
@@ -43,12 +45,23 @@ const adminNavItems = [
   { to: '/admin', icon: ShieldCheck, label: 'Administración', isAdmin: true },
 ];
 
-export function Sidebar({ collapsed, onToggle, isSuperAdmin = false }: SidebarProps) {
+const resellerNavItems = [
+  { to: '/reseller-admin', icon: Store, label: 'Mis Clientes', isReseller: true },
+];
+
+export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerAdmin = false }: SidebarProps) {
   const location = useLocation();
   const unreadCount = useUnreadConversationsCount();
   const { branding } = useBrandingContext();
   
-  const allNavItems = isSuperAdmin ? [...navItems, ...adminNavItems] : navItems;
+  // Build nav items based on roles
+  let allNavItems = [...navItems];
+  if (isResellerAdmin) {
+    allNavItems = [...allNavItems, ...resellerNavItems];
+  }
+  if (isSuperAdmin) {
+    allNavItems = [...allNavItems, ...adminNavItems];
+  }
 
   return (
     <motion.aside
@@ -99,6 +112,7 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false }: SidebarPr
           const isActive = location.pathname === item.to;
           const showBadge = 'showBadge' in item && item.showBadge && unreadCount > 0;
           const isAdminItem = 'isAdmin' in item && item.isAdmin;
+          const isResellerItem = 'isReseller' in item && item.isReseller;
           
           return (
             <NavLink

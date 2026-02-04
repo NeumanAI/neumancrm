@@ -3,6 +3,7 @@ import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useTeam } from '@/hooks/useTeam';
 import { useSuperAdmin } from '@/hooks/useSuperAdmin';
+import { useResellerAdmin } from '@/hooks/useResellerAdmin';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { DailyBriefModal } from './DailyBriefModal';
@@ -19,11 +20,12 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { user, loading: authLoading } = useAuth();
   const { organization, isLoading: teamLoading } = useTeam();
   const { isSuperAdmin, isLoading: adminLoading } = useSuperAdmin();
+  const { isResellerAdmin, isLoading: resellerLoading } = useResellerAdmin();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isLoading = authLoading || teamLoading || adminLoading;
+  const isLoading = authLoading || teamLoading || adminLoading || resellerLoading;
 
   // Redirect to pending approval if organization is not approved
   useEffect(() => {
@@ -56,6 +58,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           collapsed={sidebarCollapsed} 
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
           isSuperAdmin={isSuperAdmin}
+          isResellerAdmin={isResellerAdmin}
         />
         <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
           <Header onMenuClick={() => setSidebarCollapsed(!sidebarCollapsed)} />

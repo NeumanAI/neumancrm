@@ -1205,6 +1205,7 @@ export type Database = {
           max_users: number
           name: string
           organization_type: string
+          parent_organization_id: string | null
           plan: string
           primary_color: string | null
           secondary_color: string | null
@@ -1224,6 +1225,7 @@ export type Database = {
           max_users?: number
           name: string
           organization_type?: string
+          parent_organization_id?: string | null
           plan?: string
           primary_color?: string | null
           secondary_color?: string | null
@@ -1243,6 +1245,7 @@ export type Database = {
           max_users?: number
           name?: string
           organization_type?: string
+          parent_organization_id?: string | null
           plan?: string
           primary_color?: string | null
           secondary_color?: string | null
@@ -1250,7 +1253,15 @@ export type Database = {
           slug?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "organizations_parent_organization_id_fkey"
+            columns: ["parent_organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pipelines: {
         Row: {
@@ -1498,11 +1509,13 @@ export type Database = {
           secondary_color: string
         }[]
       }
+      get_reseller_organization_id: { Args: never; Returns: string }
       get_user_organization_id: { Args: never; Returns: string }
       get_user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["team_role"]
       }
+      is_reseller_admin: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       user_has_role: {
         Args: { _role: Database["public"]["Enums"]["team_role"] }
