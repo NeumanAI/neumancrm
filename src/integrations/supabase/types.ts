@@ -521,6 +521,138 @@ export type Database = {
         }
         Relationships: []
       }
+      integrations: {
+        Row: {
+          access_token: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          is_active: boolean | null
+          last_synced_at: string | null
+          metadata: Json | null
+          provider: string
+          refresh_token: string | null
+          sync_status: string | null
+          token_expires_at: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_synced_at?: string | null
+          metadata?: Json | null
+          provider: string
+          refresh_token?: string | null
+          sync_status?: string | null
+          token_expires_at?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_synced_at?: string | null
+          metadata?: Json | null
+          provider?: string
+          refresh_token?: string | null
+          sync_status?: string | null
+          token_expires_at?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notification_preferences: {
+        Row: {
+          browser_notifications: boolean | null
+          created_at: string | null
+          deal_updates: boolean | null
+          email_notifications: boolean | null
+          email_sync: boolean | null
+          id: string
+          new_contacts: boolean | null
+          reminder_hours: number | null
+          task_reminders: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          browser_notifications?: boolean | null
+          created_at?: string | null
+          deal_updates?: boolean | null
+          email_notifications?: boolean | null
+          email_sync?: boolean | null
+          id?: string
+          new_contacts?: boolean | null
+          reminder_hours?: number | null
+          task_reminders?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          browser_notifications?: boolean | null
+          created_at?: string | null
+          deal_updates?: boolean | null
+          email_notifications?: boolean | null
+          email_sync?: boolean | null
+          id?: string
+          new_contacts?: boolean | null
+          reminder_hours?: number | null
+          task_reminders?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          action_url: string | null
+          created_at: string | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          is_read: boolean | null
+          message: string | null
+          priority: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          action_url?: string | null
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string | null
+          priority?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          action_url?: string | null
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string | null
+          priority?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       opportunities: {
         Row: {
           closed_at: string | null
