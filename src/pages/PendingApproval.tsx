@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useTeam } from '@/hooks/useTeam';
+import { useSuperAdmin } from '@/hooks/useSuperAdmin';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, LogOut, Mail, RefreshCw } from 'lucide-react';
@@ -9,8 +10,11 @@ import { motion } from 'framer-motion';
 
 export default function PendingApproval() {
   const { user, signOut } = useAuth();
-  const { organization, isLoading } = useTeam();
+  const { organization, isLoading: teamLoading } = useTeam();
+  const { isSuperAdmin, isLoading: adminLoading } = useSuperAdmin();
   const navigate = useNavigate();
+  
+  const isLoading = teamLoading || adminLoading;
 
   // Auto-refresh to check if approved
   useEffect(() => {
@@ -21,12 +25,12 @@ export default function PendingApproval() {
     return () => clearInterval(interval);
   }, []);
 
-  // Redirect if approved
+  // Redirect if approved OR if user is Super Admin
   useEffect(() => {
-    if (!isLoading && organization?.is_approved) {
+    if (!isLoading && (organization?.is_approved || isSuperAdmin)) {
       navigate('/dashboard', { replace: true });
     }
-  }, [organization, isLoading, navigate]);
+  }, [organization, isLoading, isSuperAdmin, navigate]);
 
   // Redirect if not logged in
   useEffect(() => {
