@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
+  Database,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -26,6 +27,7 @@ const navItems = [
   { to: '/companies', icon: Building2, label: 'Empresas' },
   { to: '/pipeline', icon: TrendingUp, label: 'Pipeline' },
   { to: '/tasks', icon: CheckSquare, label: 'Tareas' },
+  { to: '/data-management', icon: Database, label: 'Datos' },
   { to: '/settings', icon: Settings, label: 'Configuración' },
 ];
 

@@ -114,6 +114,84 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_log: {
+        Row: {
+          action: string
+          created_at: string | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+          ip_address: string | null
+          new_values: Json | null
+          old_values: Json | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          ip_address?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          ip_address?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      backups: {
+        Row: {
+          backup_type: string | null
+          created_at: string | null
+          expires_at: string | null
+          file_size: number | null
+          file_url: string
+          id: string
+          includes: string[] | null
+          status: string | null
+          total_records: number | null
+          user_id: string
+        }
+        Insert: {
+          backup_type?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          file_size?: number | null
+          file_url: string
+          id?: string
+          includes?: string[] | null
+          status?: string | null
+          total_records?: number | null
+          user_id: string
+        }
+        Update: {
+          backup_type?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          includes?: string[] | null
+          status?: string | null
+          total_records?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       branding: {
         Row: {
           company_name: string | null
@@ -277,6 +355,171 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      duplicates: {
+        Row: {
+          created_at: string | null
+          entity_id_1: string
+          entity_id_2: string
+          entity_type: string
+          id: string
+          matching_fields: string[] | null
+          merged_into: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          similarity_score: number | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          entity_id_1: string
+          entity_id_2: string
+          entity_type: string
+          id?: string
+          matching_fields?: string[] | null
+          merged_into?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          similarity_score?: number | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          entity_id_1?: string
+          entity_id_2?: string
+          entity_type?: string
+          id?: string
+          matching_fields?: string[] | null
+          merged_into?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          similarity_score?: number | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      export_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          entity_type: string
+          error_message: string | null
+          expires_at: string | null
+          file_size: number | null
+          file_url: string | null
+          filters: Json | null
+          format: string | null
+          id: string
+          progress: number | null
+          status: string | null
+          total_records: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          entity_type: string
+          error_message?: string | null
+          expires_at?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          filters?: Json | null
+          format?: string | null
+          id?: string
+          progress?: number | null
+          status?: string | null
+          total_records?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          entity_type?: string
+          error_message?: string | null
+          expires_at?: string | null
+          file_size?: number | null
+          file_url?: string | null
+          filters?: Json | null
+          format?: string | null
+          id?: string
+          progress?: number | null
+          status?: string | null
+          total_records?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      import_jobs: {
+        Row: {
+          column_mapping: Json | null
+          completed_at: string | null
+          created_at: string | null
+          entity_type: string
+          errors: Json | null
+          failed_rows: number | null
+          file_size: number | null
+          filename: string
+          id: string
+          import_settings: Json | null
+          processed_rows: number | null
+          progress: number | null
+          skipped_rows: number | null
+          started_at: string | null
+          status: string | null
+          successful_rows: number | null
+          total_rows: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          column_mapping?: Json | null
+          completed_at?: string | null
+          created_at?: string | null
+          entity_type: string
+          errors?: Json | null
+          failed_rows?: number | null
+          file_size?: number | null
+          filename: string
+          id?: string
+          import_settings?: Json | null
+          processed_rows?: number | null
+          progress?: number | null
+          skipped_rows?: number | null
+          started_at?: string | null
+          status?: string | null
+          successful_rows?: number | null
+          total_rows?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          column_mapping?: Json | null
+          completed_at?: string | null
+          created_at?: string | null
+          entity_type?: string
+          errors?: Json | null
+          failed_rows?: number | null
+          file_size?: number | null
+          filename?: string
+          id?: string
+          import_settings?: Json | null
+          processed_rows?: number | null
+          progress?: number | null
+          skipped_rows?: number | null
+          started_at?: string | null
+          status?: string | null
+          successful_rows?: number | null
+          total_rows?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       opportunities: {
         Row: {
