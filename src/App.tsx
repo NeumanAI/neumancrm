@@ -18,6 +18,7 @@ import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import DataManagement from "./pages/DataManagement";
 import ContactDetail from "./pages/ContactDetail";
+import Team from "./pages/Team";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/tasks" element={<AppLayout><Tasks /></AppLayout>} />
             <Route path="/settings" element={<AppLayout><Settings /></AppLayout>} />
             <Route path="/data-management" element={<AppLayout><DataManagement /></AppLayout>} />
+            <Route path="/team" element={<AppLayout><Team /></AppLayout>} />
             
             {/* Redirect root to dashboard */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
