@@ -9,11 +9,13 @@ import { ContactSidebar } from '@/components/contacts/ContactSidebar';
 import { ContactTimeline } from '@/components/contacts/ContactTimeline';
 import { ContactActivities } from '@/components/contacts/ContactActivities';
 import { ContactDeals } from '@/components/contacts/ContactDeals';
+import { ContactDocuments } from '@/components/contacts/ContactDocuments';
 import { 
   ArrowLeft, 
   Clock, 
   CheckSquare, 
-  TrendingUp 
+  TrendingUp,
+  FileText 
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -106,7 +108,7 @@ export default function ContactDetail() {
         {/* Tabs content */}
         <div className="lg:col-span-2">
           <Tabs defaultValue="timeline" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="timeline" className="gap-2">
                 <Clock className="h-4 w-4" />
                 <span className="hidden sm:inline">Timeline</span>
@@ -118,6 +120,10 @@ export default function ContactDetail() {
               <TabsTrigger value="deals" className="gap-2">
                 <TrendingUp className="h-4 w-4" />
                 <span className="hidden sm:inline">Deals</span>
+              </TabsTrigger>
+              <TabsTrigger value="documents" className="gap-2">
+                <FileText className="h-4 w-4" />
+                <span className="hidden sm:inline">Documentos</span>
               </TabsTrigger>
             </TabsList>
 
@@ -136,6 +142,12 @@ export default function ContactDetail() {
             <TabsContent value="deals" className="mt-6">
               <div className="rounded-lg border bg-card p-6">
                 <ContactDeals contactId={contact.id} />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="documents" className="mt-6">
+              <div className="rounded-lg border bg-card p-6">
+                <ContactDocuments contactId={contact.id} />
               </div>
             </TabsContent>
           </Tabs>
