@@ -1,361 +1,249 @@
 
-# Plan: Auto-Captura + Notificaciones + Tools Avanzados
 
-## Resumen Ejecutivo
+# Plan: Expandir Tools del Chat IA (Parte C)
 
-Implementar tres sistemas complementarios para el CRM:
-1. **Parte A**: Auto-Captura de Emails y WhatsApp mediante integraciones en Settings
-2. **Parte B**: Sistema de Notificaciones Inteligentes con centro de notificaciones
-3. **Parte C**: 7 Tools adicionales para el Chat IA
+## Analisis del Estado Actual
 
-Todo sin modificar el codigo existente (chat, paginas, layout, hooks).
+He analizado el archivo `supabase/functions/chat/index.ts` y encontrado lo siguiente:
+
+### Tools Ya Implementados (10 tools)
+| Tool | Estado |
+|------|--------|
+| `create_contact` | Implementado |
+| `create_company` | Implementado |
+| `create_task` | Implementado |
+| `create_opportunity` | Implementado |
+| `update_opportunity_stage` | Implementado |
+| `search_contacts` | Implementado |
+| `search_companies` | Implementado |
+| `get_pipeline_summary` | Implementado |
+| `schedule_meeting` | Implementado |
+| `add_note` | Implementado |
+
+### Tools Solicitados por el Usuario (7 tools nuevos)
+| Tool | Descripcion | Dependencias |
+|------|-------------|--------------|
+| `search_contacts` (mejorado) | Busqueda avanzada con filtros | Requiere campo `whatsapp_number` |
+| `update_contact` | Actualizar contacto existente | Requiere campo `whatsapp_number` |
+| `search_timeline` | Buscar en historial | Requiere tabla `timeline_entries` |
+| `analyze_deal_health` | Analizar salud de deals | Requiere tabla `timeline_entries` |
+| `get_pipeline_summary` (mejorado) | Resumen detallado | Requiere tabla `timeline_entries` |
+| `find_promises` | Buscar compromisos | Requiere tabla `timeline_entries` y campo `action_items` |
+| `get_next_best_action` | Sugerir proxima accion | Requiere tabla `timeline_entries` |
 
 ---
 
-## Fase 1: Base de Datos (Nuevas Tablas)
+## Problemas Detectados
 
-### Tablas Requeridas
+### 1. Tabla `timeline_entries` No Existe
+El codigo del usuario referencia una tabla `timeline_entries` que no existe en la base de datos. Esta tabla almacenaria:
+- Historial de emails, llamadas, reuniones
+- Campos: `entry_type`, `occurred_at`, `subject`, `body`, `summary`, `action_items`
+- Relaciones con contactos, empresas y oportunidades
 
-| Tabla | Proposito |
-|-------|-----------|
-| `integrations` | Estado de conexiones Gmail/WhatsApp |
-| `email_sync_logs` | Historial de emails procesados |
-| `notifications` | Centro de notificaciones del usuario |
-| `notification_preferences` | Configuracion de alertas |
+### 2. Campo `whatsapp_number` No Existe
+La tabla `contacts` no tiene el campo `whatsapp_number` que el usuario referencia.
 
-### Estructura SQL
+---
+
+## Plan de Implementacion
+
+### Fase 1: Preparacion de Base de Datos
+
+Crear migracion SQL para:
 
 ```sql
--- Integraciones externas
-CREATE TABLE integrations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
-  provider TEXT NOT NULL, -- 'gmail', 'whatsapp'
-  is_active BOOLEAN DEFAULT false,
-  access_token TEXT,
-  refresh_token TEXT,
-  token_expires_at TIMESTAMP,
-  last_synced_at TIMESTAMP,
-  sync_status TEXT, -- 'idle', 'syncing', 'error'
-  error_message TEXT,
-  metadata JSONB,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW(),
-  UNIQUE(user_id, provider)
-);
+-- 1. Agregar campo whatsapp_number a contacts
+ALTER TABLE contacts ADD COLUMN whatsapp_number TEXT;
 
--- Notificaciones
-CREATE TABLE notifications (
+-- 2. Crear tabla timeline_entries
+CREATE TABLE timeline_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL,
-  type TEXT NOT NULL, -- 'task_due', 'deal_update', 'new_contact', 'email_sync'
-  title TEXT NOT NULL,
-  message TEXT,
-  entity_type TEXT, -- 'contact', 'company', 'opportunity', 'task'
-  entity_id UUID,
-  is_read BOOLEAN DEFAULT false,
-  action_url TEXT,
-  priority TEXT DEFAULT 'normal', -- 'low', 'normal', 'high', 'urgent'
+  contact_id UUID REFERENCES contacts(id),
+  company_id UUID REFERENCES companies(id),
+  opportunity_id UUID REFERENCES opportunities(id),
+  entry_type TEXT NOT NULL, -- 'email', 'call', 'meeting', 'note', 'whatsapp'
+  subject TEXT,
+  body TEXT,
+  summary TEXT,
+  occurred_at TIMESTAMP DEFAULT NOW(),
+  source TEXT, -- 'gmail', 'manual', 'whatsapp'
+  participants JSONB, -- [{email, name, role}]
+  action_items JSONB, -- [{text, assigned_to, due_date, status}]
+  metadata JSONB,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Preferencias de notificaciones
-CREATE TABLE notification_preferences (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL UNIQUE,
-  task_reminders BOOLEAN DEFAULT true,
-  deal_updates BOOLEAN DEFAULT true,
-  new_contacts BOOLEAN DEFAULT true,
-  email_sync BOOLEAN DEFAULT true,
-  browser_notifications BOOLEAN DEFAULT false,
-  email_notifications BOOLEAN DEFAULT false,
-  reminder_hours INTEGER DEFAULT 24,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
+-- RLS Policy
+ALTER TABLE timeline_entries ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users see own timeline" ON timeline_entries
+  FOR ALL USING (auth.uid() = user_id);
+
+-- Enable realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE timeline_entries;
 ```
 
----
+### Fase 2: Actualizar Tools en chat/index.ts
 
-## Fase 2: Estructura de Archivos Nuevos
+Modificar el archivo `supabase/functions/chat/index.ts`:
 
-```text
-src/
-├── components/
-│   ├── settings/
-│   │   └── IntegrationsTab.tsx        # NUEVA - Tab de integraciones
-│   └── notifications/
-│       ├── NotificationCenter.tsx      # NUEVA - Panel de notificaciones
-│       ├── NotificationBell.tsx        # NUEVA - Icono campana con badge
-│       ├── NotificationItem.tsx        # NUEVA - Item individual
-│       └── NotificationPreferences.tsx # NUEVA - Config de notificaciones
-├── hooks/
-│   ├── useIntegrations.ts              # NUEVO - Hook para integraciones
-│   ├── useNotifications.ts             # NUEVO - Hook para notificaciones
-│   └── useNotificationPreferences.ts   # NUEVO - Hook para preferencias
-├── types/
-│   └── integrations.ts                 # NUEVO - Tipos de integraciones
-supabase/functions/
-├── gmail-auth/index.ts                 # NUEVO - OAuth con Gmail
-├── gmail-callback/index.ts             # NUEVO - Callback OAuth
-├── process-emails/index.ts             # NUEVO - Procesa emails con IA
-├── ingest-whatsapp-conversation/       # NUEVO - Webhook WhatsApp
-├── check-notifications/index.ts        # NUEVO - Genera notificaciones
-└── chat/index.ts                       # MODIFICAR - Anadir 7 tools
-```
-
----
-
-## Fase 3: Parte A - Integraciones en Settings
-
-### IntegrationsTab.tsx
-
-Componente para gestionar conexiones:
-
-```text
-+----------------------------------------------------------+
-| GMAIL                                    [No conectado]   |
-| Captura automatica de emails cada 5 minutos              |
-|                                                           |
-| Al conectar Gmail:                                        |
-| * Extrae contactos y empresas mencionadas                |
-| * Detecta oportunidades de venta                         |
-| * Identifica tareas y compromisos                        |
-|                                                           |
-| [Conectar Gmail]                                          |
-+----------------------------------------------------------+
-| WHATSAPP                                 [No conectado]   |
-| Captura de conversaciones desde tu plataforma            |
-|                                                           |
-| Webhook URL: .../functions/v1/ingest-whatsapp            |
-| Metodo: POST                                              |
-|                                                           |
-| [Habilitar WhatsApp]                                      |
-+----------------------------------------------------------+
-```
-
-### Edge Functions para Gmail
-
-**gmail-auth**: Genera URL de OAuth de Google
-- Usa `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET`
-- Scopes: gmail.readonly, gmail.labels
-
-**gmail-callback**: Recibe tokens de Google
-- Guarda access_token y refresh_token en `integrations`
-- Activa sincronizacion
-
-**process-emails**: Ejecuta cada 5 min (cron) o manual
-- Lee emails nuevos via Gmail API
-- Usa IA para extraer: contactos, empresas, tareas, oportunidades
-- Crea registros en CRM
-- Registra en timeline
-
-### Webhook WhatsApp
-
-**ingest-whatsapp-conversation**:
-- Recibe conversaciones via POST
-- Valida API key en header
-- Procesa con IA para extraer datos
-- Crea/actualiza contactos
-
----
-
-## Fase 4: Parte B - Sistema de Notificaciones
-
-### Componentes UI
-
-**NotificationBell.tsx** (para Header):
-```text
-[Campana con badge rojo: 3]
-```
-
-**NotificationCenter.tsx** (Dropdown):
-```text
-+----------------------------------+
-| Notificaciones            [Mark all]|
-+----------------------------------+
-| * Tarea vence hoy                |
-|   "Llamar a Juan Perez"          |
-|   Hace 2 horas                   |
-+----------------------------------+
-| * Nuevo contacto desde email     |
-|   Ana Garcia se agrego           |
-|   Hace 5 horas                   |
-+----------------------------------+
-| Ver todas ->                     |
-+----------------------------------+
-```
-
-**NotificationPreferences.tsx** (en Settings):
-```text
-+------------------------------------------+
-| Preferencias de Notificaciones           |
-+------------------------------------------+
-| [x] Recordatorios de tareas              |
-| [x] Actualizaciones de oportunidades     |
-| [x] Nuevos contactos importados          |
-| [x] Sincronizacion de emails             |
-+------------------------------------------+
-| Recordar tareas con: [24] horas antes    |
-+------------------------------------------+
-```
-
-### Hook useNotifications
+**A. Agregar nuevas definiciones de tools:**
 
 ```typescript
-// Funcionalidades:
-- Listar notificaciones no leidas
-- Marcar como leida
-- Marcar todas como leidas
-- Contador para badge
-- Suscripcion realtime para actualizaciones
+// Agregar despues de los tools existentes
+{
+  type: "function",
+  function: {
+    name: "update_contact",
+    description: "Actualiza informacion de un contacto existente",
+    parameters: {
+      type: "object",
+      properties: {
+        email: { type: "string", description: "Email del contacto a actualizar (requerido)" },
+        first_name: { type: "string", description: "Nuevo nombre" },
+        last_name: { type: "string", description: "Nuevo apellido" },
+        phone: { type: "string", description: "Nuevo telefono" },
+        whatsapp_number: { type: "string", description: "Nuevo WhatsApp" },
+        job_title: { type: "string", description: "Nuevo cargo" },
+        notes: { type: "string", description: "Notas adicionales" },
+      },
+      required: ["email"],
+    },
+  },
+},
+{
+  type: "function",
+  function: {
+    name: "search_timeline",
+    description: "Busca en el historial de interacciones",
+    parameters: {
+      type: "object",
+      properties: {
+        contact_email: { type: "string" },
+        company_name: { type: "string" },
+        entry_type: { type: "string", enum: ["email", "meeting", "call", "note", "whatsapp"] },
+        search_text: { type: "string" },
+        days_ago: { type: "number", description: "Ultimos X dias (default: 30)" },
+        limit: { type: "number", description: "Numero de resultados (default: 10)" },
+      },
+    },
+  },
+},
+{
+  type: "function",
+  function: {
+    name: "analyze_deal_health",
+    description: "Analiza la salud de una oportunidad",
+    parameters: {
+      type: "object",
+      properties: {
+        opportunity_id: { type: "string" },
+        company_name: { type: "string" },
+      },
+    },
+  },
+},
+{
+  type: "function",
+  function: {
+    name: "find_promises",
+    description: "Busca compromisos pendientes en conversaciones",
+    parameters: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["pending", "overdue", "all"] },
+        contact_email: { type: "string" },
+        days_range: { type: "number" },
+      },
+    },
+  },
+},
+{
+  type: "function",
+  function: {
+    name: "get_next_best_action",
+    description: "Sugiere la siguiente mejor accion para un contacto, empresa o deal",
+    parameters: {
+      type: "object",
+      properties: {
+        entity_type: { type: "string", enum: ["contact", "company", "opportunity"] },
+        entity_identifier: { type: "string" },
+      },
+      required: ["entity_type", "entity_identifier"],
+    },
+  },
+},
 ```
 
-### Edge Function check-notifications
+**B. Agregar implementaciones de funciones:**
 
-Ejecuta cada 15 minutos (cron):
-1. Busca tareas que vencen pronto
-2. Busca oportunidades actualizadas
-3. Crea notificaciones en tabla
-4. (Opcional) Envia push/email
+Las funciones ejecutoras seran:
+- `updateContact()`: Actualiza campos del contacto por email
+- `searchTimeline()`: Busca en timeline_entries con filtros
+- `analyzeDealHealth()`: Calcula score de salud (0-100) basado en actividad
+- `findPromises()`: Extrae action_items de timeline_entries
+- `getNextBestAction()`: Sugiere acciones basadas en historial
 
----
-
-## Fase 5: Parte C - 7 Tools Adicionales para Chat
-
-### Tools a Agregar en chat/index.ts
-
-| Tool | Descripcion |
-|------|-------------|
-| `create_opportunity` | Crear nueva oportunidad de venta |
-| `update_opportunity_stage` | Mover deal a otra etapa |
-| `search_contacts` | Buscar contactos por nombre/email |
-| `search_companies` | Buscar empresas por nombre/dominio |
-| `get_pipeline_summary` | Resumen del pipeline actual |
-| `schedule_meeting` | Crear reunion/tarea tipo meeting |
-| `add_note` | Agregar nota a contacto/empresa |
-
-### Definiciones de Tools
+**C. Actualizar el switch statement en `executeTool()`:**
 
 ```typescript
-// create_opportunity
-{
-  name: "create_opportunity",
-  description: "Crea una nueva oportunidad de venta",
-  parameters: {
-    title: { type: "string", required: true },
-    value: { type: "number" },
-    company_name: { type: "string" },
-    contact_email: { type: "string" },
-    expected_close_date: { type: "string" }
-  }
-}
+case "update_contact":
+  return await updateContact(supabase, args);
+case "search_timeline":
+  return await searchTimeline(supabase, args);
+case "analyze_deal_health":
+  return await analyzeDealHealth(supabase, args);
+case "find_promises":
+  return await findPromises(supabase, args);
+case "get_next_best_action":
+  return await getNextBestAction(supabase, args);
+```
 
-// update_opportunity_stage
-{
-  name: "update_opportunity_stage",
-  description: "Mueve una oportunidad a otra etapa del pipeline",
-  parameters: {
-    opportunity_title: { type: "string" },
-    new_stage: { type: "string" } // "Contacto", "Propuesta", etc.
-  }
-}
+### Fase 3: Actualizar System Prompt
 
-// search_contacts
-{
-  name: "search_contacts",
-  description: "Busca contactos por nombre o email",
-  parameters: {
-    query: { type: "string", required: true }
-  }
-}
+Agregar las nuevas capacidades al system prompt para que el modelo sepa usarlas:
 
-// search_companies
-{
-  name: "search_companies", 
-  description: "Busca empresas por nombre o dominio",
-  parameters: {
-    query: { type: "string", required: true }
-  }
-}
-
-// get_pipeline_summary
-{
-  name: "get_pipeline_summary",
-  description: "Obtiene resumen del pipeline con valor por etapa",
-  parameters: {}
-}
-
-// schedule_meeting
-{
-  name: "schedule_meeting",
-  description: "Programa una reunion con un contacto",
-  parameters: {
-    title: { type: "string", required: true },
-    contact_email: { type: "string" },
-    date: { type: "string" },
-    time: { type: "string" },
-    description: { type: "string" }
-  }
-}
-
-// add_note
-{
-  name: "add_note",
-  description: "Agrega una nota a un contacto o empresa",
-  parameters: {
-    entity_type: { type: "string" }, // "contact" o "company"
-    entity_identifier: { type: "string" }, // email o nombre
-    note_content: { type: "string", required: true }
-  }
-}
+```typescript
+## Funciones disponibles:
+// ... existentes ...
+- **update_contact**: Actualizar informacion de un contacto
+- **search_timeline**: Buscar en historial de interacciones
+- **analyze_deal_health**: Analizar salud de una oportunidad
+- **find_promises**: Buscar compromisos pendientes
+- **get_next_best_action**: Obtener sugerencia de proxima accion
 ```
 
 ---
 
-## Fase 6: Modificaciones Minimas a Archivos Existentes
+## Resumen de Cambios
 
-### Settings.tsx
-- Reemplazar tab "Integraciones" estatico con `<IntegrationsTab />`
-
-### Header.tsx  
-- Agregar `<NotificationBell />` antes del menu de usuario
-
-### config.toml
-- Agregar nuevas edge functions
+| Archivo | Accion |
+|---------|--------|
+| Nueva migracion SQL | Crear tabla `timeline_entries` y campo `whatsapp_number` |
+| `supabase/functions/chat/index.ts` | Agregar 5 tools nuevos + 5 funciones ejecutoras |
+| `supabase/config.toml` | Sin cambios necesarios |
 
 ---
 
-## Orden de Implementacion
+## Orden de Ejecucion
 
 | Paso | Tarea |
 |------|-------|
-| 1 | Crear migracion SQL para tablas nuevas |
-| 2 | Crear tipos TypeScript en `src/types/integrations.ts` |
-| 3 | Crear hooks: `useIntegrations`, `useNotifications`, `useNotificationPreferences` |
-| 4 | Crear componente `IntegrationsTab.tsx` |
-| 5 | Crear componentes de notificaciones |
-| 6 | Crear edge functions de Gmail |
-| 7 | Crear edge function de WhatsApp |
-| 8 | Crear edge function de notificaciones |
-| 9 | Modificar `chat/index.ts` para agregar 7 tools |
-| 10 | Integrar componentes en Settings y Header |
-
----
-
-## Secrets Necesarios
-
-Para Gmail OAuth:
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
+| 1 | Crear migracion SQL para `timeline_entries` y `whatsapp_number` |
+| 2 | Agregar definiciones de tools nuevos |
+| 3 | Implementar funciones ejecutoras |
+| 4 | Actualizar switch en `executeTool` |
+| 5 | Actualizar system prompt |
+| 6 | Desplegar edge function |
+| 7 | Probar tools en el chat |
 
 ---
 
 ## Consideraciones Tecnicas
 
-1. **RLS** en todas las tablas nuevas - usuarios solo ven sus datos
-2. **Realtime** habilitado en `notifications` para actualizaciones en vivo
-3. **Cron jobs** para process-emails (cada 5 min) y check-notifications (cada 15 min)
-4. **Error handling** robusto en edge functions
-5. **Validacion** de webhook WhatsApp con API key
-6. **Token refresh** automatico para Gmail
+1. **Degradacion Elegante**: Los tools que dependen de `timeline_entries` funcionaran devolviendo listas vacias si la tabla esta vacia, en lugar de fallar
+2. **Mejorar search_contacts**: Agregar soporte para `has_whatsapp` y `company_name` filters
+3. **Mejorar get_pipeline_summary**: Agregar deteccion de deals en riesgo basado en `activities` en lugar de `timeline_entries` (fallback)
+4. **RLS**: La tabla `timeline_entries` tendra politicas para que usuarios solo vean sus datos
+
