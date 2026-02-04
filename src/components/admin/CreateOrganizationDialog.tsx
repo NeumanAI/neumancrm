@@ -4,13 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Building2, Palette } from 'lucide-react';
+import { OrganizationType } from '@/hooks/useSuperAdmin';
 
 interface CreateOrganizationData {
   name: string;
   admin_email: string;
   admin_name: string;
   is_approved: boolean;
+  organization_type: OrganizationType;
   logo_url?: string;
   primary_color?: string;
   secondary_color?: string;
@@ -22,6 +24,7 @@ interface CreateOrganizationDialogProps {
   onOpenChange: (open: boolean) => void;
   onCreate: (data: CreateOrganizationData) => Promise<void>;
   isCreating: boolean;
+  organizationType: OrganizationType;
 }
 
 export function CreateOrganizationDialog({
@@ -29,6 +32,7 @@ export function CreateOrganizationDialog({
   onOpenChange,
   onCreate,
   isCreating,
+  organizationType,
 }: CreateOrganizationDialogProps) {
   const [formData, setFormData] = useState({
     name: '',
@@ -41,6 +45,8 @@ export function CreateOrganizationDialog({
     custom_domain: '',
   });
 
+  const isWhitelabel = organizationType === 'whitelabel';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await onCreate({
@@ -48,10 +54,11 @@ export function CreateOrganizationDialog({
       admin_email: formData.admin_email,
       admin_name: formData.admin_name,
       is_approved: formData.is_approved,
-      logo_url: formData.logo_url || undefined,
-      primary_color: formData.primary_color,
-      secondary_color: formData.secondary_color,
-      custom_domain: formData.custom_domain || undefined,
+      organization_type: organizationType,
+      logo_url: isWhitelabel ? formData.logo_url || undefined : undefined,
+      primary_color: isWhitelabel ? formData.primary_color : undefined,
+      secondary_color: isWhitelabel ? formData.secondary_color : undefined,
+      custom_domain: isWhitelabel ? formData.custom_domain || undefined : undefined,
     });
     
     // Reset form
@@ -71,10 +78,29 @@ export function CreateOrganizationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Crear Nueva Organización</DialogTitle>
-          <DialogDescription>
-            Crea una cuenta para un nuevo cliente. El administrador recibirá las credenciales de acceso.
-          </DialogDescription>
+          <div className="flex items-center gap-3 mb-2">
+            <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
+              isWhitelabel 
+                ? 'bg-purple-100 dark:bg-purple-900/30' 
+                : 'bg-blue-100 dark:bg-blue-900/30'
+            }`}>
+              {isWhitelabel ? (
+                <Palette className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              ) : (
+                <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              )}
+            </div>
+            <div>
+              <DialogTitle>
+                {isWhitelabel ? 'Nueva Marca Blanca' : 'Nuevo Cliente Directo'}
+              </DialogTitle>
+              <DialogDescription className="mt-1">
+                {isWhitelabel 
+                  ? 'Crea un reseller que usará su propia marca y dominio.'
+                  : 'Crea un cliente que usará la marca NeumanCRM.'}
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -102,7 +128,7 @@ export function CreateOrganizationDialog({
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Se creará una cuenta con este email. El usuario deberá registrarse con este correo.
+                El usuario deberá registrarse con este correo para acceder.
               </p>
             </div>
 
@@ -117,71 +143,76 @@ export function CreateOrganizationDialog({
             </div>
           </div>
 
-          {/* Branding opcional */}
-          <div className="space-y-4 border-t pt-4">
-            <p className="text-sm font-medium">Branding (opcional)</p>
-            
-            <div className="space-y-2">
-              <Label htmlFor="create-logo">URL del Logo</Label>
-              <Input
-                id="create-logo"
-                type="url"
-                value={formData.logo_url}
-                onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
-                placeholder="https://ejemplo.com/logo.png"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+          {/* Branding - Solo para whitelabel */}
+          {isWhitelabel && (
+            <div className="space-y-4 border-t pt-4">
+              <p className="text-sm font-medium flex items-center gap-2">
+                <Palette className="h-4 w-4" />
+                Personalización de marca
+              </p>
+              
               <div className="space-y-2">
-                <Label htmlFor="create-primary">Color primario</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="create-primary"
-                    type="color"
-                    value={formData.primary_color}
-                    onChange={(e) => setFormData({ ...formData, primary_color: e.target.value })}
-                    className="w-12 h-10 p-1 cursor-pointer"
-                  />
-                  <Input
-                    type="text"
-                    value={formData.primary_color}
-                    onChange={(e) => setFormData({ ...formData, primary_color: e.target.value })}
-                    className="flex-1"
-                  />
+                <Label htmlFor="create-logo">URL del Logo</Label>
+                <Input
+                  id="create-logo"
+                  type="url"
+                  value={formData.logo_url}
+                  onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
+                  placeholder="https://ejemplo.com/logo.png"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="create-primary">Color primario</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="create-primary"
+                      type="color"
+                      value={formData.primary_color}
+                      onChange={(e) => setFormData({ ...formData, primary_color: e.target.value })}
+                      className="w-12 h-10 p-1 cursor-pointer"
+                    />
+                    <Input
+                      type="text"
+                      value={formData.primary_color}
+                      onChange={(e) => setFormData({ ...formData, primary_color: e.target.value })}
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="create-secondary">Color secundario</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="create-secondary"
+                      type="color"
+                      value={formData.secondary_color}
+                      onChange={(e) => setFormData({ ...formData, secondary_color: e.target.value })}
+                      className="w-12 h-10 p-1 cursor-pointer"
+                    />
+                    <Input
+                      type="text"
+                      value={formData.secondary_color}
+                      onChange={(e) => setFormData({ ...formData, secondary_color: e.target.value })}
+                      className="flex-1"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="create-secondary">Color secundario</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="create-secondary"
-                    type="color"
-                    value={formData.secondary_color}
-                    onChange={(e) => setFormData({ ...formData, secondary_color: e.target.value })}
-                    className="w-12 h-10 p-1 cursor-pointer"
-                  />
-                  <Input
-                    type="text"
-                    value={formData.secondary_color}
-                    onChange={(e) => setFormData({ ...formData, secondary_color: e.target.value })}
-                    className="flex-1"
-                  />
-                </div>
+                <Label htmlFor="create-domain">Dominio personalizado</Label>
+                <Input
+                  id="create-domain"
+                  value={formData.custom_domain}
+                  onChange={(e) => setFormData({ ...formData, custom_domain: e.target.value })}
+                  placeholder="crm.micliente.com"
+                />
               </div>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="create-domain">Dominio personalizado</Label>
-              <Input
-                id="create-domain"
-                value={formData.custom_domain}
-                onChange={(e) => setFormData({ ...formData, custom_domain: e.target.value })}
-                placeholder="crm.micliente.com"
-              />
-            </div>
-          </div>
+          )}
 
           {/* Estado */}
           <div className="flex items-center justify-between border-t pt-4">
@@ -202,9 +233,13 @@ export function CreateOrganizationDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isCreating || !formData.name || !formData.admin_email}>
+            <Button 
+              type="submit" 
+              disabled={isCreating || !formData.name || !formData.admin_email}
+              className={isWhitelabel ? 'bg-purple-600 hover:bg-purple-700' : ''}
+            >
               {isCreating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Crear organización
+              {isWhitelabel ? 'Crear marca blanca' : 'Crear cliente directo'}
             </Button>
           </div>
         </form>
