@@ -1,229 +1,249 @@
 
 
-# Plan: Panel de Configuración de Canales de Conversación
+# Plan: Auto-Creación y Vinculación de Leads desde Conversaciones
 
-## Resumen Ejecutivo
+## Objetivo
 
-Crear una interfaz completa en **Configuración → Integraciones** que permita a los usuarios activar, configurar y gestionar todos los canales de conversación (ManyChat, Webchat, Gmail) de forma visual e intuitiva, con instrucciones paso a paso y validación de conexión.
+Cada conversación que llegue desde cualquier canal (WhatsApp, Instagram, Webchat, etc.) debe automáticamente:
+1. **Buscar** un contacto existente por teléfono, email o datos coincidentes
+2. **Crear** un nuevo contacto/lead si no existe
+3. **Actualizar** el contacto existente con nuevos datos si ya existe
+4. **Vincular** la conversación al contacto
+5. **Notificar** al usuario sobre nuevos leads creados
 
 ---
 
-## Vista General de la Solución
+## Estado Actual vs Estado Deseado
+
+| Aspecto | Actualmente | Propuesto |
+|---------|-------------|-----------|
+| ManyChat webhook | Solo busca contactos existentes | Crea contacto si no existe |
+| Webchat (n8n) | No vincula a contactos | Busca/crea contacto automáticamente |
+| Datos del contacto | No se actualizan | Se enriquecen con cada interacción |
+| Notificaciones | Solo para conversaciones | También para nuevos leads |
+| Visibilidad | Contacto y conversación desconectados | Vista unificada |
+
+---
+
+## Arquitectura de la Solución
 
 ```text
-┌────────────────────────────────────────────────────────────────────────────────┐
-│                    CONFIGURACIÓN → INTEGRACIONES                                │
-├────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                │
-│  ┌──────────────────────────────────────────────────────────────────────────┐ │
-│  │  GMAIL (existente)                                              [OAuth]  │ │
-│  │  ✓ Conectado - juan@empresa.com                                         │ │
-│  └──────────────────────────────────────────────────────────────────────────┘ │
-│                                                                                │
-│  ┌──────────────────────────────────────────────────────────────────────────┐ │
-│  │  MANYCHAT                                                      [Nuevo]   │ │
-│  │  Conecta WhatsApp, Instagram y Messenger                                │ │
-│  │                                                                          │ │
-│  │  ┌─────────────────────────────────────────────────────────────────────┐│ │
-│  │  │  Paso 1: Ingresa tu API Key de ManyChat                            ││ │
-│  │  │  [●●●●●●●●●●●●●●●●●●●●]  [Guardar]                                 ││ │
-│  │  │                                                                     ││ │
-│  │  │  Paso 2: Configura el webhook en ManyChat                          ││ │
-│  │  │  URL: https://xxx.supabase.co/functions/v1/manychat-webhook       ││ │
-│  │  │  [Copiar URL]                                                       ││ │
-│  │  │                                                                     ││ │
-│  │  │  Paso 3: Agrega estos campos en tu flujo de ManyChat              ││ │
-│  │  │  - crm_user_id: "tu-user-id"                                       ││ │
-│  │  │  - crm_organization_id: "tu-org-id"                                ││ │
-│  │  │  [Copiar valores]                                                   ││ │
-│  │  │                                                                     ││ │
-│  │  │  [Probar conexión]                                                 ││ │
-│  │  └─────────────────────────────────────────────────────────────────────┘│ │
-│  │                                                                          │ │
-│  │  Canales habilitados:                                                    │ │
-│  │  [✓] WhatsApp  [✓] Instagram  [✓] Messenger                             │ │
-│  └──────────────────────────────────────────────────────────────────────────┘ │
-│                                                                                │
-│  ┌──────────────────────────────────────────────────────────────────────────┐ │
-│  │  WEBCHAT                                                       [Nuevo]   │ │
-│  │  Widget de chat para tu sitio web                                       │ │
-│  │                                                                          │ │
-│  │  Estado: Activo                                                          │ │
-│  │  Respuestas automáticas: Desactivadas / n8n configurado                 │ │
-│  │                                                                          │ │
-│  │  [Configurar Widget]  [Obtener código de inserción]                     │ │
-│  └──────────────────────────────────────────────────────────────────────────┘ │
-│                                                                                │
-└────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        WEBHOOK RECIBE MENSAJE                                   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    FUNCIÓN: findOrCreateContact()                               │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  1. Extraer datos del mensaje/suscriptor:                                       │
+│     - Nombre, Teléfono, Email, Avatar, Username (IG)                           │
+│                                                                                 │
+│  2. Buscar contacto existente por:                                             │
+│     ┌───────────────────────────────────────────────────────────────────────┐  │
+│     │  Prioridad 1: email exacto                                            │  │
+│     │  Prioridad 2: phone/mobile/whatsapp_number                            │  │
+│     │  Prioridad 3: metadata.ig_username (para Instagram)                   │  │
+│     │  Prioridad 4: metadata.manychat_id                                    │  │
+│     └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                                 │
+│  3. Si existe → Actualizar con nuevos datos                                    │
+│     Si no existe → Crear nuevo contacto                                        │
+│                                                                                 │
+│  4. Retornar contact_id                                                        │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    CREAR/ACTUALIZAR CONVERSACIÓN                                │
+│                    con contact_id vinculado                                     │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    SI ES NUEVO CONTACTO                                         │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  - Crear notificación "Nuevo lead desde {canal}"                               │
+│  - Agregar entrada en timeline "Primer contacto vía {canal}"                   │
+│  - Marcar origen del contacto (source: webchat/whatsapp/instagram)             │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
-
----
-
-## Nuevos Canales a Configurar
-
-### 1. ManyChat (WhatsApp, Instagram, Messenger)
-
-| Elemento | Descripción |
-|----------|-------------|
-| API Key | Token de API para enviar mensajes salientes |
-| Webhook URL | URL que ManyChat llamará al recibir mensajes |
-| Campos CRM | `crm_user_id` y `crm_organization_id` para vincular conversaciones |
-| Test de conexión | Verificar que la API Key es válida |
-
-### 2. Webchat
-
-| Elemento | Descripción |
-|----------|-------------|
-| Habilitado | Toggle para activar/desactivar el canal |
-| URL de n8n (opcional) | Webhook para respuestas automáticas con IA |
-| Código embebible | Script para insertar el widget en sitios externos |
-| Personalización | Colores, mensaje de bienvenida, posición |
-
-### 3. Gmail (ya existente, mejorar)
-
-- Ya funciona con OAuth
-- Agregar sección de "canales activos" para mostrar junto a ManyChat y Webchat
 
 ---
 
 ## Cambios en Base de Datos
 
-### Actualizar tipos de provider en `integrations`
+### 1. Agregar campos a tabla `contacts`
 
-El campo `provider` actualmente solo acepta `'gmail' | 'whatsapp'`. Necesitamos expandirlo para soportar:
+| Campo Nuevo | Tipo | Descripción |
+|-------------|------|-------------|
+| `source` | text | Canal de origen (webchat, whatsapp, instagram, manual, import) |
+| `source_id` | text | ID externo (subscriber_id de ManyChat, session_id de webchat) |
+| `instagram_username` | text | Username de Instagram para matching |
+| `metadata` | jsonb | Datos adicionales del canal original |
 
-- `gmail` (existente)
-- `whatsapp` (existente pero se fusionará con manychat)
-- `manychat` (nuevo - agrupa WhatsApp, Instagram, Messenger)
-- `webchat` (nuevo)
+### 2. SQL Migration
 
-### Estructura de metadata por provider
+```sql
+-- Agregar campos de origen a contacts
+ALTER TABLE public.contacts 
+ADD COLUMN IF NOT EXISTS source text DEFAULT 'manual',
+ADD COLUMN IF NOT EXISTS source_id text,
+ADD COLUMN IF NOT EXISTS instagram_username text,
+ADD COLUMN IF NOT EXISTS metadata jsonb DEFAULT '{}'::jsonb;
 
-**ManyChat:**
-```json
-{
-  "api_key_configured": true,
-  "channels_enabled": ["whatsapp", "instagram", "messenger"],
-  "last_test_at": "2024-01-15T...",
-  "test_status": "success"
-}
-```
-
-**Webchat:**
-```json
-{
-  "widget_enabled": true,
-  "n8n_webhook_url": "https://...",
-  "widget_config": {
-    "position": "bottom-right",
-    "primary_color": "#3B82F6",
-    "welcome_message": "¡Hola! ¿En qué podemos ayudarte?"
-  }
-}
+-- Índice para búsqueda rápida por source_id
+CREATE INDEX IF NOT EXISTS idx_contacts_source_id ON public.contacts(source_id);
+CREATE INDEX IF NOT EXISTS idx_contacts_instagram_username ON public.contacts(instagram_username);
 ```
 
 ---
 
-## Cambios en el Código
+## Lógica de Matching y Creación
 
-### 1. Actualizar tipos (`src/types/integrations.ts`)
+### Función utilitaria `findOrCreateContact`
 
-Expandir el tipo `Integration` para incluir los nuevos providers:
+Se creará una función reutilizable en los Edge Functions que:
 
 ```typescript
-export interface Integration {
-  id: string;
-  user_id: string;
-  provider: 'gmail' | 'manychat' | 'webchat';
-  // ... resto igual
+interface ContactMatchData {
+  email?: string;
+  phone?: string;
+  first_name?: string;
+  last_name?: string;
+  instagram_username?: string;
+  manychat_subscriber_id?: string;
+  avatar_url?: string;
+  source: 'webchat' | 'whatsapp' | 'instagram' | 'messenger' | 'email';
 }
 
-export interface ManyChatConfig {
-  api_key_configured: boolean;
-  channels_enabled: ('whatsapp' | 'instagram' | 'messenger')[];
-  last_test_at?: string;
-  test_status?: 'success' | 'error' | 'pending';
-}
-
-export interface WebchatConfig {
-  widget_enabled: boolean;
-  n8n_webhook_url?: string;
-  widget_config: {
-    position: 'bottom-right' | 'bottom-left';
-    primary_color: string;
-    welcome_message: string;
-  };
-}
+async function findOrCreateContact(
+  supabase: SupabaseClient,
+  userId: string,
+  organizationId: string | null,
+  data: ContactMatchData
+): Promise<{ contactId: string; isNew: boolean }>
 ```
 
-### 2. Actualizar hook (`src/hooks/useIntegrations.ts`)
+### Reglas de Matching (en orden de prioridad)
 
-- Agregar función `getIntegration` para `manychat` y `webchat`
-- Agregar mutación para guardar API Key de ManyChat
-- Agregar mutación para configurar Webchat
+1. **Email exacto** - match más confiable
+2. **Teléfono normalizado** - busca en phone, mobile, whatsapp_number
+3. **Instagram username** - para canales de Instagram
+4. **ManyChat subscriber_id** - en metadata.manychat_id
 
-### 3. Refactorizar `IntegrationsTab.tsx`
+### Reglas de Creación
 
-Dividir en componentes más pequeños:
-- `GmailIntegrationCard.tsx` (extraer lógica existente)
-- `ManyChatIntegrationCard.tsx` (nuevo)
-- `WebchatIntegrationCard.tsx` (nuevo)
+Si no se encuentra match:
+- Generar email temporal si no hay uno: `{phone}@lead.crm.local` o `{timestamp}@webchat.crm.local`
+- Marcar `source` con el canal de origen
+- Guardar `source_id` para futuro matching
+- Copiar avatar si está disponible
 
-### 4. Crear componente `ManyChatIntegrationCard.tsx`
+### Reglas de Actualización
 
-**Funcionalidades:**
-- Input enmascarado para API Key
-- Botón para guardar API Key (llama a Edge Function que guarda en secrets)
-- Sección de instrucciones con webhook URL copiable
-- Valores de CRM (user_id, organization_id) copiables
-- Botón "Probar conexión" que valida la API Key
-- Checkboxes para canales habilitados
-
-### 5. Crear componente `WebchatIntegrationCard.tsx`
-
-**Funcionalidades:**
-- Toggle para habilitar/deshabilitar
-- Input para URL de n8n (opcional)
-- Sección de personalización del widget
-- Botón para obtener código de inserción (genera script embebible)
-- Vista previa del widget
-
-### 6. Crear Edge Function `save-integration-secret`
-
-Nueva función para guardar API Keys de forma segura:
-- Recibe: `{ provider: string, api_key: string }`
-- Guarda en Supabase secrets (vía SQL o API interna)
-- Actualiza la integración con `api_key_configured: true`
-
-### 7. Crear Edge Function `test-manychat-connection`
-
-Valida que la API Key de ManyChat es correcta:
-- Llama a la API de ManyChat para obtener info de la cuenta
-- Retorna resultado de validación
+Si se encuentra match:
+- **Agregar** datos faltantes (no sobrescribir existentes)
+- **Actualizar** `last_contacted_at`
+- **Enriquecer** metadata con nuevos datos del canal
 
 ---
 
-## Flujo de Configuración para el Usuario
+## Cambios en Edge Functions
 
-### Configurar ManyChat (WhatsApp/Instagram)
+### 1. manychat-webhook/index.ts
 
-1. El usuario va a **Configuración → Integraciones**
-2. En la tarjeta de ManyChat, hace clic en "Configurar"
-3. Sigue los pasos visuales:
-   - **Paso 1:** Ingresa su API Key de ManyChat (obtenida de manychat.com → Settings → API)
-   - **Paso 2:** Copia la Webhook URL y la pega en ManyChat (Flow → External Request)
-   - **Paso 3:** Copia los valores `crm_user_id` y `crm_organization_id` para agregarlos al flujo
-4. Hace clic en "Probar conexión" para verificar
-5. Activa los canales deseados (WhatsApp, Instagram, Messenger)
+**Cambios:**
+- Importar/implementar función `findOrCreateContact`
+- Llamar a la función antes de crear la conversación
+- Usar el `contact_id` retornado
+- Crear notificación si es nuevo lead
+- Crear entrada en timeline para el primer contacto
 
-### Configurar Webchat
+### 2. n8n-chat/index.ts
 
-1. El usuario va a **Configuración → Integraciones**
-2. En la tarjeta de Webchat, hace clic en "Configurar"
-3. Activa el widget
-4. (Opcional) Configura la URL de n8n para respuestas automáticas
-5. Personaliza colores y mensaje de bienvenida
-6. Copia el código de inserción y lo pega en su sitio web
+**Cambios:**
+- Agregar lógica de `findOrCreateContact`
+- Crear contacto desde datos del visitor (nombre, email)
+- Vincular conversación al contacto
+- Crear notificación para nuevos leads de webchat
+
+### 3. Nuevo archivo: _shared/contact-utils.ts
+
+Crear funciones compartidas para:
+- `findOrCreateContact()` - buscar o crear contacto
+- `normalizePhone()` - normalizar números de teléfono
+- `createLeadNotification()` - crear notificación de nuevo lead
+- `createTimelineEntry()` - crear entrada en timeline
+
+---
+
+## Notificaciones de Nuevos Leads
+
+Cuando se crea un nuevo contacto desde una conversación:
+
+```typescript
+await supabase.from('notifications').insert({
+  user_id: crmUserId,
+  type: 'new_contact',
+  title: `Nuevo lead desde ${channelName}`,
+  message: `${contactName} te ha contactado por primera vez vía ${channelName}`,
+  priority: 'high',
+  entity_type: 'contact',
+  entity_id: newContactId,
+  action_url: `/contacts/${newContactId}`,
+});
+```
+
+---
+
+## Timeline Entry Automático
+
+Registrar el primer contacto en la línea de tiempo:
+
+```typescript
+await supabase.from('timeline_entries').insert({
+  user_id: crmUserId,
+  contact_id: newContactId,
+  entry_type: channel, // 'whatsapp', 'instagram', 'webchat'
+  source: 'auto',
+  subject: `Primer contacto vía ${channelName}`,
+  body: `${contactName} inició una conversación a través de ${channelName}`,
+  metadata: {
+    channel,
+    subscriber_id: externalId,
+    auto_created: true,
+  },
+  occurred_at: new Date().toISOString(),
+});
+```
+
+---
+
+## Orden de Implementación
+
+### Fase 1: Base de Datos
+1. Crear migración SQL para agregar campos a `contacts`
+2. Crear índices para búsqueda eficiente
+
+### Fase 2: Funciones Utilitarias
+1. Crear archivo de utilidades compartidas
+2. Implementar `findOrCreateContact`
+3. Implementar `normalizePhone`
+4. Implementar helpers de notificación y timeline
+
+### Fase 3: Actualizar Webhooks
+1. Modificar `manychat-webhook` con auto-creación
+2. Modificar `n8n-chat` con auto-creación
+3. Agregar manejo de errores robusto
+
+### Fase 4: Pruebas
+1. Probar con mensaje de ManyChat (WhatsApp)
+2. Probar con mensaje de Webchat
+3. Verificar que contactos duplicados no se crean
+4. Verificar actualización de datos existentes
 
 ---
 
@@ -231,88 +251,76 @@ Valida que la API Key de ManyChat es correcta:
 
 | Tipo | Archivo | Acción |
 |------|---------|--------|
-| Tipos | `src/types/integrations.ts` | Modificar - agregar tipos para ManyChat y Webchat |
-| Hook | `src/hooks/useIntegrations.ts` | Modificar - agregar soporte para nuevos providers |
-| Componente | `src/components/settings/IntegrationsTab.tsx` | Modificar - refactorizar layout |
-| Componente | `src/components/settings/GmailIntegrationCard.tsx` | Crear - extraer lógica existente |
-| Componente | `src/components/settings/ManyChatIntegrationCard.tsx` | Crear |
-| Componente | `src/components/settings/WebchatIntegrationCard.tsx` | Crear |
-| Componente | `src/components/settings/WebchatWidgetPreview.tsx` | Crear |
-| Componente | `src/components/settings/IntegrationSteps.tsx` | Crear - componente reutilizable de pasos |
-| Edge Function | `supabase/functions/save-integration-secret/index.ts` | Crear |
-| Edge Function | `supabase/functions/test-manychat-connection/index.ts` | Crear |
-| Config | `supabase/config.toml` | Modificar - agregar nuevas funciones |
-
----
-
-## Orden de Implementación
-
-### Fase 1: Preparación
-1. Actualizar tipos en `src/types/integrations.ts`
-2. Actualizar hook `useIntegrations.ts` con nuevos métodos
-
-### Fase 2: Edge Functions
-1. Crear `save-integration-secret` para guardar API Keys
-2. Crear `test-manychat-connection` para validar conexión
-
-### Fase 3: Componentes de UI
-1. Crear `IntegrationSteps.tsx` (componente reutilizable)
-2. Extraer `GmailIntegrationCard.tsx` del código existente
-3. Crear `ManyChatIntegrationCard.tsx` con instrucciones paso a paso
-4. Crear `WebchatIntegrationCard.tsx` con código embebible
-5. Refactorizar `IntegrationsTab.tsx` para usar los nuevos componentes
-
-### Fase 4: Widget Embebible
-1. Crear `WebchatWidgetPreview.tsx` para vista previa
-2. Generar código de inserción para sitios externos
+| SQL | Nueva migración | Agregar campos source, source_id, instagram_username, metadata a contacts |
+| Edge Function | `supabase/functions/manychat-webhook/index.ts` | Modificar - agregar auto-creación de leads |
+| Edge Function | `supabase/functions/n8n-chat/index.ts` | Modificar - agregar auto-creación de leads |
+| Tipos | `src/types/crm.ts` | Modificar - agregar nuevos campos a Contact |
 
 ---
 
 ## Resultado Esperado
 
-Al completar esta implementación:
-
-1. **Configuración Visual**: Panel intuitivo para configurar todos los canales
-2. **Instrucciones Claras**: Pasos numerados con valores copiables
-3. **Validación de Conexión**: Botón para probar que todo funciona
-4. **Código Embebible**: Script listo para copiar e insertar en sitios web
-5. **Gestión Centralizada**: Todos los canales en un solo lugar
-6. **Seguridad**: API Keys guardadas de forma segura en secrets
+1. **Cada conversación entrante** crea o vincula automáticamente un contacto
+2. **Los datos del contacto** se enriquecen con cada interacción
+3. **El usuario recibe notificación** cuando llega un nuevo lead
+4. **La línea de tiempo** registra el primer contacto
+5. **No se crean duplicados** gracias al matching inteligente
+6. **Trazabilidad completa** del origen de cada lead
 
 ---
 
-## Sección Técnica
+## Sección Técnica Detallada
 
-### Guardado de API Keys
-
-Las API Keys se guardarán de dos formas:
-1. **En metadata** de la tabla `integrations`: Solo un flag `api_key_configured: true`
-2. **En Supabase Secrets**: El valor real de la API Key, accesible solo desde Edge Functions
-
-### Código del Widget Webchat
-
-El código generado para insertar en sitios externos será similar a:
-
-```html
-<script>
-  (function() {
-    var script = document.createElement('script');
-    script.src = 'https://tu-proyecto.lovable.app/webchat-widget.js';
-    script.async = true;
-    script.dataset.crmUserId = 'USER_ID';
-    script.dataset.crmOrgId = 'ORG_ID';
-    script.dataset.primaryColor = '#3B82F6';
-    document.body.appendChild(script);
-  })();
-</script>
-```
-
-### Test de Conexión ManyChat
+### Normalización de Teléfonos
 
 ```typescript
-// Llamada a la API de ManyChat para verificar
-const response = await fetch('https://api.manychat.com/fb/page/getInfo', {
-  headers: { 'Authorization': `Bearer ${apiKey}` }
-});
+function normalizePhone(phone: string): string {
+  // Eliminar espacios, guiones, paréntesis
+  let normalized = phone.replace(/[\s\-\(\)\.]/g, '');
+  
+  // Si empieza con 00, reemplazar por +
+  if (normalized.startsWith('00')) {
+    normalized = '+' + normalized.slice(2);
+  }
+  
+  // Si no tiene prefijo internacional y tiene 10 dígitos, es local
+  if (!normalized.startsWith('+') && normalized.length === 10) {
+    // Asumir México por defecto (configurable)
+    normalized = '+52' + normalized;
+  }
+  
+  return normalized;
+}
+```
+
+### Email Temporal para Leads sin Email
+
+```typescript
+function generateTemporaryEmail(data: ContactMatchData): string {
+  if (data.phone) {
+    return `${normalizePhone(data.phone).replace('+', '')}@lead.crm.local`;
+  }
+  if (data.instagram_username) {
+    return `${data.instagram_username}@instagram.lead.local`;
+  }
+  return `lead_${Date.now()}@webchat.lead.local`;
+}
+```
+
+### Query de Búsqueda de Contacto
+
+```sql
+SELECT id, email, phone, mobile, whatsapp_number, source_id, metadata
+FROM contacts
+WHERE user_id = $1
+  AND (
+    email = $2
+    OR phone = $3 
+    OR mobile = $3
+    OR whatsapp_number = $3
+    OR instagram_username = $4
+    OR (metadata->>'manychat_id')::text = $5
+  )
+LIMIT 1;
 ```
 
