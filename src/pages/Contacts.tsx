@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useContacts } from '@/hooks/useContacts';
 import { useCompanies } from '@/hooks/useCompanies';
 import { Contact } from '@/types/crm';
@@ -38,6 +39,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
 export default function Contacts() {
+  const navigate = useNavigate();
   const { contacts, isLoading, createContact, updateContact, deleteContact } = useContacts();
   const { companies } = useCompanies();
   const [searchQuery, setSearchQuery] = useState('');
@@ -177,7 +179,11 @@ export default function Contacts() {
             </TableHeader>
             <TableBody>
               {filteredContacts.map((contact) => (
-                <TableRow key={contact.id} className="cursor-pointer hover:bg-muted/50">
+                <TableRow 
+                  key={contact.id} 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => navigate(`/contacts/${contact.id}`)}
+                >
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
@@ -214,7 +220,7 @@ export default function Contacts() {
                       {format(parseISO(contact.created_at), 'dd MMM yyyy', { locale: es })}
                     </span>
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"

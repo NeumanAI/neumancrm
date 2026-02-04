@@ -16,6 +16,7 @@ import Tasks from "./pages/Tasks";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import DataManagement from "./pages/DataManagement";
+import ContactDetail from "./pages/ContactDetail";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ const App = () => (
             {/* Protected routes with layout */}
             <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
             <Route path="/contacts" element={<AppLayout><Contacts /></AppLayout>} />
+            <Route path="/contacts/:contactId" element={<AppLayout><ContactDetail /></AppLayout>} />
             <Route path="/companies" element={<AppLayout><Companies /></AppLayout>} />
             <Route path="/pipeline" element={<AppLayout><Pipeline /></AppLayout>} />
             <Route path="/tasks" element={<AppLayout><Tasks /></AppLayout>} />
