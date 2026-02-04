@@ -1,117 +1,245 @@
 
+# Plan: Integrar Funciones de Equipo en el Asistente IA
 
-# Plan: Corregir Página de Equipo para Usuarios Existentes
+## Vision General
 
-## Problema Identificado
-
-Las tablas `organizations` y `team_members` están vacías porque el usuario actual fue creado ANTES del trigger que auto-crea la organización para nuevos usuarios.
+Transformar el CRM en un sistema verdaderamente AI-Native extendiendo las capacidades del asistente de chat para que pueda gestionar equipos, asignar entidades, colaborar mediante comentarios y consultar el activity feed, todo mediante lenguaje natural.
 
 ---
 
-## Solución en 2 Partes
-
-### Parte 1: Migración SQL - Crear Datos para Usuarios Existentes
-
-Ejecutar una migración que:
-1. Cree una organización para cada usuario que no tiene una
-2. Agregue a cada usuario como admin de su nueva organización
+## Arquitectura de la Integracion
 
 ```text
-Para cada usuario en auth.users que NO tenga registro en team_members:
-  1. Crear organizacion con nombre "[nombre/email]'s Team"
-  2. Insertar en team_members con role = 'admin'
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    CHAT AI - HERRAMIENTAS ACTUALES                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Contactos     │  Empresas    │  Oportunidades  │  Timeline    │  Tareas    │
+│  - create      │  - create    │  - create       │  - search    │  - create  │
+│  - update      │  - search    │  - update_stage │  - promises  │  - schedule│
+│  - search      │              │  - health       │              │            │
+│                │              │  - pipeline     │              │            │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    NUEVAS HERRAMIENTAS DE EQUIPO                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐ │
+│  │   GESTION EQUIPO    │  │     ASIGNACION      │  │    COLABORACION     │ │
+│  │                     │  │                     │  │                     │ │
+│  │  - get_team_summary │  │  - assign_entity    │  │  - add_comment      │ │
+│  │  - get_member_info  │  │  - transfer_entity  │  │  - get_comments     │ │
+│  │  - get_quotas       │  │  - get_assigned_to  │  │  - get_activity     │ │
+│  │  - check_permission │  │                     │  │  - mention_member   │ │
+│  └─────────────────────┘  └─────────────────────┘  └─────────────────────┘ │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │                     CONTEXTO ENRIQUECIDO                                ││
+│  │                                                                         ││
+│  │  El system prompt incluira:                                             ││
+│  │  - Nombre y rol del usuario actual                                      ││
+│  │  - Miembros del equipo con sus roles                                    ││
+│  │  - Actividad reciente del equipo                                        ││
+│  │  - Permisos disponibles segun el rol                                    ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
-
-### Parte 2: Mejorar Hook useTeam.ts
-
-Modificar el hook para manejar graciosamente el caso cuando no existe organización:
-- Cambiar `.single()` por una consulta que maneje 0 resultados
-- Mostrar estado "sin organización" en lugar de error
-- Agregar opción para crear organización manualmente si no existe
 
 ---
 
-## Archivos a Modificar
+## Nuevas Herramientas (Tools) a Implementar
 
-| Archivo | Cambio |
-|---------|--------|
-| Nueva migración SQL | Crear org/team_member para usuarios existentes |
-| `src/hooks/useTeam.ts` | Manejar caso sin organización sin lanzar error |
+### 1. Gestion de Equipo
+
+| Tool | Descripcion | Parametros |
+|------|-------------|------------|
+| `get_team_summary` | Obtiene resumen del equipo con todos los miembros, roles y cuotas | - |
+| `get_member_info` | Obtiene info detallada de un miembro por nombre o email | `member_identifier` |
+| `get_quotas_progress` | Muestra progreso de cuotas del equipo o un miembro especifico | `member_email?` |
+
+### 2. Asignacion de Entidades
+
+| Tool | Descripcion | Parametros |
+|------|-------------|------------|
+| `assign_contact` | Asigna un contacto a un miembro del equipo | `contact_email`, `assigned_to_email` |
+| `assign_company` | Asigna una empresa a un miembro del equipo | `company_name`, `assigned_to_email` |
+| `assign_opportunity` | Asigna una oportunidad a un miembro del equipo | `opportunity_title`, `assigned_to_email` |
+| `get_my_assignments` | Lista entidades asignadas al usuario actual o a un miembro | `member_email?`, `entity_type?` |
+
+### 3. Colaboracion
+
+| Tool | Descripcion | Parametros |
+|------|-------------|------------|
+| `add_team_comment` | Agrega comentario a una entidad con soporte para @menciones | `entity_type`, `entity_identifier`, `content` |
+| `get_entity_comments` | Obtiene comentarios de una entidad | `entity_type`, `entity_identifier`, `limit?` |
+| `get_activity_feed` | Obtiene actividad reciente del equipo | `entity_type?`, `entity_id?`, `limit?` |
+| `notify_team_member` | Menciona a un miembro en un comentario | `member_email`, `entity_type`, `entity_identifier`, `message` |
 
 ---
 
-## Cambios Detallados
+## Actualizacion del System Prompt
 
-### 1. Migración SQL
+El system prompt incluira nueva informacion contextual:
 
-```sql
--- Crear organizaciones para usuarios existentes que no tienen una
-INSERT INTO public.organizations (id, name, slug)
-SELECT 
-  gen_random_uuid(),
-  COALESCE(u.raw_user_meta_data->>'full_name', split_part(u.email, '@', 1)) || '''s Team',
-  u.id::text
-FROM auth.users u
-WHERE NOT EXISTS (
-  SELECT 1 FROM public.team_members tm 
-  WHERE tm.user_id = u.id
-);
+```text
+## Datos del Equipo:
 
--- Agregar usuarios como admin de sus organizaciones
-INSERT INTO public.team_members (user_id, organization_id, role, email, full_name, is_active)
-SELECT 
-  u.id,
-  o.id,
-  'admin',
-  u.email,
-  COALESCE(u.raw_user_meta_data->>'full_name', split_part(u.email, '@', 1)),
-  true
-FROM auth.users u
-JOIN public.organizations o ON o.slug = u.id::text
-WHERE NOT EXISTS (
-  SELECT 1 FROM public.team_members tm 
-  WHERE tm.user_id = u.id
-);
+Organizacion: [Nombre de la org] (Plan: [plan])
+Tu rol: [Admin/Manager/Sales Rep/Viewer]
+Equipo: [X] miembros activos
+
+Miembros del equipo:
+- Juan Perez (admin) - juan@empresa.com - Cuota: $50K/$30K completado
+- Maria Garcia (sales_rep) - maria@empresa.com - Cuota: $40K/$25K completado
+- Pedro Lopez (viewer) - pedro@empresa.com
+
+Actividad reciente:
+- Juan creo el contacto "Carlos Ruiz" hace 2 horas
+- Maria movio la oportunidad "Proyecto Alpha" a Negociacion hace 1 dia
+
+Tus permisos:
+- Puedes: crear, editar, asignar, comentar
+- No puedes: [si aplica]
 ```
 
-### 2. Modificar useTeam.ts
+---
 
-Cambiar la consulta de organización para que no falle si no hay resultados:
+## Ejemplos de Uso
+
+El usuario podra hacer solicitudes como:
+
+**Equipo:**
+- "Muestrame el resumen del equipo"
+- "Cuanto ha vendido Maria este mes?"
+- "Quien tiene mas deals abiertos?"
+
+**Asignacion:**
+- "Asigna el contacto juan@cliente.com a Pedro"
+- "Transfiere la empresa TechCorp a Maria"
+- "Que tengo asignado?"
+- "Muestrame las oportunidades asignadas a Juan"
+
+**Colaboracion:**
+- "Agrega un comentario a la empresa TechCorp diciendo que necesitan seguimiento"
+- "Notifica a Maria sobre el contacto Carlos Ruiz"
+- "Que comentarios tiene la oportunidad Proyecto Alpha?"
+- "Muestrame la actividad reciente del equipo"
+- "Quien modifico el contacto juan@cliente.com?"
+
+---
+
+## Cambios en el Edge Function
+
+### Archivo: `supabase/functions/chat/index.ts`
+
+#### 1. Agregar nuevas definiciones de tools (aprox. linea 270)
 
 ```typescript
-// ANTES (falla con error 406 si no hay filas)
-const { data, error } = await supabase
-  .from('organizations')
-  .select('*')
-  .single();
-
-// DESPUÉS (maneja caso vacío)
-const { data, error } = await supabase
-  .from('organizations')
-  .select('*')
-  .maybeSingle(); // No lanza error si no hay resultados
-
-if (error) throw error;
-return data as Organization | null;
+// ===== EQUIPO Y COLABORACION =====
+{
+  type: "function",
+  function: {
+    name: "get_team_summary",
+    description: "Obtiene un resumen del equipo: miembros, roles, cuotas y progreso de ventas.",
+    parameters: { type: "object", properties: {} },
+  },
+},
+{
+  type: "function",
+  function: {
+    name: "get_member_info",
+    description: "Obtiene informacion detallada de un miembro del equipo.",
+    parameters: {
+      type: "object",
+      properties: {
+        member_identifier: { type: "string", description: "Email o nombre del miembro" },
+      },
+      required: ["member_identifier"],
+    },
+  },
+},
+// ... (8 tools adicionales)
 ```
 
-También agregar un estado visual en Team.tsx para cuando no hay organización:
-- Mostrar mensaje: "No tienes una organización configurada"
-- Botón: "Crear Mi Organización" (llama a una función que crea org + team_member)
+#### 2. Actualizar fetchCRMContext para incluir datos de equipo
+
+Agregar consultas para:
+- Organizacion actual
+- Miembros del equipo con roles y cuotas
+- Actividad reciente (ultimas 5-10 entradas)
+- Rol del usuario actual y permisos
+
+#### 3. Actualizar buildSystemPrompt
+
+Incluir seccion de equipo con:
+- Nombre de la organizacion y plan
+- Rol del usuario actual
+- Lista de miembros con roles
+- Actividad reciente
+- Permisos basados en rol
+
+#### 4. Implementar funciones ejecutoras
+
+```typescript
+async function getTeamSummary(supabase: any, userId: string) { ... }
+async function getMemberInfo(supabase: any, userId: string, args: any) { ... }
+async function assignEntity(supabase: any, userId: string, args: any) { ... }
+async function addTeamComment(supabase: any, userId: string, args: any) { ... }
+async function getActivityFeed(supabase: any, userId: string, args: any) { ... }
+// ... etc
+```
+
+#### 5. Agregar casos en executeTool switch
+
+```typescript
+case "get_team_summary":
+  return await getTeamSummary(supabase, userId);
+case "assign_contact":
+  return await assignEntity(supabase, userId, 'contacts', args);
+// ... etc
+```
+
+---
+
+## Orden de Implementacion
+
+1. Agregar definiciones de las 11 nuevas tools al array `tools`
+2. Actualizar `fetchCRMContext` para incluir datos de equipo
+3. Actualizar `buildSystemPrompt` con seccion de equipo
+4. Implementar funciones ejecutoras:
+   - `getTeamSummary()`
+   - `getMemberInfo()`
+   - `getQuotasProgress()`
+   - `assignEntity()` (reusable para contacts, companies, opportunities)
+   - `getMyAssignments()`
+   - `addTeamComment()`
+   - `getEntityComments()`
+   - `getActivityFeed()`
+   - `notifyTeamMember()`
+5. Agregar casos al switch de `executeTool`
+6. Probar con ejemplos de conversacion
+
+---
+
+## Consideraciones de Seguridad
+
+- **Permisos RLS**: Las consultas ya respetan RLS basado en organization_id
+- **Validacion de rol**: Antes de asignar/transferir, verificar que el usuario tiene permiso
+- **Viewers**: No pueden ejecutar acciones de escritura (la IA debe informar esto)
+- **Cross-org**: Imposible acceder a datos de otras organizaciones gracias a RLS
 
 ---
 
 ## Resultado Esperado
 
-1. Usuarios existentes tendrán su organización creada automáticamente
-2. La página /team cargará correctamente mostrando al usuario como Admin
-3. Si por alguna razón no hay organización, se mostrará un mensaje útil en lugar de quedar en loading infinito
+Tras la implementacion, el asistente IA podra:
 
----
+1. Responder preguntas sobre el equipo y organizacion
+2. Asignar y transferir contactos, empresas y oportunidades entre miembros
+3. Agregar comentarios colaborativos con @menciones
+4. Mostrar el activity feed y quien hizo que cambios
+5. Informar sobre cuotas y progreso de ventas del equipo
+6. Respetar permisos basados en el rol del usuario
 
-## Secuencia de Implementación
-
-1. Ejecutar migración SQL para crear datos faltantes
-2. Modificar `useTeam.ts` para usar `.maybeSingle()` 
-3. Agregar estado de "sin organización" en `Team.tsx` (opcional pero recomendado)
-
+Esto transforma el CRM en un verdadero sistema AI-Native donde la colaboracion en equipo es gestionable completamente por lenguaje natural.
