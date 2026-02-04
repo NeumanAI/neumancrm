@@ -1,45 +1,46 @@
 
-
-# Plan: Fase 1 - Potenciar la IA del CRM
+# Plan: Sistema de Colaboracion en Equipo Multi-Tenant
 
 ## Vision General
 
-Esta fase transforma el CRM en un sistema verdaderamente "AI-native" donde la inteligencia artificial no es solo un chat, sino el motor que automatiza la captura de datos, genera insights proactivos y guía las acciones del usuario.
+Implementar un sistema completo de colaboracion multi-usuario con organizaciones, roles, permisos, activity feed y comentarios con @menciones. Este sistema transforma el CRM de single-user a multi-tenant.
 
 ---
 
-## Arquitectura de la Fase 1
+## Arquitectura del Sistema
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           FASE 1: IA POTENCIADA                              │
+│                         SISTEMA MULTI-TENANT                                 │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                    1.1 GMAIL SYNC COMPLETO                           │   │
-│  │  ┌──────────┐      ┌──────────────┐      ┌─────────────────────┐   │   │
-│  │  │ Gmail    │ ---> │ process-     │ ---> │ Timeline +          │   │   │
-│  │  │ API      │      │ emails       │      │ Contactos + Tasks   │   │   │
-│  │  └──────────┘      │ (IA Gemini)  │      └─────────────────────┘   │   │
-│  │                    └──────────────┘                                 │   │
+│  │                       ORGANIZACIONES                                 │   │
+│  │  - Cada usuario pertenece a una organizacion                        │   │
+│  │  - Planes: starter (3 users), professional, enterprise              │   │
+│  │  - Configuracion: timezone, currency, branding                      │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                    1.2 DAILY AI SUMMARY                              │   │
-│  │  ┌──────────┐      ┌──────────────┐      ┌─────────────────────┐   │   │
-│  │  │ Login    │ ---> │ generate-    │ ---> │ Modal de Resumen    │   │   │
-│  │  │ User     │      │ daily-brief  │      │ del Dia             │   │   │
-│  │  └──────────┘      │ (IA Gemini)  │      └─────────────────────┘   │   │
-│  │                    └──────────────┘                                 │   │
+│  │                         ROLES                                        │   │
+│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐            │   │
+│  │  │  Admin   │  │ Manager  │  │ Sales Rep│  │  Viewer  │            │   │
+│  │  │ (todo)   │  │ (equipo) │  │ (propio) │  │ (lectura)│            │   │
+│  │  └──────────┘  └──────────┘  └──────────┘  └──────────┘            │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                    1.3 AI INSIGHTS DASHBOARD                         │   │
-│  │  ┌──────────┐      ┌──────────────┐      ┌─────────────────────┐   │   │
-│  │  │ CRM      │ ---> │ generate-    │ ---> │ Cards en Dashboard  │   │   │
-│  │  │ Data     │      │ insights     │      │ con Recomendaciones │   │   │
-│  │  └──────────┘      │ (IA Gemini)  │      └─────────────────────┘   │   │
-│  │                    └──────────────┘                                 │   │
+│  │                     FUNCIONALIDADES                                  │   │
+│  │                                                                      │   │
+│  │  Pagina /team          Activity Feed         Comentarios             │   │
+│  │  - Lista miembros      - Cambios en CRM      - En cualquier          │   │
+│  │  - Invitar usuarios    - Quien hizo que      - entidad               │   │
+│  │  - Cuotas de ventas    - Filtros por tipo    - @menciones            │   │
+│  │                                                                      │   │
+│  │  Asignacion            Transfer Ownership                            │   │
+│  │  - Contacts            - Transferir propiedad                        │   │
+│  │  - Companies           - entre miembros del equipo                   │   │
+│  │  - Opportunities                                                     │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -47,263 +48,210 @@ Esta fase transforma el CRM en un sistema verdaderamente "AI-native" donde la in
 
 ---
 
-## 1.1 Gmail Sync Completo
+## PASO PREVIO OBLIGATORIO: Ejecutar SQL Manualmente
 
-### Estado Actual
+IMPORTANTE: Antes de implementar el codigo, el usuario debe ejecutar manualmente el SQL en Cloud View > Run SQL.
 
-El proyecto ya tiene:
-- OAuth de Gmail implementado (`gmail-auth` y `gmail-callback`)
-- Tabla `integrations` para almacenar tokens
-- UI en Settings para conectar Gmail
-
-Falta:
-- Edge function `process-emails` que lee y procesa emails
-- Almacenamiento de tokens en `integrations` (el callback actual no guarda tokens)
-- Cron job para sincronizacion automatica
-
-### Tareas de Implementacion
-
-#### 1.1.1 Arreglar Gmail Callback
-
-Modificar `gmail-callback/index.ts` para:
-- Recibir el `user_id` via parametro `state` en OAuth
-- Guardar `access_token` y `refresh_token` en tabla `integrations`
-- Guardar email del usuario en metadata
-
-#### 1.1.2 Crear Edge Function `process-emails`
-
-Nueva funcion que:
-1. Obtiene tokens de Gmail desde `integrations`
-2. Llama a Gmail API para obtener emails recientes (desde last_synced_at)
-3. Por cada email:
-   - Extrae remitente, destinatarios, asunto, cuerpo
-   - Usa Gemini para analizar y extraer:
-     - Contactos mencionados (nombre, cargo, empresa)
-     - Action items / compromisos
-     - Si detecta oportunidad comercial
-     - Resumen de la conversacion
-4. Crea/actualiza contactos y empresas
-5. Crea entrada en `timeline_entries` con tipo "email"
-6. Actualiza `last_synced_at` en `integrations`
-
-Estructura del prompt de IA:
-
-```text
-Analiza este email y extrae informacion en JSON:
-{
-  "contacts": [{ name, email, job_title, company }],
-  "action_items": [{ task, due_date, assignee }],
-  "opportunity": { detected: boolean, title, estimated_value },
-  "summary": "resumen en 1-2 oraciones",
-  "sentiment": "positive" | "neutral" | "negative"
-}
-```
-
-#### 1.1.3 Modificar UI de Integraciones
-
-En `IntegrationsTab.tsx`:
-- Pasar `user_id` via state parameter al OAuth flow
-- Mostrar progreso de sincronizacion
-- Mostrar ultimo email sincronizado
-
-#### 1.1.4 Configurar Cron Job
-
-Crear job SQL para ejecutar `process-emails` cada 5 minutos:
-- Usa `pg_cron` y `pg_net`
-- Llama a la edge function con service role
+El SQL incluye:
+1. Crear tabla `organizations` con RLS
+2. Crear tabla `team_members` con roles (admin, manager, sales_rep, viewer)
+3. Crear tabla `activity_feed` para tracking automatico
+4. Crear tabla `comments` con soporte para @menciones
+5. Agregar columnas `organization_id`, `assigned_to`, `created_by` a contacts, companies, opportunities, activities
+6. Actualizar politicas RLS para acceso basado en organizacion
+7. Crear triggers para auto-generar activity feed
+8. Crear funciones helper: `get_user_organization_id()`, `user_has_role()`, `transfer_ownership()`
 
 ---
 
-## 1.2 Resumen Diario con IA
+## Implementacion de Codigo
 
-### Descripcion
-
-Al hacer login, el usuario ve un modal con un resumen inteligente del dia:
-- Tareas vencidas y proximas
-- Deals en riesgo (sin actividad reciente)
-- Nuevas interacciones detectadas
-- Sugerencias de "next best action"
-
-### Tareas de Implementacion
-
-#### 1.2.1 Crear Edge Function `generate-daily-brief`
-
-Funcion que:
-1. Recibe user_id del usuario autenticado
-2. Consulta datos del CRM:
-   - Tareas vencidas (due_date < hoy y no completadas)
-   - Tareas de hoy
-   - Oportunidades sin actividad en 7+ dias
-   - Emails/interacciones nuevos en ultimas 24h
-3. Usa Gemini para generar resumen personalizado:
-   - Prioridades del dia
-   - Alertas importantes
-   - Sugerencias de accion
-4. Retorna JSON estructurado
-
-#### 1.2.2 Crear Componente `DailyBriefModal`
-
-Modal que:
-- Se muestra al hacer login (primera visita del dia)
-- Guarda en localStorage la fecha del ultimo brief visto
-- Muestra el resumen con secciones:
-  - Prioridades (tareas urgentes)
-  - Alertas (deals en riesgo)
-  - Sugerencias de IA
-- Acciones rapidas: "Ir a Tareas", "Ir a Pipeline"
-
-#### 1.2.3 Integrar en Layout
-
-En `AppLayout.tsx`:
-- Verificar si es primera visita del dia
-- Si es primera visita, llamar a `generate-daily-brief`
-- Mostrar `DailyBriefModal` con la respuesta
-
----
-
-## 1.3 AI Insights en Dashboard
-
-### Descripcion
-
-Nueva seccion en Dashboard que muestra:
-- Deals en riesgo (sin actividad reciente)
-- Contactos que necesitan follow-up
-- Patrones detectados en el pipeline
-- Recomendaciones proactivas de la IA
-
-### Tareas de Implementacion
-
-#### 1.3.1 Crear Edge Function `generate-insights`
-
-Funcion que:
-1. Recibe user_id del usuario autenticado
-2. Analiza datos del CRM:
-   - Oportunidades por etapa y tiempo en cada una
-   - Actividad reciente por contacto
-   - Tasa de conversion por etapa
-   - Patrones de deals ganados vs perdidos
-3. Usa Gemini para generar insights:
-   - Top 3 deals en riesgo
-   - Top 3 contactos para hacer follow-up
-   - Predicciones de cierre
-   - Recomendaciones de accion
-4. Retorna JSON estructurado
-
-#### 1.3.2 Crear Hook `useAIInsights`
-
-Hook que:
-- Llama a `generate-insights` 
-- Cachea resultado por 1 hora (staleTime)
-- Expone loading, error, data
-
-#### 1.3.3 Crear Componente `AIInsightsCard`
-
-Card para Dashboard que muestra:
-- Icono de sparkles/IA
-- Seccion "Deals en Riesgo" con lista clickable
-- Seccion "Necesitan Follow-up" con avatares de contactos
-- Seccion "Sugerencias de IA" con bullets
-- Link "Ver mas detalles" 
-
-#### 1.3.4 Integrar en Dashboard
-
-Modificar `Dashboard.tsx`:
-- Agregar `AIInsightsCard` como nueva seccion
-- Posicionar prominentemente (arriba de los graficos)
-
----
-
-## Archivos a Crear
+### Parte 1: Hooks (3 archivos nuevos)
 
 | Archivo | Proposito |
 |---------|-----------|
-| `supabase/functions/process-emails/index.ts` | Sincroniza emails de Gmail |
-| `supabase/functions/generate-daily-brief/index.ts` | Genera resumen diario |
-| `supabase/functions/generate-insights/index.ts` | Genera insights de IA |
-| `src/components/dashboard/AIInsightsCard.tsx` | Card de insights en Dashboard |
-| `src/components/layout/DailyBriefModal.tsx` | Modal de resumen diario |
-| `src/hooks/useAIInsights.ts` | Hook para obtener insights |
-| `src/hooks/useDailyBrief.ts` | Hook para resumen diario |
+| `src/hooks/useTeam.ts` | Gestion de team_members, organizacion, roles, cuotas |
+| `src/hooks/useActivityFeed.ts` | Lectura del activity feed con filtros y realtime |
+| `src/hooks/useComments.ts` | CRUD de comentarios con deteccion de @menciones |
+
+#### Hook useTeam
+- `teamMembers`: Lista de miembros del equipo
+- `organization`: Datos de la organizacion
+- `currentMember`: Miembro actual con su rol
+- `inviteMember(email, role)`: Invitar nuevo miembro
+- `updateMemberRole(memberId, role)`: Cambiar rol
+- `updateQuota(memberId, monthly, quarterly)`: Establecer cuotas
+- `removeMember(memberId)`: Eliminar miembro
+- `isAdmin`, `isManager`, `canManageTeam`: Flags de permisos
+
+#### Hook useActivityFeed
+- `activities`: Lista de actividades recientes
+- Filtros opcionales: entityType, entityId, limit
+- Suscripcion realtime a nuevas actividades
+
+#### Hook useComments
+- `comments`: Lista de comentarios de una entidad
+- `addComment(content, mentions)`: Crear comentario
+- `updateComment(id, content)`: Editar comentario
+- `deleteComment(id)`: Eliminar comentario
+- `pinComment(id)`: Fijar comentario
+- Deteccion automatica de @menciones
 
 ---
 
-## Archivos a Modificar
+### Parte 2: Pagina de Team (1 archivo nuevo)
+
+| Archivo | Proposito |
+|---------|-----------|
+| `src/pages/Team.tsx` | Gestion completa del equipo |
+
+Funcionalidades:
+- Header con nombre de organizacion y plan
+- Contador de usuarios (X / max_users)
+- Tabla de miembros con: avatar, nombre, rol, estado, cuota, progreso
+- Barras de progreso visuales para cuotas
+- Acciones: cambiar rol, establecer cuota, eliminar
+- Boton "Invitar Miembro" (solo admins)
+- Iconos de roles: Crown (admin), Shield (manager), User (sales_rep), Eye (viewer)
+
+---
+
+### Parte 3: Componentes de Team (5 archivos nuevos)
+
+| Archivo | Proposito |
+|---------|-----------|
+| `src/components/team/InviteMemberDialog.tsx` | Modal para invitar miembros por email |
+| `src/components/team/SetQuotaDialog.tsx` | Modal para establecer cuotas mensuales/trimestrales |
+| `src/components/team/ActivityFeedList.tsx` | Lista de actividad reciente con iconos por accion |
+| `src/components/team/CommentsSection.tsx` | Seccion de comentarios con @menciones |
+| `src/components/team/AssignToSelect.tsx` | Selector de asignacion con avatares |
+
+#### InviteMemberDialog
+- Input de email
+- Select de rol (sales_rep, manager, viewer)
+- Validacion de limite de usuarios
+- Toast de confirmacion
+
+#### SetQuotaDialog
+- Inputs para cuota mensual y trimestral en USD
+- Muestra nombre del miembro seleccionado
+- Validacion de permisos (solo admin/manager)
+
+#### ActivityFeedList
+- Iconos por tipo de accion: Plus (created), Edit (updated), Trash (deleted), UserPlus (assigned), ArrowRightLeft (transferred)
+- Texto descriptivo: "creo contacto X", "actualizo empresa Y"
+- Timestamp relativo con date-fns
+- Filtrado opcional por entidad
+
+#### CommentsSection
+- Formulario con textarea
+- Tip de uso de @menciones
+- Lista de comentarios con avatar, autor, timestamp
+- Badge de "editado" si fue modificado
+- Pin icon para comentarios fijados
+- Botones de pin y delete
+
+#### AssignToSelect
+- Dropdown con miembros del equipo
+- Avatar + nombre de cada miembro
+- Usado en formularios de crear/editar contactos, empresas, oportunidades
+
+---
+
+### Parte 4: Modificaciones a Archivos Existentes
 
 | Archivo | Cambio |
 |---------|--------|
-| `supabase/functions/gmail-callback/index.ts` | Guardar tokens en DB |
-| `supabase/functions/gmail-auth/index.ts` | Pasar user_id via state |
-| `src/components/settings/IntegrationsTab.tsx` | Enviar user_id en OAuth |
-| `src/components/layout/AppLayout.tsx` | Mostrar DailyBriefModal |
-| `src/pages/Dashboard.tsx` | Agregar AIInsightsCard |
-| `supabase/config.toml` | Agregar nuevas funciones |
+| `src/App.tsx` | Agregar ruta `/team` con Team component |
+| `src/components/layout/Sidebar.tsx` | Agregar link "Equipo" con icono UsersRound |
+| `src/pages/ContactDetail.tsx` | Agregar tabs "Activity" y "Comments" |
+| `src/pages/CompanyDetail.tsx` | Agregar tabs "Activity" y "Comments" |
+| `src/pages/Pipeline.tsx` | Mostrar assigned_to en cards de oportunidades |
 
----
-
-## Modelo de Datos
-
-### Timeline Entry para Email
-
-Cuando se procesa un email, se crea entrada con:
-
+#### Modificacion de App.tsx
 ```typescript
-{
-  entry_type: 'email',
-  source: 'gmail',
-  subject: 'Asunto del email',
-  body: 'Cuerpo del email (truncado)',
-  summary: 'Resumen generado por IA',
-  participants: [
-    { name: 'Juan', email: 'juan@empresa.com', role: 'from' },
-    { name: 'Maria', email: 'maria@ejemplo.com', role: 'to' }
-  ],
-  action_items: [
-    { task: 'Enviar propuesta', due_date: '2026-02-10', status: 'pending' }
-  ],
-  metadata: {
-    gmail_message_id: 'abc123',
-    sentiment: 'positive'
-  }
-}
+import Team from "./pages/Team";
+// En Routes:
+<Route path="/team" element={<AppLayout><Team /></AppLayout>} />
 ```
 
+#### Modificacion de Sidebar.tsx
+- Agregar { to: '/team', icon: UsersRound, label: 'Equipo' } al array navItems
+- Posicionar despues de "Datos" y antes de "Configuracion"
+
+#### Modificacion de ContactDetail.tsx
+- Agregar tabs "Activity" y "Comments"
+- Usar ActivityFeedList con entityType="contacts" y entityId={contactId}
+- Usar CommentsSection con entityType="contacts" y entityId={contactId}
+
+#### Modificacion de CompanyDetail.tsx
+- Misma logica que ContactDetail pero con entityType="companies"
+
+#### Modificacion de Pipeline.tsx
+- Importar useTeam
+- En OpportunityCard, mostrar assigned_to si existe
+- Mostrar avatar y nombre del miembro asignado
+
 ---
 
-## Seguridad
+## Permisos por Rol
 
-- Todas las edge functions validan JWT del usuario
-- Tokens de Gmail se almacenan encriptados (Supabase maneja esto)
-- Las funciones solo acceden a datos del usuario autenticado
-- Refresh tokens se usan para renovar access tokens expirados
+| Accion | Admin | Manager | Sales Rep | Viewer |
+|--------|-------|---------|-----------|--------|
+| Ver todos los datos de la org | Si | Si | Si | Si |
+| Crear entidades | Si | Si | Si | No |
+| Editar propias | Si | Si | Si | No |
+| Editar del equipo | Si | Si | No | No |
+| Eliminar entidades | Si | Si | No | No |
+| Invitar miembros | Si | No | No | No |
+| Cambiar roles | Si | No | No | No |
+| Establecer cuotas | Si | Si | No | No |
+| Ver activity feed | Si | Si | Si | Si |
+| Agregar comentarios | Si | Si | Si | Si |
+
+---
+
+## Estructura de Archivos Final
+
+```
+src/
+├── hooks/
+│   ├── useTeam.ts (NUEVO)
+│   ├── useActivityFeed.ts (NUEVO)
+│   └── useComments.ts (NUEVO)
+├── pages/
+│   └── Team.tsx (NUEVO)
+├── components/
+│   └── team/
+│       ├── InviteMemberDialog.tsx (NUEVO)
+│       ├── SetQuotaDialog.tsx (NUEVO)
+│       ├── ActivityFeedList.tsx (NUEVO)
+│       ├── CommentsSection.tsx (NUEVO)
+│       └── AssignToSelect.tsx (NUEVO)
+```
 
 ---
 
 ## Orden de Implementacion
 
-1. **Gmail Sync** (mayor impacto)
-   - 1.1.1 Arreglar gmail-callback
-   - 1.1.2 Crear process-emails
-   - 1.1.3 Actualizar IntegrationsTab
-   - 1.1.4 Configurar cron (opcional, puede ser manual inicialmente)
-
-2. **AI Insights** (visible inmediatamente)
-   - 1.3.1 Crear generate-insights
-   - 1.3.2 Crear useAIInsights
-   - 1.3.3 Crear AIInsightsCard
-   - 1.3.4 Integrar en Dashboard
-
-3. **Daily Brief** (mejora experiencia)
-   - 1.2.1 Crear generate-daily-brief
-   - 1.2.2 Crear DailyBriefModal
-   - 1.2.3 Integrar en AppLayout
+1. Proporcionar SQL completo para ejecutar manualmente
+2. Crear hooks: useTeam, useActivityFeed, useComments
+3. Crear componentes de team: dialogs, lists, selects
+4. Crear pagina Team.tsx
+5. Modificar App.tsx (agregar ruta)
+6. Modificar Sidebar.tsx (agregar link)
+7. Modificar ContactDetail.tsx (agregar tabs)
+8. Modificar CompanyDetail.tsx (agregar tabs)
+9. Modificar Pipeline.tsx (mostrar assigned_to)
 
 ---
 
 ## Consideraciones Tecnicas
 
-- **Rate Limits de Gmail**: Maximo 250 emails por sync para evitar timeouts
-- **Tamano de Emails**: Truncar body a 5000 caracteres antes de enviar a IA
-- **Cache de Insights**: staleTime de 1 hora para no sobrecargar la IA
-- **Daily Brief**: Guardar ultima fecha vista en localStorage
-- **Tokens Expirados**: Implementar refresh automatico de tokens de Gmail
+- **RLS Seguro**: Todas las politicas basadas en organization_id via team_members
+- **Security Definer Functions**: Para evitar recursion infinita en RLS
+- **Triggers Automaticos**: Activity feed se genera automaticamente en INSERT/UPDATE/DELETE
+- **Realtime**: Hooks suscritos a cambios via Supabase Realtime
+- **Permisos Client-Side**: Solo para UX, la seguridad real esta en RLS
+- **No Romper Existente**: Solo agregar funcionalidad, no modificar logica existente
 
