@@ -15,6 +15,7 @@ import Pipeline from "./pages/Pipeline";
 import Tasks from "./pages/Tasks";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import DataManagement from "./pages/DataManagement";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/pipeline" element={<AppLayout><Pipeline /></AppLayout>} />
             <Route path="/tasks" element={<AppLayout><Tasks /></AppLayout>} />
             <Route path="/settings" element={<AppLayout><Settings /></AppLayout>} />
+            <Route path="/data-management" element={<AppLayout><DataManagement /></AppLayout>} />
             
             {/* Redirect root to dashboard */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
