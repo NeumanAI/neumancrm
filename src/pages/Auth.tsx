@@ -153,9 +153,34 @@ export default function Auth() {
                     variant="outline"
                     className="w-full"
                     disabled={isLoading}
-                    onClick={() => {
-                      setEmail('dev@neumancrm.com');
-                      setPassword('dev123456');
+                    onClick={async () => {
+                      const devEmail = 'dev@neumancrm.com';
+                      const devPassword = 'dev123456';
+                      setEmail(devEmail);
+                      setPassword(devPassword);
+                      setIsLoading(true);
+                      try {
+                        // Intentar iniciar sesión
+                        const { error: signInError } = await signIn(devEmail, devPassword);
+                        if (signInError) {
+                          // Si no existe, crear la cuenta
+                          const { error: signUpError } = await signUp(devEmail, devPassword);
+                          if (signUpError && !signUpError.message.includes('User already registered')) {
+                            toast.error('Error creando cuenta de desarrollo: ' + signUpError.message);
+                            return;
+                          }
+                          // Intentar iniciar sesión de nuevo
+                          const { error: retryError } = await signIn(devEmail, devPassword);
+                          if (retryError) {
+                            toast.error('Error al iniciar sesión con cuenta de desarrollo');
+                            return;
+                          }
+                        }
+                        toast.success('¡Bienvenido al modo desarrollo!');
+                        navigate('/dashboard');
+                      } finally {
+                        setIsLoading(false);
+                      }
                     }}
                   >
                     🔧 Usar cuenta de desarrollo
