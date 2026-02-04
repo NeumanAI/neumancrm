@@ -268,7 +268,200 @@ const tools = [
       },
     },
   },
+  // ===== EQUIPO Y COLABORACION =====
+  {
+    type: "function",
+    function: {
+      name: "get_team_summary",
+      description: "Obtiene un resumen del equipo: organización, miembros, roles, cuotas y progreso de ventas. Usa esta función cuando el usuario pregunte sobre el equipo, la organización o quién está en el equipo.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_member_info",
+      description: "Obtiene información detallada de un miembro del equipo por nombre o email.",
+      parameters: {
+        type: "object",
+        properties: {
+          member_identifier: { type: "string", description: "Email o nombre del miembro del equipo" },
+        },
+        required: ["member_identifier"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_quotas_progress",
+      description: "Muestra el progreso de cuotas de ventas del equipo o de un miembro específico.",
+      parameters: {
+        type: "object",
+        properties: {
+          member_email: { type: "string", description: "Email del miembro (opcional, si no se proporciona muestra todo el equipo)" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "assign_contact",
+      description: "Asigna un contacto a un miembro del equipo.",
+      parameters: {
+        type: "object",
+        properties: {
+          contact_email: { type: "string", description: "Email del contacto a asignar" },
+          assigned_to_email: { type: "string", description: "Email del miembro del equipo al que se asigna" },
+        },
+        required: ["contact_email", "assigned_to_email"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "assign_company",
+      description: "Asigna una empresa a un miembro del equipo.",
+      parameters: {
+        type: "object",
+        properties: {
+          company_name: { type: "string", description: "Nombre de la empresa a asignar" },
+          assigned_to_email: { type: "string", description: "Email del miembro del equipo al que se asigna" },
+        },
+        required: ["company_name", "assigned_to_email"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "assign_opportunity",
+      description: "Asigna una oportunidad a un miembro del equipo.",
+      parameters: {
+        type: "object",
+        properties: {
+          opportunity_title: { type: "string", description: "Título de la oportunidad a asignar" },
+          assigned_to_email: { type: "string", description: "Email del miembro del equipo al que se asigna" },
+        },
+        required: ["opportunity_title", "assigned_to_email"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_my_assignments",
+      description: "Lista entidades (contactos, empresas, oportunidades) asignadas al usuario actual o a un miembro específico.",
+      parameters: {
+        type: "object",
+        properties: {
+          member_email: { type: "string", description: "Email del miembro (opcional, por defecto el usuario actual)" },
+          entity_type: { type: "string", enum: ["contacts", "companies", "opportunities", "all"], description: "Tipo de entidad a listar (default: all)" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_team_comment",
+      description: "Agrega un comentario colaborativo a una entidad (contacto, empresa u oportunidad). Soporta @menciones a miembros del equipo.",
+      parameters: {
+        type: "object",
+        properties: {
+          entity_type: { type: "string", enum: ["contacts", "companies", "opportunities"], description: "Tipo de entidad" },
+          entity_identifier: { type: "string", description: "Email del contacto, nombre de empresa o título de oportunidad" },
+          content: { type: "string", description: "Contenido del comentario. Usa @nombre para mencionar" },
+        },
+        required: ["entity_type", "entity_identifier", "content"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_entity_comments",
+      description: "Obtiene los comentarios de una entidad (contacto, empresa u oportunidad).",
+      parameters: {
+        type: "object",
+        properties: {
+          entity_type: { type: "string", enum: ["contacts", "companies", "opportunities"], description: "Tipo de entidad" },
+          entity_identifier: { type: "string", description: "Email del contacto, nombre de empresa o título de oportunidad" },
+          limit: { type: "number", description: "Número máximo de comentarios (default: 10)" },
+        },
+        required: ["entity_type", "entity_identifier"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_activity_feed",
+      description: "Obtiene la actividad reciente del equipo (quién creó, editó, asignó o comentó qué).",
+      parameters: {
+        type: "object",
+        properties: {
+          entity_type: { type: "string", enum: ["contacts", "companies", "opportunities", "activities"], description: "Filtrar por tipo de entidad (opcional)" },
+          entity_id: { type: "string", description: "Filtrar por ID de entidad específica (opcional)" },
+          limit: { type: "number", description: "Número máximo de actividades (default: 20)" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "notify_team_member",
+      description: "Notifica a un miembro del equipo mencionándolo en un comentario sobre una entidad.",
+      parameters: {
+        type: "object",
+        properties: {
+          member_email: { type: "string", description: "Email del miembro a notificar" },
+          entity_type: { type: "string", enum: ["contacts", "companies", "opportunities"], description: "Tipo de entidad" },
+          entity_identifier: { type: "string", description: "Email del contacto, nombre de empresa o título de oportunidad" },
+          message: { type: "string", description: "Mensaje de notificación" },
+        },
+        required: ["member_email", "entity_type", "entity_identifier", "message"],
+      },
+    },
+  },
 ];
+
+// Types for team context
+interface TeamMember {
+  id: string;
+  user_id: string;
+  email: string;
+  full_name: string | null;
+  role: string;
+  quota_monthly: number | null;
+  quota_quarterly: number | null;
+  deals_closed_value: number | null;
+  is_active: boolean;
+  avatar_url: string | null;
+}
+
+interface Organization {
+  id: string;
+  name: string;
+  plan: string;
+  max_users: number;
+}
+
+interface TeamContext {
+  organization: Organization | null;
+  currentMember: TeamMember | null;
+  teamMembers: TeamMember[];
+  recentActivity: Array<{
+    user_name: string;
+    action: string;
+    entity_type: string;
+    entity_name: string;
+    created_at: string;
+  }>;
+}
 
 const buildSystemPrompt = (crmContext: {
   contactsCount: number;
@@ -280,8 +473,60 @@ const buildSystemPrompt = (crmContext: {
   recentContacts: Array<{ name: string; email: string; company?: string }>;
   recentOpportunities: Array<{ title: string; value: number; stage?: string }>;
   upcomingTasks: Array<{ title: string; dueDate?: string; priority?: string }>;
+  teamContext: TeamContext;
 }) => {
-  return `Eres un asistente de CRM inteligente y amigable. Tu objetivo es ayudar a los usuarios a gestionar sus contactos, empresas, oportunidades de venta y tareas de manera eficiente.
+  const roleLabels: Record<string, string> = {
+    admin: 'Administrador',
+    manager: 'Manager',
+    sales_rep: 'Representante de Ventas',
+    viewer: 'Visor',
+  };
+
+  const rolePermissions: Record<string, { can: string[]; cannot: string[] }> = {
+    admin: { can: ['crear', 'editar', 'eliminar', 'asignar', 'comentar', 'gestionar equipo'], cannot: [] },
+    manager: { can: ['crear', 'editar', 'asignar', 'comentar'], cannot: ['eliminar usuarios', 'cambiar configuración'] },
+    sales_rep: { can: ['crear', 'editar', 'comentar'], cannot: ['asignar a otros', 'eliminar'] },
+    viewer: { can: ['ver datos'], cannot: ['crear', 'editar', 'eliminar', 'asignar', 'comentar'] },
+  };
+
+  const { teamContext } = crmContext;
+  const currentRole = teamContext.currentMember?.role || 'viewer';
+  const permissions = rolePermissions[currentRole] || rolePermissions.viewer;
+
+  let teamSection = '';
+  if (teamContext.organization) {
+    teamSection = `
+## 👥 Datos del Equipo:
+
+**Organización:** ${teamContext.organization.name} (Plan: ${teamContext.organization.plan})
+**Tu rol:** ${roleLabels[currentRole] || currentRole}
+**Equipo:** ${teamContext.teamMembers.filter(m => m.is_active).length} miembros activos
+
+**Miembros del equipo:**
+${teamContext.teamMembers.length > 0 
+  ? teamContext.teamMembers.map(m => {
+      const quotaProgress = m.quota_monthly && m.deals_closed_value 
+        ? ` - Cuota: $${(m.deals_closed_value || 0).toLocaleString()}/$${(m.quota_monthly || 0).toLocaleString()}`
+        : '';
+      return `- ${m.full_name || m.email} (${roleLabels[m.role] || m.role}) - ${m.email}${quotaProgress}`;
+    }).join('\n')
+  : '- No hay miembros registrados'}
+
+**Actividad reciente del equipo:**
+${teamContext.recentActivity.length > 0
+  ? teamContext.recentActivity.slice(0, 5).map(a => {
+      const timeAgo = getTimeAgo(new Date(a.created_at));
+      return `- ${a.user_name || 'Usuario'} ${a.action} ${a.entity_type} "${a.entity_name || 'N/A'}" ${timeAgo}`;
+    }).join('\n')
+  : '- No hay actividad reciente'}
+
+**Tus permisos:**
+- Puedes: ${permissions.can.join(', ')}
+${permissions.cannot.length > 0 ? `- No puedes: ${permissions.cannot.join(', ')}` : ''}
+`;
+  }
+
+  return `Eres un asistente de CRM inteligente y amigable. Tu objetivo es ayudar a los usuarios a gestionar sus contactos, empresas, oportunidades de venta, tareas y colaboración en equipo de manera eficiente.
 
 ## Datos del CRM del usuario (EN TIEMPO REAL):
 
@@ -306,7 +551,7 @@ ${crmContext.recentOpportunities.length > 0
 ${crmContext.upcomingTasks.length > 0
   ? crmContext.upcomingTasks.map(t => `- ${t.title}${t.dueDate ? ` (vence: ${t.dueDate})` : ''}${t.priority ? ` [${t.priority}]` : ''}`).join('\n')
   : '- No hay tareas pendientes'}
-
+${teamSection}
 ## Tus capacidades:
 - **Consultar datos**: Puedes informar sobre contactos, empresas, oportunidades y tareas del usuario
 - **Crear registros**: Puedes crear contactos, empresas, tareas y oportunidades usando las funciones disponibles
@@ -319,23 +564,45 @@ ${crmContext.upcomingTasks.length > 0
 - **Notas**: Puedes agregar notas a contactos y empresas
 - **Recomendaciones**: Puedes sugerir la siguiente mejor acción para contactos, empresas o deals
 - **Análisis**: Proporcionar insights sobre la actividad comercial basándote en los datos reales
+- **Equipo**: Puedes consultar información del equipo, asignar entidades a miembros, y gestionar comentarios colaborativos
+- **Colaboración**: Puedes agregar comentarios, mencionar miembros del equipo, y ver el activity feed
 
 ## IMPORTANTE - Funciones disponibles:
+### Contactos y Empresas:
 - **create_contact**: Crear un nuevo contacto (requiere email)
 - **update_contact**: Actualizar información de un contacto existente
 - **search_contacts**: Buscar contactos con filtros avanzados (nombre, empresa, WhatsApp)
 - **create_company**: Crear una nueva empresa (requiere nombre)
 - **search_companies**: Buscar empresas por nombre o dominio
+
+### Tareas y Reuniones:
 - **create_task**: Crear una tarea o actividad
 - **schedule_meeting**: Programar una reunión o llamada
+
+### Pipeline y Oportunidades:
 - **create_opportunity**: Crear una oportunidad de venta en el pipeline
 - **update_opportunity_stage**: Mover una oportunidad a otra etapa
 - **get_pipeline_summary**: Obtener resumen del pipeline con valores por etapa y deals en riesgo
 - **analyze_deal_health**: Analizar la salud de una oportunidad específica
+
+### Timeline y Análisis:
 - **search_timeline**: Buscar en el historial de interacciones
 - **find_promises**: Buscar compromisos y action items pendientes
 - **get_next_best_action**: Obtener sugerencia de la siguiente mejor acción
 - **add_note**: Agregar una nota a un contacto o empresa
+
+### Equipo y Colaboración:
+- **get_team_summary**: Obtener resumen del equipo con miembros, roles y cuotas
+- **get_member_info**: Obtener información detallada de un miembro
+- **get_quotas_progress**: Ver progreso de cuotas del equipo
+- **assign_contact**: Asignar un contacto a un miembro del equipo
+- **assign_company**: Asignar una empresa a un miembro del equipo
+- **assign_opportunity**: Asignar una oportunidad a un miembro del equipo
+- **get_my_assignments**: Ver entidades asignadas a mí o a otro miembro
+- **add_team_comment**: Agregar comentario colaborativo con @menciones
+- **get_entity_comments**: Ver comentarios de una entidad
+- **get_activity_feed**: Ver actividad reciente del equipo
+- **notify_team_member**: Notificar a un miembro mencionándolo en un comentario
 
 ## Directrices:
 - Responde siempre en español
@@ -344,6 +611,7 @@ ${crmContext.upcomingTasks.length > 0
 - Cuando el usuario pregunte por datos, usa la información real proporcionada arriba
 - Si el usuario pregunta algo que no puedes hacer, sugiere alternativas
 - Mantén un tono profesional pero cercano
+- **IMPORTANTE**: Si el usuario es 'viewer', informa que no tiene permisos para acciones de escritura
 
 ## REGLAS ESTRICTAS DE FUNCTION CALLING:
 1. **NUNCA** digas que creaste algo sin usar la función correspondiente
@@ -354,6 +622,7 @@ ${crmContext.upcomingTasks.length > 0
 6. Si faltan datos obligatorios (email para contactos, nombre para empresas/tareas/oportunidades), **PRIMERO** pregunta por esos datos
 7. Solo confirma la creación **DESPUÉS** de recibir el resultado exitoso de la función
 8. Si la función falla, informa al usuario del error específico
+9. Para asignaciones, verifica que el usuario tenga permisos (admin, manager, o sales_rep para auto-asignación)
 
 ## Navegación del CRM:
 - **Dashboard** (/dashboard): Vista general con estadísticas
@@ -361,33 +630,79 @@ ${crmContext.upcomingTasks.length > 0
 - **Empresas** (/companies): Gestión de organizaciones
 - **Pipeline** (/pipeline): Tablero Kanban de oportunidades
 - **Tareas** (/tasks): Lista de actividades pendientes
+- **Equipo** (/team): Gestión del equipo y miembros
 - **Configuración** (/settings): Integraciones y preferencias
 - **Chat** (/chat): Asistente IA (donde estamos ahora)`;
 };
 
-async function fetchCRMContext(supabase: any) {
+function getTimeAgo(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 60) return `hace ${diffMins} minutos`;
+  if (diffHours < 24) return `hace ${diffHours} horas`;
+  if (diffDays === 1) return `hace 1 día`;
+  return `hace ${diffDays} días`;
+}
+
+async function fetchCRMContext(supabase: any, userId: string) {
   try {
     const [
       contactsResult,
       companiesResult,
       opportunitiesResult,
       activitiesResult,
+      teamMemberResult,
     ] = await Promise.all([
       supabase.from('contacts').select('id, first_name, last_name, email, companies(name)').order('created_at', { ascending: false }).limit(5),
       supabase.from('companies').select('id').limit(1000),
       supabase.from('opportunities').select('id, title, value, status, stage_id, stages(name)').order('created_at', { ascending: false }).limit(5),
       supabase.from('activities').select('id, title, due_date, priority, completed').order('due_date', { ascending: true }).limit(10),
+      supabase.from('team_members').select('*, organizations(*)').eq('user_id', userId).eq('is_active', true).maybeSingle(),
     ]);
 
     const contacts = contactsResult.data || [];
     const companies = companiesResult.data || [];
     const opportunities = opportunitiesResult.data || [];
     const activities = activitiesResult.data || [];
+    const currentMember = teamMemberResult.data;
 
     const pendingTasks = activities.filter((a: any) => !a.completed);
     const pipelineValue = opportunities
       .filter((o: any) => o.status === 'open')
       .reduce((sum: number, o: any) => sum + (o.value || 0), 0);
+
+    // Fetch team context if user has an organization
+    let teamContext: TeamContext = {
+      organization: null,
+      currentMember: null,
+      teamMembers: [],
+      recentActivity: [],
+    };
+
+    if (currentMember?.organization_id) {
+      const [orgResult, teamResult, activityFeedResult] = await Promise.all([
+        supabase.from('organizations').select('*').eq('id', currentMember.organization_id).single(),
+        supabase.from('team_members').select('*').eq('organization_id', currentMember.organization_id).eq('is_active', true),
+        supabase.from('activity_feed').select('*').eq('organization_id', currentMember.organization_id).order('created_at', { ascending: false }).limit(10),
+      ]);
+
+      teamContext = {
+        organization: orgResult.data,
+        currentMember: currentMember,
+        teamMembers: teamResult.data || [],
+        recentActivity: (activityFeedResult.data || []).map((a: any) => ({
+          user_name: a.user_name || 'Usuario',
+          action: a.action,
+          entity_type: a.entity_type,
+          entity_name: a.entity_name || '',
+          created_at: a.created_at,
+        })),
+      };
+    }
 
     return {
       contactsCount: contacts.length,
@@ -411,6 +726,7 @@ async function fetchCRMContext(supabase: any) {
         dueDate: t.due_date ? new Date(t.due_date).toLocaleDateString('es-ES') : undefined,
         priority: t.priority,
       })),
+      teamContext,
     };
   } catch (error) {
     console.error("Error fetching CRM context:", error);
@@ -424,6 +740,12 @@ async function fetchCRMContext(supabase: any) {
       recentContacts: [],
       recentOpportunities: [],
       upcomingTasks: [],
+      teamContext: {
+        organization: null,
+        currentMember: null,
+        teamMembers: [],
+        recentActivity: [],
+      },
     };
   }
 }
@@ -1045,6 +1367,696 @@ async function getNextBestAction(supabase: any, userId: string, args: any) {
   };
 }
 
+// ===== TEAM TOOL EXECUTOR FUNCTIONS =====
+
+async function getTeamSummary(supabase: any, userId: string) {
+  // Get current user's team member info
+  const { data: currentMember, error: memberError } = await supabase
+    .from('team_members')
+    .select('*, organizations(*)')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (memberError || !currentMember) {
+    return { success: false, message: '❌ No perteneces a ninguna organización' };
+  }
+
+  const orgId = currentMember.organization_id;
+
+  // Get all team members
+  const { data: teamMembers, error: teamError } = await supabase
+    .from('team_members')
+    .select('*')
+    .eq('organization_id', orgId)
+    .eq('is_active', true);
+
+  if (teamError) {
+    return { success: false, message: `❌ Error al obtener equipo: ${teamError.message}` };
+  }
+
+  const roleLabels: Record<string, string> = {
+    admin: 'Administrador',
+    manager: 'Manager',
+    sales_rep: 'Rep. Ventas',
+    viewer: 'Visor',
+  };
+
+  const org = currentMember.organizations;
+  let message = `## 👥 Resumen del Equipo\n\n`;
+  message += `**Organización:** ${org?.name || 'Sin nombre'}\n`;
+  message += `**Plan:** ${org?.plan || 'starter'}\n`;
+  message += `**Miembros activos:** ${teamMembers?.length || 0} / ${org?.max_users || 3}\n\n`;
+
+  message += `### Miembros:\n`;
+  if (teamMembers && teamMembers.length > 0) {
+    message += teamMembers.map((m: any) => {
+      const quotaProgress = m.quota_monthly && m.deals_closed_value !== null
+        ? ` • Cuota: $${(m.deals_closed_value || 0).toLocaleString()} / $${(m.quota_monthly || 0).toLocaleString()} (${Math.round((m.deals_closed_value || 0) / (m.quota_monthly || 1) * 100)}%)`
+        : '';
+      const isYou = m.user_id === userId ? ' ← **Tú**' : '';
+      return `• **${m.full_name || m.email}** (${roleLabels[m.role] || m.role})${isYou}\n  📧 ${m.email}${quotaProgress}`;
+    }).join('\n\n');
+  } else {
+    message += '• No hay miembros en el equipo';
+  }
+
+  return {
+    success: true,
+    message,
+    data: {
+      organization: org,
+      members: teamMembers,
+      currentMember,
+    },
+  };
+}
+
+async function getMemberInfo(supabase: any, userId: string, args: any) {
+  // Get current user's organization
+  const { data: currentMember } = await supabase
+    .from('team_members')
+    .select('organization_id')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!currentMember) {
+    return { success: false, message: '❌ No perteneces a ninguna organización' };
+  }
+
+  // Search for member by email or name
+  const identifier = args.member_identifier.toLowerCase();
+  const { data: members } = await supabase
+    .from('team_members')
+    .select('*')
+    .eq('organization_id', currentMember.organization_id)
+    .eq('is_active', true);
+
+  const member = members?.find((m: any) => 
+    m.email.toLowerCase() === identifier ||
+    m.email.toLowerCase().includes(identifier) ||
+    (m.full_name && m.full_name.toLowerCase().includes(identifier))
+  );
+
+  if (!member) {
+    return { success: false, message: `❌ No se encontró un miembro con "${args.member_identifier}"` };
+  }
+
+  const roleLabels: Record<string, string> = {
+    admin: 'Administrador',
+    manager: 'Manager',
+    sales_rep: 'Representante de Ventas',
+    viewer: 'Visor',
+  };
+
+  // Get member's assignments count
+  const [contactsCount, companiesCount, opportunitiesCount] = await Promise.all([
+    supabase.from('contacts').select('id', { count: 'exact', head: true }).eq('assigned_to', member.user_id),
+    supabase.from('companies').select('id', { count: 'exact', head: true }).eq('assigned_to', member.user_id),
+    supabase.from('opportunities').select('id', { count: 'exact', head: true }).eq('assigned_to', member.user_id).eq('status', 'open'),
+  ]);
+
+  let message = `## 👤 Información del Miembro\n\n`;
+  message += `**Nombre:** ${member.full_name || 'Sin nombre'}\n`;
+  message += `**Email:** ${member.email}\n`;
+  message += `**Rol:** ${roleLabels[member.role] || member.role}\n`;
+  message += `**Se unió:** ${member.joined_at ? new Date(member.joined_at).toLocaleDateString('es-ES') : 'N/A'}\n\n`;
+
+  message += `### Cuotas:\n`;
+  message += `- **Mensual:** $${(member.quota_monthly || 0).toLocaleString()}\n`;
+  message += `- **Trimestral:** $${(member.quota_quarterly || 0).toLocaleString()}\n`;
+  message += `- **Ventas cerradas:** $${(member.deals_closed_value || 0).toLocaleString()}\n\n`;
+
+  message += `### Asignaciones:\n`;
+  message += `- Contactos: ${contactsCount.count || 0}\n`;
+  message += `- Empresas: ${companiesCount.count || 0}\n`;
+  message += `- Oportunidades activas: ${opportunitiesCount.count || 0}\n`;
+
+  return {
+    success: true,
+    message,
+    data: member,
+  };
+}
+
+async function getQuotasProgress(supabase: any, userId: string, args: any) {
+  // Get current user's organization
+  const { data: currentMember } = await supabase
+    .from('team_members')
+    .select('organization_id')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!currentMember) {
+    return { success: false, message: '❌ No perteneces a ninguna organización' };
+  }
+
+  let query = supabase
+    .from('team_members')
+    .select('*')
+    .eq('organization_id', currentMember.organization_id)
+    .eq('is_active', true);
+
+  if (args.member_email) {
+    query = query.eq('email', args.member_email);
+  }
+
+  const { data: members, error } = await query;
+
+  if (error || !members || members.length === 0) {
+    return { success: false, message: args.member_email ? `❌ No se encontró el miembro ${args.member_email}` : '❌ No hay miembros en el equipo' };
+  }
+
+  let message = `## 📊 Progreso de Cuotas\n\n`;
+
+  const totalQuota = members.reduce((sum: number, m: any) => sum + (m.quota_monthly || 0), 0);
+  const totalClosed = members.reduce((sum: number, m: any) => sum + (m.deals_closed_value || 0), 0);
+  const overallProgress = totalQuota > 0 ? Math.round((totalClosed / totalQuota) * 100) : 0;
+
+  if (!args.member_email) {
+    message += `### Resumen del Equipo:\n`;
+    message += `- **Total cuota mensual:** $${totalQuota.toLocaleString()}\n`;
+    message += `- **Total cerrado:** $${totalClosed.toLocaleString()}\n`;
+    message += `- **Progreso general:** ${overallProgress}%\n\n`;
+    message += `### Por Miembro:\n`;
+  }
+
+  members.forEach((m: any) => {
+    const progress = m.quota_monthly > 0 ? Math.round((m.deals_closed_value || 0) / m.quota_monthly * 100) : 0;
+    const progressBar = getProgressBar(progress);
+    const status = progress >= 100 ? '🏆' : progress >= 75 ? '🟢' : progress >= 50 ? '🟡' : '🔴';
+    
+    message += `\n**${m.full_name || m.email}** ${status}\n`;
+    message += `${progressBar} ${progress}%\n`;
+    message += `$${(m.deals_closed_value || 0).toLocaleString()} / $${(m.quota_monthly || 0).toLocaleString()}\n`;
+  });
+
+  return {
+    success: true,
+    message,
+    data: {
+      members,
+      totals: { quota: totalQuota, closed: totalClosed, progress: overallProgress },
+    },
+  };
+}
+
+function getProgressBar(percent: number): string {
+  const filled = Math.min(10, Math.round(percent / 10));
+  const empty = 10 - filled;
+  return '█'.repeat(filled) + '░'.repeat(empty);
+}
+
+async function assignEntity(supabase: any, userId: string, entityType: 'contacts' | 'companies' | 'opportunities', args: any) {
+  // Get current user's team member info
+  const { data: currentMember } = await supabase
+    .from('team_members')
+    .select('organization_id, role')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!currentMember) {
+    return { success: false, message: '❌ No perteneces a ninguna organización' };
+  }
+
+  // Check permissions
+  const canAssign = ['admin', 'manager'].includes(currentMember.role);
+  if (!canAssign) {
+    return { success: false, message: '❌ No tienes permisos para asignar entidades. Solo admin y manager pueden hacerlo.' };
+  }
+
+  // Find the target team member
+  const { data: targetMember } = await supabase
+    .from('team_members')
+    .select('user_id, full_name, email')
+    .eq('organization_id', currentMember.organization_id)
+    .eq('email', args.assigned_to_email)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!targetMember) {
+    return { success: false, message: `❌ No se encontró el miembro ${args.assigned_to_email} en tu equipo` };
+  }
+
+  // Find the entity
+  let entity: any = null;
+  let entityName = '';
+
+  if (entityType === 'contacts') {
+    const { data } = await supabase
+      .from('contacts')
+      .select('id, first_name, last_name, email')
+      .eq('email', args.contact_email)
+      .maybeSingle();
+    entity = data;
+    entityName = data ? `${data.first_name || ''} ${data.last_name || ''} (${data.email})`.trim() : '';
+  } else if (entityType === 'companies') {
+    const { data } = await supabase
+      .from('companies')
+      .select('id, name')
+      .ilike('name', `%${args.company_name}%`)
+      .limit(1)
+      .maybeSingle();
+    entity = data;
+    entityName = data?.name || '';
+  } else if (entityType === 'opportunities') {
+    const { data } = await supabase
+      .from('opportunities')
+      .select('id, title')
+      .ilike('title', `%${args.opportunity_title}%`)
+      .limit(1)
+      .maybeSingle();
+    entity = data;
+    entityName = data?.title || '';
+  }
+
+  if (!entity) {
+    const entityLabel = entityType === 'contacts' ? 'contacto' : entityType === 'companies' ? 'empresa' : 'oportunidad';
+    const identifier = args.contact_email || args.company_name || args.opportunity_title;
+    return { success: false, message: `❌ No se encontró ${entityLabel} "${identifier}"` };
+  }
+
+  // Update the entity
+  const { error } = await supabase
+    .from(entityType)
+    .update({ assigned_to: targetMember.user_id })
+    .eq('id', entity.id);
+
+  if (error) {
+    return { success: false, message: `❌ Error al asignar: ${error.message}` };
+  }
+
+  // Log to activity feed
+  await supabase.from('activity_feed').insert({
+    organization_id: currentMember.organization_id,
+    user_id: userId,
+    action: 'assigned',
+    entity_type: entityType,
+    entity_id: entity.id,
+    entity_name: entityName,
+    metadata: { assigned_to: targetMember.email, assigned_to_name: targetMember.full_name },
+  });
+
+  const entityLabel = entityType === 'contacts' ? 'Contacto' : entityType === 'companies' ? 'Empresa' : 'Oportunidad';
+  return {
+    success: true,
+    message: `✅ ${entityLabel} "${entityName}" asignado a **${targetMember.full_name || targetMember.email}**`,
+    data: { entity, assignedTo: targetMember },
+  };
+}
+
+async function getMyAssignments(supabase: any, userId: string, args: any) {
+  // Get current user's organization
+  const { data: currentMember } = await supabase
+    .from('team_members')
+    .select('organization_id, user_id')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!currentMember) {
+    return { success: false, message: '❌ No perteneces a ninguna organización' };
+  }
+
+  // Determine target user
+  let targetUserId = currentMember.user_id;
+  let targetName = 'Tú';
+
+  if (args.member_email) {
+    const { data: targetMember } = await supabase
+      .from('team_members')
+      .select('user_id, full_name, email')
+      .eq('organization_id', currentMember.organization_id)
+      .eq('email', args.member_email)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (!targetMember) {
+      return { success: false, message: `❌ No se encontró el miembro ${args.member_email}` };
+    }
+    targetUserId = targetMember.user_id;
+    targetName = targetMember.full_name || targetMember.email;
+  }
+
+  const entityType = args.entity_type || 'all';
+  const results: any = {};
+
+  if (entityType === 'all' || entityType === 'contacts') {
+    const { data } = await supabase
+      .from('contacts')
+      .select('id, first_name, last_name, email, companies(name)')
+      .eq('assigned_to', targetUserId)
+      .limit(10);
+    results.contacts = data || [];
+  }
+
+  if (entityType === 'all' || entityType === 'companies') {
+    const { data } = await supabase
+      .from('companies')
+      .select('id, name, industry')
+      .eq('assigned_to', targetUserId)
+      .limit(10);
+    results.companies = data || [];
+  }
+
+  if (entityType === 'all' || entityType === 'opportunities') {
+    const { data } = await supabase
+      .from('opportunities')
+      .select('id, title, value, status, stages(name)')
+      .eq('assigned_to', targetUserId)
+      .eq('status', 'open')
+      .limit(10);
+    results.opportunities = data || [];
+  }
+
+  let message = `## 📋 Asignaciones de ${targetName}\n\n`;
+
+  if (results.contacts && results.contacts.length > 0) {
+    message += `### 📇 Contactos (${results.contacts.length}):\n`;
+    message += results.contacts.map((c: any) => 
+      `• ${c.first_name || ''} ${c.last_name || ''} (${c.email})${c.companies?.name ? ` @ ${c.companies.name}` : ''}`
+    ).join('\n');
+    message += '\n\n';
+  }
+
+  if (results.companies && results.companies.length > 0) {
+    message += `### 🏢 Empresas (${results.companies.length}):\n`;
+    message += results.companies.map((c: any) => 
+      `• ${c.name}${c.industry ? ` (${c.industry})` : ''}`
+    ).join('\n');
+    message += '\n\n';
+  }
+
+  if (results.opportunities && results.opportunities.length > 0) {
+    message += `### 💰 Oportunidades (${results.opportunities.length}):\n`;
+    message += results.opportunities.map((o: any) => 
+      `• ${o.title} - $${(o.value || 0).toLocaleString()}${o.stages?.name ? ` (${o.stages.name})` : ''}`
+    ).join('\n');
+  }
+
+  const totalCount = (results.contacts?.length || 0) + (results.companies?.length || 0) + (results.opportunities?.length || 0);
+  if (totalCount === 0) {
+    message = `## 📋 Asignaciones de ${targetName}\n\nNo hay entidades asignadas.`;
+  }
+
+  return {
+    success: true,
+    message,
+    data: results,
+  };
+}
+
+async function addTeamComment(supabase: any, userId: string, args: any) {
+  // Get current user's team member info
+  const { data: currentMember } = await supabase
+    .from('team_members')
+    .select('organization_id, role, full_name, avatar_url, email')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!currentMember) {
+    return { success: false, message: '❌ No perteneces a ninguna organización' };
+  }
+
+  // Check permissions
+  if (currentMember.role === 'viewer') {
+    return { success: false, message: '❌ Los usuarios con rol Visor no pueden agregar comentarios' };
+  }
+
+  // Find the entity
+  let entity: any = null;
+  let entityName = '';
+
+  if (args.entity_type === 'contacts') {
+    const { data } = await supabase
+      .from('contacts')
+      .select('id, first_name, last_name, email')
+      .eq('email', args.entity_identifier)
+      .maybeSingle();
+    entity = data;
+    entityName = data ? `${data.first_name || ''} ${data.last_name || ''}`.trim() || data.email : '';
+  } else if (args.entity_type === 'companies') {
+    const { data } = await supabase
+      .from('companies')
+      .select('id, name')
+      .ilike('name', `%${args.entity_identifier}%`)
+      .limit(1)
+      .maybeSingle();
+    entity = data;
+    entityName = data?.name || '';
+  } else if (args.entity_type === 'opportunities') {
+    const { data } = await supabase
+      .from('opportunities')
+      .select('id, title')
+      .ilike('title', `%${args.entity_identifier}%`)
+      .limit(1)
+      .maybeSingle();
+    entity = data;
+    entityName = data?.title || '';
+  }
+
+  if (!entity) {
+    const entityLabel = args.entity_type === 'contacts' ? 'contacto' : args.entity_type === 'companies' ? 'empresa' : 'oportunidad';
+    return { success: false, message: `❌ No se encontró ${entityLabel} "${args.entity_identifier}"` };
+  }
+
+  // Extract mentions from content (format: @name)
+  const mentionRegex = /@(\w+)/g;
+  const mentionMatches = args.content.match(mentionRegex) || [];
+  const mentions: string[] = [];
+
+  // Resolve mentions to user IDs
+  if (mentionMatches.length > 0) {
+    const { data: teamMembers } = await supabase
+      .from('team_members')
+      .select('user_id, full_name, email')
+      .eq('organization_id', currentMember.organization_id)
+      .eq('is_active', true);
+
+    for (const mention of mentionMatches) {
+      const name = mention.replace('@', '').toLowerCase();
+      const member = teamMembers?.find((m: any) => 
+        (m.full_name && m.full_name.toLowerCase().includes(name)) ||
+        m.email.toLowerCase().includes(name)
+      );
+      if (member) {
+        mentions.push(member.user_id);
+      }
+    }
+  }
+
+  // Insert comment
+  const { data: comment, error } = await supabase
+    .from('comments')
+    .insert({
+      organization_id: currentMember.organization_id,
+      user_id: userId,
+      user_name: currentMember.full_name,
+      user_avatar: currentMember.avatar_url,
+      entity_type: args.entity_type,
+      entity_id: entity.id,
+      content: args.content,
+      mentions,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    return { success: false, message: `❌ Error al agregar comentario: ${error.message}` };
+  }
+
+  // Log to activity feed
+  await supabase.from('activity_feed').insert({
+    organization_id: currentMember.organization_id,
+    user_id: userId,
+    user_name: currentMember.full_name,
+    action: 'commented',
+    entity_type: args.entity_type,
+    entity_id: entity.id,
+    entity_name: entityName,
+  });
+
+  const entityLabel = args.entity_type === 'contacts' ? 'contacto' : args.entity_type === 'companies' ? 'empresa' : 'oportunidad';
+  return {
+    success: true,
+    message: `✅ Comentario agregado a ${entityLabel} "${entityName}"${mentions.length > 0 ? ` (${mentions.length} mención(es))` : ''}`,
+    data: comment,
+  };
+}
+
+async function getEntityComments(supabase: any, userId: string, args: any) {
+  // Get current user's organization
+  const { data: currentMember } = await supabase
+    .from('team_members')
+    .select('organization_id')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!currentMember) {
+    return { success: false, message: '❌ No perteneces a ninguna organización' };
+  }
+
+  // Find the entity
+  let entity: any = null;
+  let entityName = '';
+
+  if (args.entity_type === 'contacts') {
+    const { data } = await supabase
+      .from('contacts')
+      .select('id, first_name, last_name, email')
+      .eq('email', args.entity_identifier)
+      .maybeSingle();
+    entity = data;
+    entityName = data ? `${data.first_name || ''} ${data.last_name || ''}`.trim() || data.email : '';
+  } else if (args.entity_type === 'companies') {
+    const { data } = await supabase
+      .from('companies')
+      .select('id, name')
+      .ilike('name', `%${args.entity_identifier}%`)
+      .limit(1)
+      .maybeSingle();
+    entity = data;
+    entityName = data?.name || '';
+  } else if (args.entity_type === 'opportunities') {
+    const { data } = await supabase
+      .from('opportunities')
+      .select('id, title')
+      .ilike('title', `%${args.entity_identifier}%`)
+      .limit(1)
+      .maybeSingle();
+    entity = data;
+    entityName = data?.title || '';
+  }
+
+  if (!entity) {
+    const entityLabel = args.entity_type === 'contacts' ? 'contacto' : args.entity_type === 'companies' ? 'empresa' : 'oportunidad';
+    return { success: false, message: `❌ No se encontró ${entityLabel} "${args.entity_identifier}"` };
+  }
+
+  // Get comments
+  const { data: comments, error } = await supabase
+    .from('comments')
+    .select('*')
+    .eq('entity_type', args.entity_type)
+    .eq('entity_id', entity.id)
+    .order('is_pinned', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(args.limit || 10);
+
+  if (error) {
+    return { success: false, message: `❌ Error al obtener comentarios: ${error.message}` };
+  }
+
+  const entityLabel = args.entity_type === 'contacts' ? 'contacto' : args.entity_type === 'companies' ? 'empresa' : 'oportunidad';
+
+  if (!comments || comments.length === 0) {
+    return {
+      success: true,
+      message: `No hay comentarios para ${entityLabel} "${entityName}"`,
+      data: [],
+    };
+  }
+
+  let message = `## 💬 Comentarios de ${entityLabel} "${entityName}"\n\n`;
+  message += comments.map((c: any) => {
+    const pinned = c.is_pinned ? '📌 ' : '';
+    const date = new Date(c.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return `${pinned}**${c.user_name || 'Usuario'}** - ${date}\n${c.content}`;
+  }).join('\n\n---\n\n');
+
+  return {
+    success: true,
+    message,
+    data: comments,
+  };
+}
+
+async function getActivityFeedTool(supabase: any, userId: string, args: any) {
+  // Get current user's organization
+  const { data: currentMember } = await supabase
+    .from('team_members')
+    .select('organization_id')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!currentMember) {
+    return { success: false, message: '❌ No perteneces a ninguna organización' };
+  }
+
+  let query = supabase
+    .from('activity_feed')
+    .select('*')
+    .eq('organization_id', currentMember.organization_id)
+    .order('created_at', { ascending: false });
+
+  if (args.entity_type) {
+    query = query.eq('entity_type', args.entity_type);
+  }
+
+  if (args.entity_id) {
+    query = query.eq('entity_id', args.entity_id);
+  }
+
+  const { data: activities, error } = await query.limit(args.limit || 20);
+
+  if (error) {
+    return { success: false, message: `❌ Error al obtener actividad: ${error.message}` };
+  }
+
+  if (!activities || activities.length === 0) {
+    return {
+      success: true,
+      message: 'No hay actividad reciente en el equipo.',
+      data: [],
+    };
+  }
+
+  const actionLabels: Record<string, string> = {
+    created: 'creó',
+    updated: 'actualizó',
+    deleted: 'eliminó',
+    assigned: 'asignó',
+    stage_changed: 'movió',
+    commented: 'comentó en',
+  };
+
+  const entityLabels: Record<string, string> = {
+    contacts: 'contacto',
+    companies: 'empresa',
+    opportunities: 'oportunidad',
+    activities: 'tarea',
+  };
+
+  let message = `## 📜 Actividad Reciente del Equipo\n\n`;
+  message += activities.map((a: any) => {
+    const action = actionLabels[a.action] || a.action;
+    const entity = entityLabels[a.entity_type] || a.entity_type;
+    const timeAgo = getTimeAgo(new Date(a.created_at));
+    return `• **${a.user_name || 'Usuario'}** ${action} ${entity} "${a.entity_name || 'N/A'}" ${timeAgo}`;
+  }).join('\n');
+
+  return {
+    success: true,
+    message,
+    data: activities,
+  };
+}
+
+async function notifyTeamMember(supabase: any, userId: string, args: any) {
+  // This is essentially adding a comment with a mention
+  return await addTeamComment(supabase, userId, {
+    entity_type: args.entity_type,
+    entity_identifier: args.entity_identifier,
+    content: `@${args.member_email.split('@')[0]} ${args.message}`,
+  });
+}
+
 // Execute tool calls
 async function executeTool(supabase: any, userId: string, toolName: string, args: any): Promise<{ success: boolean; message: string; data?: any }> {
   console.log(`Executing tool: ${toolName} with args:`, args);
@@ -1406,6 +2418,40 @@ async function executeTool(supabase: any, userId: string, toolName: string, args
           };
         }
       }
+
+      // ===== TEAM TOOLS =====
+      case "get_team_summary":
+        return await getTeamSummary(supabase, userId);
+
+      case "get_member_info":
+        return await getMemberInfo(supabase, userId, args);
+
+      case "get_quotas_progress":
+        return await getQuotasProgress(supabase, userId, args);
+
+      case "assign_contact":
+        return await assignEntity(supabase, userId, 'contacts', args);
+
+      case "assign_company":
+        return await assignEntity(supabase, userId, 'companies', args);
+
+      case "assign_opportunity":
+        return await assignEntity(supabase, userId, 'opportunities', args);
+
+      case "get_my_assignments":
+        return await getMyAssignments(supabase, userId, args);
+
+      case "add_team_comment":
+        return await addTeamComment(supabase, userId, args);
+
+      case "get_entity_comments":
+        return await getEntityComments(supabase, userId, args);
+
+      case "get_activity_feed":
+        return await getActivityFeedTool(supabase, userId, args);
+
+      case "notify_team_member":
+        return await notifyTeamMember(supabase, userId, args);
       
       default:
         return {
@@ -1487,7 +2533,7 @@ serve(async (req) => {
     }
 
     console.log("Fetching CRM context for user:", userId);
-    const crmContext = await fetchCRMContext(supabase);
+    const crmContext = await fetchCRMContext(supabase, userId);
     const systemPrompt = buildSystemPrompt(crmContext);
 
     console.log("Calling Lovable AI Gateway with", messages.length, "messages and", tools.length, "tools");
