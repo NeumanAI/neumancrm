@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUnreadConversationsCount } from '@/hooks/useConversations';
+import { useBrandingContext } from '@/contexts/BrandingContext';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -45,6 +46,7 @@ const adminNavItems = [
 export function Sidebar({ collapsed, onToggle, isSuperAdmin = false }: SidebarProps) {
   const location = useLocation();
   const unreadCount = useUnreadConversationsCount();
+  const { branding } = useBrandingContext();
   
   const allNavItems = isSuperAdmin ? [...navItems, ...adminNavItems] : navItems;
 
@@ -58,9 +60,17 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false }: SidebarPr
       {/* Logo */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center flex-shrink-0">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
+          {branding.logo_url ? (
+            <img 
+              src={branding.logo_url} 
+              alt={branding.name} 
+              className="w-10 h-10 rounded-xl object-contain flex-shrink-0"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+          )}
           <AnimatePresence>
             {!collapsed && (
               <motion.span
@@ -69,7 +79,7 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false }: SidebarPr
                 exit={{ opacity: 0, x: -10 }}
                 className="font-bold text-lg text-sidebar-foreground"
               >
-                CRM AI
+                {branding.name}
               </motion.span>
             )}
           </AnimatePresence>
@@ -143,7 +153,7 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false }: SidebarPr
               exit={{ opacity: 0 }}
               className="text-xs text-sidebar-foreground/50 text-center"
             >
-              CRM AI v1.0
+              {branding.name} v1.0
             </motion.div>
           )}
         </AnimatePresence>

@@ -36,7 +36,13 @@ export interface Organization {
     timezone: string;
     currency: string;
     date_format: string;
-  };
+  } | null;
+  // Branding fields
+  logo_url: string | null;
+  favicon_url: string | null;
+  primary_color: string | null;
+  secondary_color: string | null;
+  custom_domain: string | null;
   created_at: string;
   updated_at: string;
 }
