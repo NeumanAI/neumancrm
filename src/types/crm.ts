@@ -28,6 +28,7 @@ export interface Contact {
   email: string;
   phone?: string;
   mobile?: string;
+  whatsapp_number?: string;
   job_title?: string;
   department?: string;
   linkedin_url?: string;
@@ -37,7 +38,7 @@ export interface Contact {
   last_contacted_at?: string;
   created_at: string;
   updated_at: string;
-  companies?: Company;
+  companies?: Pick<Company, 'id' | 'name' | 'logo_url'>;
 }
 
 export interface Pipeline {

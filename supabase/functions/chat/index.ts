@@ -8,6 +8,7 @@ const corsHeaders = {
 
 // Tool definitions for function calling
 const tools = [
+  // ===== CONTACTOS =====
   {
     type: "function",
     function: {
@@ -20,13 +21,52 @@ const tools = [
           last_name: { type: "string", description: "Apellido del contacto" },
           email: { type: "string", description: "Email del contacto (requerido)" },
           phone: { type: "string", description: "Teléfono del contacto" },
+          whatsapp_number: { type: "string", description: "Número de WhatsApp" },
           job_title: { type: "string", description: "Cargo o puesto" },
+          company_name: { type: "string", description: "Nombre de la empresa donde trabaja" },
           notes: { type: "string", description: "Notas adicionales" },
         },
         required: ["email"],
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "update_contact",
+      description: "Actualiza información de un contacto existente. Requiere el email del contacto para identificarlo.",
+      parameters: {
+        type: "object",
+        properties: {
+          email: { type: "string", description: "Email del contacto a actualizar (requerido)" },
+          first_name: { type: "string", description: "Nuevo nombre" },
+          last_name: { type: "string", description: "Nuevo apellido" },
+          phone: { type: "string", description: "Nuevo teléfono" },
+          whatsapp_number: { type: "string", description: "Nuevo WhatsApp" },
+          job_title: { type: "string", description: "Nuevo cargo" },
+          notes: { type: "string", description: "Notas adicionales" },
+        },
+        required: ["email"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_contacts",
+      description: "Busca contactos en el CRM usando filtros avanzados. Usa esta función cuando el usuario pregunte por contactos específicos o quiera filtrar la lista de contactos.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Texto de búsqueda (busca en nombre, email, empresa)" },
+          company_name: { type: "string", description: "Filtrar por nombre de empresa" },
+          has_whatsapp: { type: "boolean", description: "Solo contactos con WhatsApp" },
+          limit: { type: "number", description: "Número máximo de resultados (default: 10)" },
+        },
+      },
+    },
+  },
+  // ===== EMPRESAS =====
   {
     type: "function",
     function: {
@@ -50,6 +90,21 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "search_companies",
+      description: "Busca empresas en el CRM por nombre o dominio. Usa esta función para encontrar información de una empresa.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Término de búsqueda (nombre o dominio)" },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  // ===== TAREAS =====
+  {
+    type: "function",
+    function: {
       name: "create_task",
       description: "Crea una nueva tarea o actividad en el CRM. Usa esta función cuando el usuario pida crear una tarea, recordatorio o actividad.",
       parameters: {
@@ -65,7 +120,25 @@ const tools = [
       },
     },
   },
-  // ===== NEW TOOLS =====
+  {
+    type: "function",
+    function: {
+      name: "schedule_meeting",
+      description: "Programa una reunión o llamada con un contacto. Crea una actividad de tipo meeting.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título de la reunión (requerido)" },
+          contact_email: { type: "string", description: "Email del contacto para la reunión" },
+          date: { type: "string", description: "Fecha de la reunión (YYYY-MM-DD)" },
+          time: { type: "string", description: "Hora de la reunión (HH:MM)" },
+          description: { type: "string", description: "Descripción o agenda de la reunión" },
+        },
+        required: ["title"],
+      },
+    },
+  },
+  // ===== OPORTUNIDADES =====
   {
     type: "function",
     function: {
@@ -103,61 +176,82 @@ const tools = [
   {
     type: "function",
     function: {
-      name: "search_contacts",
-      description: "Busca contactos en el CRM por nombre o email. Usa esta función para encontrar información de un contacto.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: { type: "string", description: "Término de búsqueda (nombre, apellido o email)" },
-        },
-        required: ["query"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "search_companies",
-      description: "Busca empresas en el CRM por nombre o dominio. Usa esta función para encontrar información de una empresa.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: { type: "string", description: "Término de búsqueda (nombre o dominio)" },
-        },
-        required: ["query"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
       name: "get_pipeline_summary",
-      description: "Obtiene un resumen completo del pipeline de ventas con valor por etapa. Usa esta función para reportes o análisis.",
+      description: "Obtiene un resumen completo del pipeline de ventas con valor por etapa, deals en riesgo y métricas clave.",
       parameters: {
         type: "object",
-        properties: {},
-        required: [],
+        properties: {
+          include_closed: { type: "boolean", description: "Incluir deals cerrados (ganados/perdidos)" },
+          days_range: { type: "number", description: "Rango de días para análisis (default: 30)" },
+        },
       },
     },
   },
   {
     type: "function",
     function: {
-      name: "schedule_meeting",
-      description: "Programa una reunión o llamada con un contacto. Crea una actividad de tipo meeting.",
+      name: "analyze_deal_health",
+      description: "Analiza la salud de una oportunidad específica basándose en actividad reciente, tiempo en etapa, y engagement. Útil para saber si un deal está en riesgo.",
       parameters: {
         type: "object",
         properties: {
-          title: { type: "string", description: "Título de la reunión (requerido)" },
-          contact_email: { type: "string", description: "Email del contacto para la reunión" },
-          date: { type: "string", description: "Fecha de la reunión (YYYY-MM-DD)" },
-          time: { type: "string", description: "Hora de la reunión (HH:MM)" },
-          description: { type: "string", description: "Descripción o agenda de la reunión" },
+          opportunity_id: { type: "string", description: "ID de la oportunidad" },
+          company_name: { type: "string", description: "Nombre de la empresa (alternativa al ID)" },
         },
-        required: ["title"],
       },
     },
   },
+  // ===== TIMELINE E HISTORIAL =====
+  {
+    type: "function",
+    function: {
+      name: "search_timeline",
+      description: "Busca en el historial de interacciones (emails, reuniones, WhatsApp, etc). Útil para encontrar conversaciones pasadas o ver qué se habló con un contacto/empresa.",
+      parameters: {
+        type: "object",
+        properties: {
+          contact_email: { type: "string", description: "Buscar interacciones con este contacto" },
+          company_name: { type: "string", description: "Buscar interacciones con esta empresa" },
+          entry_type: { type: "string", enum: ["email", "meeting", "call", "note", "whatsapp"], description: "Tipo de interacción" },
+          search_text: { type: "string", description: "Buscar por contenido específico" },
+          days_ago: { type: "number", description: "Últimos X días (default: 30)" },
+          limit: { type: "number", description: "Número de resultados (default: 10)" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "find_promises",
+      description: "Busca compromisos hechos en conversaciones (emails, reuniones) que aún no se han cumplido. Detecta action items pendientes.",
+      parameters: {
+        type: "object",
+        properties: {
+          status: { type: "string", enum: ["pending", "overdue", "all"], description: "Estado de los compromisos" },
+          contact_email: { type: "string", description: "Filtrar por contacto específico" },
+          days_range: { type: "number", description: "Buscar en los últimos X días (default: 14)" },
+        },
+      },
+    },
+  },
+  // ===== RECOMENDACIONES =====
+  {
+    type: "function",
+    function: {
+      name: "get_next_best_action",
+      description: "Sugiere la siguiente mejor acción para un contacto, empresa o deal basándose en el historial y estado actual.",
+      parameters: {
+        type: "object",
+        properties: {
+          entity_type: { type: "string", enum: ["contact", "company", "opportunity"], description: "Tipo de entidad" },
+          entity_identifier: { type: "string", description: "Email del contacto, nombre de empresa, o ID de oportunidad" },
+        },
+        required: ["entity_type", "entity_identifier"],
+      },
+    },
+  },
+  // ===== NOTAS =====
   {
     type: "function",
     function: {
@@ -216,23 +310,31 @@ ${crmContext.upcomingTasks.length > 0
 ## Tus capacidades:
 - **Consultar datos**: Puedes informar sobre contactos, empresas, oportunidades y tareas del usuario
 - **Crear registros**: Puedes crear contactos, empresas, tareas y oportunidades usando las funciones disponibles
-- **Buscar**: Puedes buscar contactos y empresas por nombre, email o dominio
-- **Pipeline**: Puedes ver el resumen del pipeline y mover oportunidades entre etapas
+- **Actualizar registros**: Puedes actualizar contactos existentes
+- **Buscar**: Puedes buscar contactos y empresas por nombre, email o dominio con filtros avanzados
+- **Pipeline**: Puedes ver el resumen del pipeline, analizar salud de deals y mover oportunidades entre etapas
+- **Timeline**: Puedes buscar en el historial de interacciones (emails, reuniones, WhatsApp)
+- **Compromisos**: Puedes buscar promesas y action items pendientes de conversaciones
 - **Reuniones**: Puedes programar reuniones y llamadas
 - **Notas**: Puedes agregar notas a contactos y empresas
+- **Recomendaciones**: Puedes sugerir la siguiente mejor acción para contactos, empresas o deals
 - **Análisis**: Proporcionar insights sobre la actividad comercial basándote en los datos reales
-- **Recomendaciones**: Sugerir acciones basadas en el estado actual del CRM
 
 ## IMPORTANTE - Funciones disponibles:
 - **create_contact**: Crear un nuevo contacto (requiere email)
+- **update_contact**: Actualizar información de un contacto existente
+- **search_contacts**: Buscar contactos con filtros avanzados (nombre, empresa, WhatsApp)
 - **create_company**: Crear una nueva empresa (requiere nombre)
+- **search_companies**: Buscar empresas por nombre o dominio
 - **create_task**: Crear una tarea o actividad
+- **schedule_meeting**: Programar una reunión o llamada
 - **create_opportunity**: Crear una oportunidad de venta en el pipeline
 - **update_opportunity_stage**: Mover una oportunidad a otra etapa
-- **search_contacts**: Buscar contactos por nombre o email
-- **search_companies**: Buscar empresas por nombre o dominio
-- **get_pipeline_summary**: Obtener resumen del pipeline con valores por etapa
-- **schedule_meeting**: Programar una reunión o llamada
+- **get_pipeline_summary**: Obtener resumen del pipeline con valores por etapa y deals en riesgo
+- **analyze_deal_health**: Analizar la salud de una oportunidad específica
+- **search_timeline**: Buscar en el historial de interacciones
+- **find_promises**: Buscar compromisos y action items pendientes
+- **get_next_best_action**: Obtener sugerencia de la siguiente mejor acción
 - **add_note**: Agregar una nota a un contacto o empresa
 
 ## Directrices:
@@ -326,6 +428,623 @@ async function fetchCRMContext(supabase: any) {
   }
 }
 
+// ===== TOOL EXECUTOR FUNCTIONS =====
+
+async function updateContact(supabase: any, userId: string, args: any) {
+  const updates: any = {};
+  if (args.first_name !== undefined) updates.first_name = args.first_name;
+  if (args.last_name !== undefined) updates.last_name = args.last_name;
+  if (args.phone !== undefined) updates.phone = args.phone;
+  if (args.whatsapp_number !== undefined) updates.whatsapp_number = args.whatsapp_number;
+  if (args.job_title !== undefined) updates.job_title = args.job_title;
+  if (args.notes !== undefined) updates.notes = args.notes;
+  updates.updated_at = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from('contacts')
+    .update(updates)
+    .eq('user_id', userId)
+    .eq('email', args.email)
+    .select()
+    .single();
+
+  if (error) {
+    return { success: false, message: `❌ Error al actualizar contacto: ${error.message}` };
+  }
+
+  if (!data) {
+    return { success: false, message: `❌ No se encontró un contacto con email "${args.email}"` };
+  }
+
+  return {
+    success: true,
+    message: `✅ Contacto ${args.email} actualizado correctamente`,
+    data,
+  };
+}
+
+async function searchContactsAdvanced(supabase: any, userId: string, args: any) {
+  let query = supabase
+    .from('contacts')
+    .select('id, first_name, last_name, email, phone, whatsapp_number, job_title, companies(name)')
+    .eq('user_id', userId);
+
+  if (args.query) {
+    query = query.or(`first_name.ilike.%${args.query}%,last_name.ilike.%${args.query}%,email.ilike.%${args.query}%`);
+  }
+
+  if (args.has_whatsapp) {
+    query = query.not('whatsapp_number', 'is', null);
+  }
+
+  const { data, error } = await query.limit(args.limit || 10);
+
+  if (error) {
+    return { success: false, message: `❌ Error al buscar contactos: ${error.message}` };
+  }
+
+  // Filter by company name if provided (post-query filter due to join limitations)
+  let contacts = data || [];
+  if (args.company_name) {
+    contacts = contacts.filter((c: any) => 
+      c.companies?.name?.toLowerCase().includes(args.company_name.toLowerCase())
+    );
+  }
+
+  if (contacts.length === 0) {
+    return { success: true, message: `No se encontraron contactos con los filtros especificados`, data: [] };
+  }
+
+  const results = contacts.map((c: any) => 
+    `• ${c.first_name || ''} ${c.last_name || ''} - ${c.email}${c.whatsapp_number ? ` 📱 ${c.whatsapp_number}` : ''}${c.job_title ? ` (${c.job_title})` : ''}${c.companies?.name ? ` @ ${c.companies.name}` : ''}`
+  ).join('\n');
+
+  return {
+    success: true,
+    message: `📇 Encontrados ${contacts.length} contacto(s):\n${results}`,
+    data: contacts,
+  };
+}
+
+async function searchTimeline(supabase: any, userId: string, args: any) {
+  const daysAgo = args.days_ago || 30;
+  const dateThreshold = new Date();
+  dateThreshold.setDate(dateThreshold.getDate() - daysAgo);
+
+  let query = supabase
+    .from('timeline_entries')
+    .select('*, contacts(first_name, last_name, email), companies(name)')
+    .eq('user_id', userId)
+    .gte('occurred_at', dateThreshold.toISOString())
+    .order('occurred_at', { ascending: false });
+
+  if (args.entry_type) {
+    query = query.eq('entry_type', args.entry_type);
+  }
+
+  if (args.search_text) {
+    query = query.or(`subject.ilike.%${args.search_text}%,body.ilike.%${args.search_text}%,summary.ilike.%${args.search_text}%`);
+  }
+
+  const { data, error } = await query.limit(args.limit || 10);
+
+  if (error) {
+    return { success: false, message: `❌ Error al buscar en timeline: ${error.message}` };
+  }
+
+  let entries = data || [];
+
+  // Filter by contact email if provided
+  if (args.contact_email) {
+    entries = entries.filter((e: any) => 
+      e.contacts?.email?.toLowerCase() === args.contact_email.toLowerCase()
+    );
+  }
+
+  // Filter by company name if provided
+  if (args.company_name) {
+    entries = entries.filter((e: any) => 
+      e.companies?.name?.toLowerCase().includes(args.company_name.toLowerCase())
+    );
+  }
+
+  if (entries.length === 0) {
+    return { 
+      success: true, 
+      message: `No se encontraron interacciones en los últimos ${daysAgo} días con los filtros especificados.`, 
+      data: [] 
+    };
+  }
+
+  const typeEmoji: Record<string, string> = {
+    email: '📧',
+    meeting: '🤝',
+    call: '📞',
+    note: '📝',
+    whatsapp: '💬',
+    slack_message: '💬',
+  };
+
+  const results = entries.map((t: any) => {
+    const emoji = typeEmoji[t.entry_type] || '📋';
+    const date = new Date(t.occurred_at).toLocaleDateString('es-ES');
+    const contact = t.contacts ? `${t.contacts.first_name || ''} ${t.contacts.last_name || ''}`.trim() : '';
+    const company = t.companies?.name || '';
+    const subject = t.subject || t.summary || 'Sin asunto';
+    return `${emoji} **${date}** - ${subject}${contact ? ` (${contact})` : ''}${company ? ` @ ${company}` : ''}`;
+  }).join('\n');
+
+  return {
+    success: true,
+    message: `📋 **Historial de interacciones** (últimos ${daysAgo} días):\n\n${results}`,
+    data: entries,
+  };
+}
+
+async function analyzeDealHealth(supabase: any, userId: string, args: any) {
+  // Find opportunity
+  let query = supabase
+    .from('opportunities')
+    .select(`
+      *,
+      companies(name),
+      stages(name, position),
+      contacts(first_name, last_name, email)
+    `)
+    .eq('user_id', userId);
+
+  if (args.opportunity_id) {
+    query = query.eq('id', args.opportunity_id);
+  } else if (args.company_name) {
+    // First find company, then filter
+    const { data: companies } = await supabase
+      .from('companies')
+      .select('id')
+      .eq('user_id', userId)
+      .ilike('name', `%${args.company_name}%`)
+      .limit(1);
+
+    if (companies && companies.length > 0) {
+      query = query.eq('company_id', companies[0].id);
+    }
+  }
+
+  const { data: opportunities, error } = await query.eq('status', 'open').limit(1);
+
+  if (error || !opportunities || opportunities.length === 0) {
+    return { success: false, message: '❌ Oportunidad no encontrada' };
+  }
+
+  const opportunity = opportunities[0];
+
+  // Calculate health metrics
+  const now = new Date();
+  const createdAt = new Date(opportunity.created_at);
+  const daysInPipeline = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+
+  // Get last activity from timeline or activities
+  const { data: lastTimelineEntry } = await supabase
+    .from('timeline_entries')
+    .select('occurred_at')
+    .eq('user_id', userId)
+    .eq('opportunity_id', opportunity.id)
+    .order('occurred_at', { ascending: false })
+    .limit(1);
+
+  const { data: lastActivity } = await supabase
+    .from('activities')
+    .select('created_at')
+    .eq('user_id', userId)
+    .eq('opportunity_id', opportunity.id)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  let lastInteractionDate = createdAt;
+  if (lastTimelineEntry?.length > 0) {
+    lastInteractionDate = new Date(lastTimelineEntry[0].occurred_at);
+  }
+  if (lastActivity?.length > 0) {
+    const actDate = new Date(lastActivity[0].created_at);
+    if (actDate > lastInteractionDate) {
+      lastInteractionDate = actDate;
+    }
+  }
+
+  const daysSinceActivity = Math.floor((now.getTime() - lastInteractionDate.getTime()) / (1000 * 60 * 60 * 24));
+
+  // Calculate health score (0-100)
+  let healthScore = 100;
+  const warnings: string[] = [];
+
+  // Penalty for inactivity
+  if (daysSinceActivity > 14) {
+    healthScore -= 40;
+    warnings.push(`⚠️ Sin actividad en ${daysSinceActivity} días`);
+  } else if (daysSinceActivity > 7) {
+    healthScore -= 20;
+    warnings.push(`⚠️ ${daysSinceActivity} días desde la última actividad`);
+  }
+
+  // Penalty for time in pipeline
+  if (daysInPipeline > 90) {
+    healthScore -= 30;
+    warnings.push(`⚠️ ${daysInPipeline} días en el pipeline (>90)`);
+  } else if (daysInPipeline > 60) {
+    healthScore -= 15;
+    warnings.push(`⚠️ ${daysInPipeline} días en el pipeline (>60)`);
+  }
+
+  // Bonus for proximity to close date
+  if (opportunity.expected_close_date) {
+    const daysToClose = Math.floor((new Date(opportunity.expected_close_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysToClose < 0) {
+      healthScore -= 20;
+      warnings.push(`⚠️ Fecha de cierre pasada hace ${Math.abs(daysToClose)} días`);
+    } else if (daysToClose < 7 && daysToClose >= 0) {
+      healthScore += 10;
+    }
+  }
+
+  healthScore = Math.max(0, Math.min(100, healthScore));
+
+  const status = healthScore >= 70 ? '🟢 Saludable' : healthScore >= 40 ? '🟡 En riesgo' : '🔴 Crítico';
+
+  let message = `## 💊 Análisis de Salud del Deal\n\n`;
+  message += `**${opportunity.title}**\n`;
+  message += `- Empresa: ${opportunity.companies?.name || 'N/A'}\n`;
+  message += `- Valor: $${(opportunity.value || 0).toLocaleString()}\n`;
+  message += `- Etapa: ${opportunity.stages?.name || 'Sin etapa'}\n`;
+  message += `- Probabilidad: ${opportunity.probability || 50}%\n\n`;
+  message += `### Puntuación de Salud: ${healthScore}/100 ${status}\n\n`;
+  message += `**Métricas:**\n`;
+  message += `- Días en pipeline: ${daysInPipeline}\n`;
+  message += `- Días desde última actividad: ${daysSinceActivity}\n\n`;
+  
+  if (warnings.length > 0) {
+    message += `**Advertencias:**\n${warnings.join('\n')}\n`;
+  }
+
+  return {
+    success: true,
+    message,
+    data: {
+      deal: opportunity,
+      health: { score: healthScore, status, daysInPipeline, daysSinceActivity, warnings }
+    },
+  };
+}
+
+async function getPipelineSummaryAdvanced(supabase: any, userId: string, args: any) {
+  const daysRange = args.days_range || 30;
+  const dateThreshold = new Date();
+  dateThreshold.setDate(dateThreshold.getDate() - daysRange);
+
+  let query = supabase
+    .from('opportunities')
+    .select(`
+      *,
+      stages(name, position),
+      companies(name)
+    `)
+    .eq('user_id', userId);
+
+  if (!args.include_closed) {
+    query = query.eq('status', 'open');
+  }
+
+  const { data: opportunities, error } = await query;
+
+  if (error) {
+    return { success: false, message: `❌ Error al obtener pipeline: ${error.message}` };
+  }
+
+  if (!opportunities || opportunities.length === 0) {
+    return {
+      success: true,
+      message: `📊 Pipeline vacío. No hay oportunidades ${args.include_closed ? '' : 'activas'}.`,
+      data: { total: 0, byStage: {} },
+    };
+  }
+
+  // Group by stage
+  const byStage: Record<string, { count: number; value: number; deals: any[] }> = {};
+  let totalValue = 0;
+  let weightedValue = 0;
+
+  for (const opp of opportunities) {
+    const stageName = opp.stages?.name || 'Sin etapa';
+    if (!byStage[stageName]) {
+      byStage[stageName] = { count: 0, value: 0, deals: [] };
+    }
+    byStage[stageName].count++;
+    byStage[stageName].value += opp.value || 0;
+    byStage[stageName].deals.push({ title: opp.title, company: opp.companies?.name, value: opp.value });
+    totalValue += opp.value || 0;
+    weightedValue += (opp.value || 0) * (opp.probability || 50) / 100;
+  }
+
+  // Find deals at risk (no recent activity)
+  const fourteenDaysAgo = new Date();
+  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+
+  const { data: recentActivities } = await supabase
+    .from('activities')
+    .select('opportunity_id')
+    .eq('user_id', userId)
+    .gte('created_at', fourteenDaysAgo.toISOString());
+
+  const activeOpportunityIds = new Set((recentActivities || []).map((a: any) => a.opportunity_id));
+
+  const dealsAtRisk = opportunities.filter(
+    (opp: any) => opp.status === 'open' && !activeOpportunityIds.has(opp.id)
+  );
+
+  // Build message
+  let message = `## 📊 Resumen del Pipeline\n\n`;
+  message += `**Período:** ${args.include_closed ? 'Todos los deals' : 'Solo deals activos'}\n\n`;
+
+  const summary = Object.entries(byStage)
+    .sort((a, b) => {
+      const posA = opportunities.find((o: any) => o.stages?.name === a[0])?.stages?.position || 0;
+      const posB = opportunities.find((o: any) => o.stages?.name === b[0])?.stages?.position || 0;
+      return posA - posB;
+    })
+    .map(([stage, data]) => `• **${stage}**: ${data.count} deal(s) - $${data.value.toLocaleString()}`)
+    .join('\n');
+
+  message += `### Por Etapa:\n${summary}\n\n`;
+  message += `### Totales:\n`;
+  message += `- **Total:** ${opportunities.length} oportunidades\n`;
+  message += `- **Valor total:** $${totalValue.toLocaleString()}\n`;
+  message += `- **Valor ponderado:** $${Math.round(weightedValue).toLocaleString()}\n\n`;
+
+  if (dealsAtRisk.length > 0) {
+    message += `### ⚠️ Deals en Riesgo (sin actividad >14 días):\n`;
+    message += dealsAtRisk.slice(0, 5).map((d: any) => 
+      `• ${d.title}${d.companies?.name ? ` @ ${d.companies.name}` : ''} - $${(d.value || 0).toLocaleString()}`
+    ).join('\n');
+    if (dealsAtRisk.length > 5) {
+      message += `\n... y ${dealsAtRisk.length - 5} más`;
+    }
+  }
+
+  return {
+    success: true,
+    message,
+    data: { 
+      total: totalValue, 
+      weighted: weightedValue,
+      count: opportunities.length, 
+      byStage,
+      dealsAtRisk: dealsAtRisk.length
+    },
+  };
+}
+
+async function findPromises(supabase: any, userId: string, args: any) {
+  const daysRange = args.days_range || 14;
+  const dateThreshold = new Date();
+  dateThreshold.setDate(dateThreshold.getDate() - daysRange);
+
+  let query = supabase
+    .from('timeline_entries')
+    .select('*, contacts(first_name, last_name, email), companies(name)')
+    .eq('user_id', userId)
+    .gte('occurred_at', dateThreshold.toISOString())
+    .not('action_items', 'is', null);
+
+  const { data: entries, error } = await query;
+
+  if (error) {
+    return { success: false, message: `❌ Error al buscar compromisos: ${error.message}` };
+  }
+
+  // Extract action items
+  const promises: any[] = [];
+  const now = new Date();
+
+  (entries || []).forEach((entry: any) => {
+    if (entry.action_items && Array.isArray(entry.action_items)) {
+      entry.action_items.forEach((item: any) => {
+        const dueDate = item.due_date ? new Date(item.due_date) : null;
+        const isOverdue = dueDate && dueDate < now;
+        const isPending = item.status !== 'completed';
+
+        if (args.status === 'overdue' && !isOverdue) return;
+        if (args.status === 'pending' && !isPending) return;
+
+        // Filter by contact email if provided
+        if (args.contact_email && entry.contacts?.email?.toLowerCase() !== args.contact_email.toLowerCase()) {
+          return;
+        }
+
+        promises.push({
+          text: item.text,
+          assigned_to: item.assigned_to,
+          due_date: item.due_date,
+          status: item.status || 'pending',
+          isOverdue,
+          context: {
+            from: entry.entry_type,
+            date: new Date(entry.occurred_at).toLocaleDateString('es-ES'),
+            contact: entry.contacts ? `${entry.contacts.first_name || ''} ${entry.contacts.last_name || ''}`.trim() : null,
+            company: entry.companies?.name
+          }
+        });
+      });
+    }
+  });
+
+  if (promises.length === 0) {
+    return {
+      success: true,
+      message: `No se encontraron compromisos ${args.status === 'overdue' ? 'vencidos' : args.status === 'pending' ? 'pendientes' : ''} en los últimos ${daysRange} días.`,
+      data: [],
+    };
+  }
+
+  const typeEmoji: Record<string, string> = {
+    email: '📧',
+    meeting: '🤝',
+    call: '📞',
+    note: '📝',
+    whatsapp: '💬',
+  };
+
+  let message = `## 📋 Compromisos Encontrados\n\n`;
+  message += promises.slice(0, 20).map((p, i) => {
+    const emoji = typeEmoji[p.context.from] || '📋';
+    const overdueTag = p.isOverdue ? ' 🔴 **VENCIDO**' : '';
+    const dueDateStr = p.due_date ? ` (vence: ${new Date(p.due_date).toLocaleDateString('es-ES')})` : '';
+    return `${i + 1}. ${emoji} **${p.text}**${dueDateStr}${overdueTag}\n   _De: ${p.context.from} el ${p.context.date}${p.context.contact ? ` con ${p.context.contact}` : ''}_`;
+  }).join('\n\n');
+
+  return {
+    success: true,
+    message,
+    data: promises,
+  };
+}
+
+async function getNextBestAction(supabase: any, userId: string, args: any) {
+  let entity: any = null;
+  let lastInteraction: Date | null = null;
+  let entityName = '';
+
+  if (args.entity_type === 'contact') {
+    const { data } = await supabase
+      .from('contacts')
+      .select('*, companies(name)')
+      .eq('user_id', userId)
+      .eq('email', args.entity_identifier)
+      .single();
+    
+    if (data) {
+      entity = data;
+      entityName = `${data.first_name || ''} ${data.last_name || ''}`.trim() || data.email;
+      
+      // Get last timeline entry
+      const { data: timeline } = await supabase
+        .from('timeline_entries')
+        .select('occurred_at')
+        .eq('user_id', userId)
+        .eq('contact_id', data.id)
+        .order('occurred_at', { ascending: false })
+        .limit(1);
+      
+      if (timeline?.length > 0) {
+        lastInteraction = new Date(timeline[0].occurred_at);
+      } else if (data.last_contacted_at) {
+        lastInteraction = new Date(data.last_contacted_at);
+      }
+    }
+  } else if (args.entity_type === 'company') {
+    const { data } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('user_id', userId)
+      .ilike('name', `%${args.entity_identifier}%`)
+      .limit(1)
+      .single();
+    
+    if (data) {
+      entity = data;
+      entityName = data.name;
+      
+      const { data: timeline } = await supabase
+        .from('timeline_entries')
+        .select('occurred_at')
+        .eq('user_id', userId)
+        .eq('company_id', data.id)
+        .order('occurred_at', { ascending: false })
+        .limit(1);
+      
+      if (timeline?.length > 0) {
+        lastInteraction = new Date(timeline[0].occurred_at);
+      }
+    }
+  } else if (args.entity_type === 'opportunity') {
+    const { data } = await supabase
+      .from('opportunities')
+      .select('*, companies(name), stages(name)')
+      .eq('user_id', userId)
+      .or(`id.eq.${args.entity_identifier},title.ilike.%${args.entity_identifier}%`)
+      .limit(1)
+      .single();
+    
+    if (data) {
+      entity = data;
+      entityName = data.title;
+      
+      const { data: timeline } = await supabase
+        .from('timeline_entries')
+        .select('occurred_at')
+        .eq('user_id', userId)
+        .eq('opportunity_id', data.id)
+        .order('occurred_at', { ascending: false })
+        .limit(1);
+      
+      if (timeline?.length > 0) {
+        lastInteraction = new Date(timeline[0].occurred_at);
+      }
+    }
+  }
+
+  if (!entity) {
+    return { success: false, message: `❌ No se encontró ${args.entity_type === 'contact' ? 'el contacto' : args.entity_type === 'company' ? 'la empresa' : 'la oportunidad'} "${args.entity_identifier}"` };
+  }
+
+  const now = new Date();
+  const daysSinceLastContact = lastInteraction 
+    ? Math.floor((now.getTime() - lastInteraction.getTime()) / (1000 * 60 * 60 * 24))
+    : 999;
+
+  // Determine best action
+  let suggestedAction: string;
+  let reason: string;
+  let priority: 'high' | 'medium' | 'low';
+
+  if (daysSinceLastContact > 30) {
+    suggestedAction = "🔄 Reactivar relación";
+    reason = `Han pasado ${daysSinceLastContact} días sin contacto. Envía un email o mensaje para retomar la conversación.`;
+    priority = 'high';
+  } else if (daysSinceLastContact > 14) {
+    suggestedAction = "📞 Hacer seguimiento";
+    reason = `${daysSinceLastContact} días desde el último contacto. Es buen momento para un check-in.`;
+    priority = 'medium';
+  } else if (args.entity_type === 'opportunity' && entity.stages?.name === 'Propuesta') {
+    suggestedAction = "🤝 Programar reunión de seguimiento";
+    reason = "La oportunidad está en etapa de Propuesta. Una reunión ayudaría a avanzar hacia el cierre.";
+    priority = 'high';
+  } else if (args.entity_type === 'opportunity' && entity.stages?.name === 'Negociación') {
+    suggestedAction = "📝 Preparar oferta final";
+    reason = "El deal está en negociación. Considera preparar términos finales o concesiones.";
+    priority = 'high';
+  } else {
+    suggestedAction = "💡 Continuar nutriendo relación";
+    reason = "Mantén la comunicación regular compartiendo contenido de valor o actualizaciones relevantes.";
+    priority = 'low';
+  }
+
+  let message = `## 🎯 Siguiente Mejor Acción\n\n`;
+  message += `**Entidad:** ${entityName} (${args.entity_type})\n`;
+  message += `**Último contacto:** ${lastInteraction ? lastInteraction.toLocaleDateString('es-ES') : 'Nunca'}\n\n`;
+  message += `### Recomendación:\n`;
+  message += `**${suggestedAction}**\n\n`;
+  message += `_${reason}_\n\n`;
+  message += `**Prioridad:** ${priority === 'high' ? '🔴 Alta' : priority === 'medium' ? '🟡 Media' : '🟢 Baja'}`;
+
+  return {
+    success: true,
+    message,
+    data: {
+      entity: { type: args.entity_type, name: entityName },
+      lastContact: lastInteraction?.toISOString() || null,
+      recommendation: { action: suggestedAction, reason, priority }
+    },
+  };
+}
+
 // Execute tool calls
 async function executeTool(supabase: any, userId: string, toolName: string, args: any): Promise<{ success: boolean; message: string; data?: any }> {
   console.log(`Executing tool: ${toolName} with args:`, args);
@@ -333,6 +1052,19 @@ async function executeTool(supabase: any, userId: string, toolName: string, args
   try {
     switch (toolName) {
       case "create_contact": {
+        // Find company if provided
+        let companyId = null;
+        if (args.company_name) {
+          const { data: company } = await supabase
+            .from('companies')
+            .select('id')
+            .eq('user_id', userId)
+            .ilike('name', `%${args.company_name}%`)
+            .limit(1)
+            .single();
+          companyId = company?.id || null;
+        }
+
         const { data, error } = await supabase
           .from('contacts')
           .insert({
@@ -341,8 +1073,10 @@ async function executeTool(supabase: any, userId: string, toolName: string, args
             first_name: args.first_name || null,
             last_name: args.last_name || null,
             phone: args.phone || null,
+            whatsapp_number: args.whatsapp_number || null,
             job_title: args.job_title || null,
             notes: args.notes || null,
+            company_id: companyId,
           })
           .select()
           .single();
@@ -354,6 +1088,12 @@ async function executeTool(supabase: any, userId: string, toolName: string, args
           data,
         };
       }
+
+      case "update_contact":
+        return await updateContact(supabase, userId, args);
+      
+      case "search_contacts":
+        return await searchContactsAdvanced(supabase, userId, args);
       
       case "create_company": {
         const { data, error } = await supabase
@@ -379,6 +1119,35 @@ async function executeTool(supabase: any, userId: string, toolName: string, args
         };
       }
       
+      case "search_companies": {
+        const { data: companies, error } = await supabase
+          .from('companies')
+          .select('id, name, industry, website, city, country')
+          .eq('user_id', userId)
+          .or(`name.ilike.%${args.query}%,domain.ilike.%${args.query}%`)
+          .limit(10);
+
+        if (error) throw error;
+
+        if (!companies || companies.length === 0) {
+          return {
+            success: true,
+            message: `No se encontraron empresas que coincidan con "${args.query}"`,
+            data: [],
+          };
+        }
+
+        const results = companies.map((c: any) => 
+          `• ${c.name}${c.industry ? ` (${c.industry})` : ''}${c.city ? ` - ${c.city}` : ''}${c.website ? ` - ${c.website}` : ''}`
+        ).join('\n');
+
+        return {
+          success: true,
+          message: `🏢 Encontradas ${companies.length} empresa(s):\n${results}`,
+          data: companies,
+        };
+      }
+
       case "create_task": {
         const { data, error } = await supabase
           .from('activities')
@@ -402,22 +1171,7 @@ async function executeTool(supabase: any, userId: string, toolName: string, args
         };
       }
 
-      // ===== NEW TOOL IMPLEMENTATIONS =====
-      case "create_opportunity": {
-        // Find company if provided
-        let companyId = null;
-        if (args.company_name) {
-          const { data: company } = await supabase
-            .from('companies')
-            .select('id')
-            .eq('user_id', userId)
-            .ilike('name', `%${args.company_name}%`)
-            .limit(1)
-            .single();
-          companyId = company?.id || null;
-        }
-
-        // Find contact if provided
+      case "schedule_meeting": {
         let contactId = null;
         if (args.contact_email) {
           const { data: contact } = await supabase
@@ -430,7 +1184,61 @@ async function executeTool(supabase: any, userId: string, toolName: string, args
           contactId = contact?.id || null;
         }
 
-        // Get default pipeline and first stage
+        let dueDate = null;
+        if (args.date) {
+          dueDate = args.time ? `${args.date}T${args.time}:00` : `${args.date}T09:00:00`;
+        }
+
+        const { data, error } = await supabase
+          .from('activities')
+          .insert({
+            user_id: userId,
+            title: args.title,
+            description: args.description || null,
+            type: 'meeting',
+            priority: 'high',
+            due_date: dueDate,
+            contact_id: contactId,
+            completed: false,
+          })
+          .select()
+          .single();
+        
+        if (error) throw error;
+
+        const dateStr = args.date ? ` para el ${args.date}${args.time ? ` a las ${args.time}` : ''}` : '';
+        return {
+          success: true,
+          message: `✅ Reunión programada: "${args.title}"${dateStr}`,
+          data,
+        };
+      }
+
+      case "create_opportunity": {
+        let companyId = null;
+        if (args.company_name) {
+          const { data: company } = await supabase
+            .from('companies')
+            .select('id')
+            .eq('user_id', userId)
+            .ilike('name', `%${args.company_name}%`)
+            .limit(1)
+            .single();
+          companyId = company?.id || null;
+        }
+
+        let contactId = null;
+        if (args.contact_email) {
+          const { data: contact } = await supabase
+            .from('contacts')
+            .select('id')
+            .eq('user_id', userId)
+            .ilike('email', args.contact_email)
+            .limit(1)
+            .single();
+          contactId = contact?.id || null;
+        }
+
         const { data: pipeline } = await supabase
           .from('pipelines')
           .select('id')
@@ -476,7 +1284,6 @@ async function executeTool(supabase: any, userId: string, toolName: string, args
       }
 
       case "update_opportunity_stage": {
-        // Find the opportunity
         const { data: opportunity } = await supabase
           .from('opportunities')
           .select('id, pipeline_id')
@@ -492,7 +1299,6 @@ async function executeTool(supabase: any, userId: string, toolName: string, args
           };
         }
 
-        // Find the stage
         const { data: stage } = await supabase
           .from('stages')
           .select('id, name')
@@ -520,157 +1326,25 @@ async function executeTool(supabase: any, userId: string, toolName: string, args
         };
       }
 
-      case "search_contacts": {
-        const { data: contacts, error } = await supabase
-          .from('contacts')
-          .select('id, first_name, last_name, email, phone, job_title, companies(name)')
-          .eq('user_id', userId)
-          .or(`first_name.ilike.%${args.query}%,last_name.ilike.%${args.query}%,email.ilike.%${args.query}%`)
-          .limit(10);
+      case "get_pipeline_summary":
+        return await getPipelineSummaryAdvanced(supabase, userId, args);
 
-        if (error) throw error;
+      case "analyze_deal_health":
+        return await analyzeDealHealth(supabase, userId, args);
 
-        if (!contacts || contacts.length === 0) {
-          return {
-            success: true,
-            message: `No se encontraron contactos que coincidan con "${args.query}"`,
-            data: [],
-          };
-        }
+      case "search_timeline":
+        return await searchTimeline(supabase, userId, args);
 
-        const results = contacts.map((c: any) => 
-          `• ${c.first_name || ''} ${c.last_name || ''} - ${c.email}${c.job_title ? ` (${c.job_title})` : ''}${c.companies?.name ? ` @ ${c.companies.name}` : ''}`
-        ).join('\n');
+      case "find_promises":
+        return await findPromises(supabase, userId, args);
 
-        return {
-          success: true,
-          message: `📇 Encontrados ${contacts.length} contacto(s):\n${results}`,
-          data: contacts,
-        };
-      }
-
-      case "search_companies": {
-        const { data: companies, error } = await supabase
-          .from('companies')
-          .select('id, name, industry, website, city, country')
-          .eq('user_id', userId)
-          .or(`name.ilike.%${args.query}%,domain.ilike.%${args.query}%`)
-          .limit(10);
-
-        if (error) throw error;
-
-        if (!companies || companies.length === 0) {
-          return {
-            success: true,
-            message: `No se encontraron empresas que coincidan con "${args.query}"`,
-            data: [],
-          };
-        }
-
-        const results = companies.map((c: any) => 
-          `• ${c.name}${c.industry ? ` (${c.industry})` : ''}${c.city ? ` - ${c.city}` : ''}${c.website ? ` - ${c.website}` : ''}`
-        ).join('\n');
-
-        return {
-          success: true,
-          message: `🏢 Encontradas ${companies.length} empresa(s):\n${results}`,
-          data: companies,
-        };
-      }
-
-      case "get_pipeline_summary": {
-        // Get all opportunities with stages
-        const { data: opportunities, error } = await supabase
-          .from('opportunities')
-          .select('id, title, value, status, stages(name, position)')
-          .eq('user_id', userId)
-          .eq('status', 'open');
-
-        if (error) throw error;
-
-        if (!opportunities || opportunities.length === 0) {
-          return {
-            success: true,
-            message: `📊 Pipeline vacío. No hay oportunidades activas.`,
-            data: { total: 0, byStage: {} },
-          };
-        }
-
-        // Group by stage
-        const byStage: Record<string, { count: number; value: number }> = {};
-        let totalValue = 0;
-
-        for (const opp of opportunities) {
-          const stageName = opp.stages?.name || 'Sin etapa';
-          if (!byStage[stageName]) {
-            byStage[stageName] = { count: 0, value: 0 };
-          }
-          byStage[stageName].count++;
-          byStage[stageName].value += opp.value || 0;
-          totalValue += opp.value || 0;
-        }
-
-        const summary = Object.entries(byStage)
-          .map(([stage, data]) => `• ${stage}: ${data.count} deal(s) - $${data.value.toLocaleString()}`)
-          .join('\n');
-
-        return {
-          success: true,
-          message: `📊 **Resumen del Pipeline**\n\n${summary}\n\n**Total:** ${opportunities.length} oportunidades por $${totalValue.toLocaleString()}`,
-          data: { total: totalValue, count: opportunities.length, byStage },
-        };
-      }
-
-      case "schedule_meeting": {
-        // Find contact if provided
-        let contactId = null;
-        if (args.contact_email) {
-          const { data: contact } = await supabase
-            .from('contacts')
-            .select('id')
-            .eq('user_id', userId)
-            .ilike('email', args.contact_email)
-            .limit(1)
-            .single();
-          contactId = contact?.id || null;
-        }
-
-        // Build due_date from date and time
-        let dueDate = null;
-        if (args.date) {
-          dueDate = args.time ? `${args.date}T${args.time}:00` : `${args.date}T09:00:00`;
-        }
-
-        const { data, error } = await supabase
-          .from('activities')
-          .insert({
-            user_id: userId,
-            title: args.title,
-            description: args.description || null,
-            type: 'meeting',
-            priority: 'high',
-            due_date: dueDate,
-            contact_id: contactId,
-            completed: false,
-          })
-          .select()
-          .single();
-        
-        if (error) throw error;
-
-        const dateStr = args.date ? ` para el ${args.date}${args.time ? ` a las ${args.time}` : ''}` : '';
-        return {
-          success: true,
-          message: `✅ Reunión programada: "${args.title}"${dateStr}`,
-          data,
-        };
-      }
+      case "get_next_best_action":
+        return await getNextBestAction(supabase, userId, args);
 
       case "add_note": {
         const entityType = args.entity_type || 'contact';
         
         if (entityType === 'contact') {
-          // Find and update contact
           const { data: contact } = await supabase
             .from('contacts')
             .select('id, notes')
@@ -701,7 +1375,6 @@ async function executeTool(supabase: any, userId: string, toolName: string, args
             message: `✅ Nota agregada al contacto ${args.entity_identifier}`,
           };
         } else {
-          // Find and update company
           const { data: company } = await supabase
             .from('companies')
             .select('id, description')
@@ -817,7 +1490,7 @@ serve(async (req) => {
     const crmContext = await fetchCRMContext(supabase);
     const systemPrompt = buildSystemPrompt(crmContext);
 
-    console.log("Calling Lovable AI Gateway with", messages.length, "messages and tools");
+    console.log("Calling Lovable AI Gateway with", messages.length, "messages and", tools.length, "tools");
 
     // First call with tools (non-streaming to handle tool calls)
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -834,7 +1507,7 @@ serve(async (req) => {
         ],
         tools,
         tool_choice: "auto",
-        stream: false, // Non-streaming first to handle tool calls
+        stream: false,
       }),
     });
 
@@ -925,7 +1598,6 @@ serve(async (req) => {
     
     // No tool calls - stream the response directly
     console.log("No tool calls detected, streaming response");
-    // Re-call with streaming since first call was non-streaming
     const streamResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {

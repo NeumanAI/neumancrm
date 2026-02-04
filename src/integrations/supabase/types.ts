@@ -307,6 +307,7 @@ export type Database = {
           twitter_url: string | null
           updated_at: string | null
           user_id: string
+          whatsapp_number: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -326,6 +327,7 @@ export type Database = {
           twitter_url?: string | null
           updated_at?: string | null
           user_id: string
+          whatsapp_number?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -345,6 +347,7 @@ export type Database = {
           twitter_url?: string | null
           updated_at?: string | null
           user_id?: string
+          whatsapp_number?: string | null
         }
         Relationships: [
           {
@@ -812,6 +815,82 @@ export type Database = {
             columns: ["pipeline_id"]
             isOneToOne: false
             referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      timeline_entries: {
+        Row: {
+          action_items: Json | null
+          body: string | null
+          company_id: string | null
+          contact_id: string | null
+          created_at: string | null
+          entry_type: string
+          id: string
+          metadata: Json | null
+          occurred_at: string | null
+          opportunity_id: string | null
+          participants: Json | null
+          source: string | null
+          subject: string | null
+          summary: string | null
+          user_id: string
+        }
+        Insert: {
+          action_items?: Json | null
+          body?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          entry_type: string
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string | null
+          opportunity_id?: string | null
+          participants?: Json | null
+          source?: string | null
+          subject?: string | null
+          summary?: string | null
+          user_id: string
+        }
+        Update: {
+          action_items?: Json | null
+          body?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          entry_type?: string
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string | null
+          opportunity_id?: string | null
+          participants?: Json | null
+          source?: string | null
+          subject?: string | null
+          summary?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timeline_entries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timeline_entries_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "timeline_entries_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
         ]
