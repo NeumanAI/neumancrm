@@ -1,9 +1,11 @@
 // Types for integrations and notifications
 
+export type IntegrationProvider = 'gmail' | 'whatsapp' | 'manychat' | 'webchat';
+
 export interface Integration {
   id: string;
   user_id: string;
-  provider: 'gmail' | 'whatsapp';
+  provider: IntegrationProvider;
   is_active: boolean;
   access_token?: string;
   refresh_token?: string;
@@ -14,6 +16,37 @@ export interface Integration {
   metadata?: Record<string, any>;
   created_at: string;
   updated_at: string;
+}
+
+// ManyChat specific configuration
+export interface ManyChatConfig {
+  api_key_configured: boolean;
+  channels_enabled: ManyChatChannel[];
+  last_test_at?: string;
+  test_status?: 'success' | 'error' | 'pending';
+}
+
+export type ManyChatChannel = 'whatsapp' | 'instagram' | 'messenger';
+
+// Webchat specific configuration
+export interface WebchatConfig {
+  widget_enabled: boolean;
+  n8n_webhook_url?: string;
+  widget_config: WebchatWidgetConfig;
+}
+
+export interface WebchatWidgetConfig {
+  position: 'bottom-right' | 'bottom-left';
+  primary_color: string;
+  welcome_message: string;
+  bot_name?: string;
+  bot_avatar?: string;
+}
+
+// Gmail specific configuration (for reference)
+export interface GmailConfig {
+  email?: string;
+  sync_frequency?: number;
 }
 
 export interface Notification {
@@ -43,3 +76,11 @@ export interface NotificationPreferences {
   created_at: string;
   updated_at: string;
 }
+
+// Helper type to extract config based on provider
+export type IntegrationConfigMap = {
+  gmail: GmailConfig;
+  manychat: ManyChatConfig;
+  webchat: WebchatConfig;
+  whatsapp: Record<string, any>; // Legacy support
+};
