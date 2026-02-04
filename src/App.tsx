@@ -20,6 +20,8 @@ import DataManagement from "./pages/DataManagement";
 import ContactDetail from "./pages/ContactDetail";
 import Team from "./pages/Team";
 import Conversations from "./pages/Conversations";
+import PendingApproval from "./pages/PendingApproval";
+import Admin from "./pages/Admin";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +35,12 @@ const App = () => (
           <Routes>
             {/* Auth route - no layout */}
             <Route path="/auth" element={<Auth />} />
+            
+            {/* Pending approval - no layout */}
+            <Route path="/pending-approval" element={<PendingApproval />} />
+            
+            {/* Admin panel - no layout (has its own) */}
+            <Route path="/admin" element={<Admin />} />
             
             {/* Protected routes with layout */}
             <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />

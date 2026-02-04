@@ -29,6 +29,9 @@ export interface Organization {
   slug: string | null;
   plan: string;
   max_users: number;
+  is_approved: boolean;
+  approved_at: string | null;
+  approved_by: string | null;
   settings: {
     timezone: string;
     currency: string;
