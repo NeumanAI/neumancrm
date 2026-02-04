@@ -65,6 +65,115 @@ const tools = [
       },
     },
   },
+  // ===== NEW TOOLS =====
+  {
+    type: "function",
+    function: {
+      name: "create_opportunity",
+      description: "Crea una nueva oportunidad de venta en el pipeline. Usa esta función cuando el usuario pida crear un deal u oportunidad.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título de la oportunidad (requerido)" },
+          value: { type: "number", description: "Valor estimado en dólares" },
+          company_name: { type: "string", description: "Nombre de la empresa asociada" },
+          contact_email: { type: "string", description: "Email del contacto asociado" },
+          expected_close_date: { type: "string", description: "Fecha esperada de cierre (YYYY-MM-DD)" },
+          description: { type: "string", description: "Descripción de la oportunidad" },
+        },
+        required: ["title"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_opportunity_stage",
+      description: "Mueve una oportunidad a otra etapa del pipeline. Usa esta función para actualizar el progreso de un deal.",
+      parameters: {
+        type: "object",
+        properties: {
+          opportunity_title: { type: "string", description: "Título de la oportunidad a actualizar" },
+          new_stage: { type: "string", description: "Nueva etapa: 'Contacto Inicial', 'Calificación', 'Propuesta', 'Negociación', 'Ganado', 'Perdido'" },
+        },
+        required: ["opportunity_title", "new_stage"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_contacts",
+      description: "Busca contactos en el CRM por nombre o email. Usa esta función para encontrar información de un contacto.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Término de búsqueda (nombre, apellido o email)" },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_companies",
+      description: "Busca empresas en el CRM por nombre o dominio. Usa esta función para encontrar información de una empresa.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Término de búsqueda (nombre o dominio)" },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_pipeline_summary",
+      description: "Obtiene un resumen completo del pipeline de ventas con valor por etapa. Usa esta función para reportes o análisis.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "schedule_meeting",
+      description: "Programa una reunión o llamada con un contacto. Crea una actividad de tipo meeting.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título de la reunión (requerido)" },
+          contact_email: { type: "string", description: "Email del contacto para la reunión" },
+          date: { type: "string", description: "Fecha de la reunión (YYYY-MM-DD)" },
+          time: { type: "string", description: "Hora de la reunión (HH:MM)" },
+          description: { type: "string", description: "Descripción o agenda de la reunión" },
+        },
+        required: ["title"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_note",
+      description: "Agrega una nota a un contacto o empresa existente.",
+      parameters: {
+        type: "object",
+        properties: {
+          entity_type: { type: "string", enum: ["contact", "company"], description: "Tipo de entidad: 'contact' o 'company'" },
+          entity_identifier: { type: "string", description: "Email del contacto o nombre de la empresa" },
+          note_content: { type: "string", description: "Contenido de la nota (requerido)" },
+        },
+        required: ["note_content"],
+      },
+    },
+  },
 ];
 
 const buildSystemPrompt = (crmContext: {
@@ -106,17 +215,25 @@ ${crmContext.upcomingTasks.length > 0
 
 ## Tus capacidades:
 - **Consultar datos**: Puedes informar sobre contactos, empresas, oportunidades y tareas del usuario
-- **Crear registros**: Puedes crear contactos, empresas y tareas usando las funciones disponibles
+- **Crear registros**: Puedes crear contactos, empresas, tareas y oportunidades usando las funciones disponibles
+- **Buscar**: Puedes buscar contactos y empresas por nombre, email o dominio
+- **Pipeline**: Puedes ver el resumen del pipeline y mover oportunidades entre etapas
+- **Reuniones**: Puedes programar reuniones y llamadas
+- **Notas**: Puedes agregar notas a contactos y empresas
 - **Análisis**: Proporcionar insights sobre la actividad comercial basándote en los datos reales
 - **Recomendaciones**: Sugerir acciones basadas en el estado actual del CRM
 
-## IMPORTANTE - Creación de registros:
-Cuando el usuario te pida crear un contacto, empresa o tarea, DEBES usar las funciones correspondientes:
-- Para crear contactos: usa la función create_contact
-- Para crear empresas: usa la función create_company  
-- Para crear tareas: usa la función create_task
-
-Pregunta los datos necesarios si el usuario no los proporciona (especialmente el email para contactos y el nombre para empresas).
+## IMPORTANTE - Funciones disponibles:
+- **create_contact**: Crear un nuevo contacto (requiere email)
+- **create_company**: Crear una nueva empresa (requiere nombre)
+- **create_task**: Crear una tarea o actividad
+- **create_opportunity**: Crear una oportunidad de venta en el pipeline
+- **update_opportunity_stage**: Mover una oportunidad a otra etapa
+- **search_contacts**: Buscar contactos por nombre o email
+- **search_companies**: Buscar empresas por nombre o dominio
+- **get_pipeline_summary**: Obtener resumen del pipeline con valores por etapa
+- **schedule_meeting**: Programar una reunión o llamada
+- **add_note**: Agregar una nota a un contacto o empresa
 
 ## Directrices:
 - Responde siempre en español
@@ -131,9 +248,10 @@ Pregunta los datos necesarios si el usuario no los proporciona (especialmente el
 2. Si el usuario pide crear un contacto, **DEBES** usar create_contact - NO simules la creación
 3. Si el usuario pide crear una empresa, **DEBES** usar create_company - NO simules la creación
 4. Si el usuario pide crear una tarea, **DEBES** usar create_task - NO simules la creación
-5. Si faltan datos obligatorios (email para contactos, nombre para empresas), **PRIMERO** pregunta por esos datos
-6. Solo confirma la creación **DESPUÉS** de recibir el resultado exitoso de la función
-7. Si la función falla, informa al usuario del error específico
+5. Si el usuario pide crear una oportunidad/deal, **DEBES** usar create_opportunity
+6. Si faltan datos obligatorios (email para contactos, nombre para empresas/tareas/oportunidades), **PRIMERO** pregunta por esos datos
+7. Solo confirma la creación **DESPUÉS** de recibir el resultado exitoso de la función
+8. Si la función falla, informa al usuario del error específico
 
 ## Navegación del CRM:
 - **Dashboard** (/dashboard): Vista general con estadísticas
@@ -141,6 +259,7 @@ Pregunta los datos necesarios si el usuario no los proporciona (especialmente el
 - **Empresas** (/companies): Gestión de organizaciones
 - **Pipeline** (/pipeline): Tablero Kanban de oportunidades
 - **Tareas** (/tasks): Lista de actividades pendientes
+- **Configuración** (/settings): Integraciones y preferencias
 - **Chat** (/chat): Asistente IA (donde estamos ahora)`;
 };
 
@@ -281,6 +400,338 @@ async function executeTool(supabase: any, userId: string, toolName: string, args
           message: `✅ Tarea creada exitosamente: ${args.title}`,
           data,
         };
+      }
+
+      // ===== NEW TOOL IMPLEMENTATIONS =====
+      case "create_opportunity": {
+        // Find company if provided
+        let companyId = null;
+        if (args.company_name) {
+          const { data: company } = await supabase
+            .from('companies')
+            .select('id')
+            .eq('user_id', userId)
+            .ilike('name', `%${args.company_name}%`)
+            .limit(1)
+            .single();
+          companyId = company?.id || null;
+        }
+
+        // Find contact if provided
+        let contactId = null;
+        if (args.contact_email) {
+          const { data: contact } = await supabase
+            .from('contacts')
+            .select('id')
+            .eq('user_id', userId)
+            .ilike('email', args.contact_email)
+            .limit(1)
+            .single();
+          contactId = contact?.id || null;
+        }
+
+        // Get default pipeline and first stage
+        const { data: pipeline } = await supabase
+          .from('pipelines')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('is_default', true)
+          .single();
+
+        let stageId = null;
+        if (pipeline) {
+          const { data: stage } = await supabase
+            .from('stages')
+            .select('id')
+            .eq('pipeline_id', pipeline.id)
+            .order('position', { ascending: true })
+            .limit(1)
+            .single();
+          stageId = stage?.id || null;
+        }
+
+        const { data, error } = await supabase
+          .from('opportunities')
+          .insert({
+            user_id: userId,
+            title: args.title,
+            value: args.value || 0,
+            company_id: companyId,
+            contact_id: contactId,
+            pipeline_id: pipeline?.id || null,
+            stage_id: stageId,
+            expected_close_date: args.expected_close_date || null,
+            description: args.description || null,
+            status: 'open',
+          })
+          .select()
+          .single();
+        
+        if (error) throw error;
+        return {
+          success: true,
+          message: `✅ Oportunidad creada: "${args.title}" por $${(args.value || 0).toLocaleString()}`,
+          data,
+        };
+      }
+
+      case "update_opportunity_stage": {
+        // Find the opportunity
+        const { data: opportunity } = await supabase
+          .from('opportunities')
+          .select('id, pipeline_id')
+          .eq('user_id', userId)
+          .ilike('title', `%${args.opportunity_title}%`)
+          .limit(1)
+          .single();
+
+        if (!opportunity) {
+          return {
+            success: false,
+            message: `❌ No se encontró una oportunidad con título similar a "${args.opportunity_title}"`,
+          };
+        }
+
+        // Find the stage
+        const { data: stage } = await supabase
+          .from('stages')
+          .select('id, name')
+          .eq('pipeline_id', opportunity.pipeline_id)
+          .ilike('name', `%${args.new_stage}%`)
+          .limit(1)
+          .single();
+
+        if (!stage) {
+          return {
+            success: false,
+            message: `❌ No se encontró la etapa "${args.new_stage}". Etapas válidas: Contacto Inicial, Calificación, Propuesta, Negociación, Ganado, Perdido`,
+          };
+        }
+
+        const { error } = await supabase
+          .from('opportunities')
+          .update({ stage_id: stage.id })
+          .eq('id', opportunity.id);
+
+        if (error) throw error;
+        return {
+          success: true,
+          message: `✅ Oportunidad "${args.opportunity_title}" movida a etapa "${stage.name}"`,
+        };
+      }
+
+      case "search_contacts": {
+        const { data: contacts, error } = await supabase
+          .from('contacts')
+          .select('id, first_name, last_name, email, phone, job_title, companies(name)')
+          .eq('user_id', userId)
+          .or(`first_name.ilike.%${args.query}%,last_name.ilike.%${args.query}%,email.ilike.%${args.query}%`)
+          .limit(10);
+
+        if (error) throw error;
+
+        if (!contacts || contacts.length === 0) {
+          return {
+            success: true,
+            message: `No se encontraron contactos que coincidan con "${args.query}"`,
+            data: [],
+          };
+        }
+
+        const results = contacts.map((c: any) => 
+          `• ${c.first_name || ''} ${c.last_name || ''} - ${c.email}${c.job_title ? ` (${c.job_title})` : ''}${c.companies?.name ? ` @ ${c.companies.name}` : ''}`
+        ).join('\n');
+
+        return {
+          success: true,
+          message: `📇 Encontrados ${contacts.length} contacto(s):\n${results}`,
+          data: contacts,
+        };
+      }
+
+      case "search_companies": {
+        const { data: companies, error } = await supabase
+          .from('companies')
+          .select('id, name, industry, website, city, country')
+          .eq('user_id', userId)
+          .or(`name.ilike.%${args.query}%,domain.ilike.%${args.query}%`)
+          .limit(10);
+
+        if (error) throw error;
+
+        if (!companies || companies.length === 0) {
+          return {
+            success: true,
+            message: `No se encontraron empresas que coincidan con "${args.query}"`,
+            data: [],
+          };
+        }
+
+        const results = companies.map((c: any) => 
+          `• ${c.name}${c.industry ? ` (${c.industry})` : ''}${c.city ? ` - ${c.city}` : ''}${c.website ? ` - ${c.website}` : ''}`
+        ).join('\n');
+
+        return {
+          success: true,
+          message: `🏢 Encontradas ${companies.length} empresa(s):\n${results}`,
+          data: companies,
+        };
+      }
+
+      case "get_pipeline_summary": {
+        // Get all opportunities with stages
+        const { data: opportunities, error } = await supabase
+          .from('opportunities')
+          .select('id, title, value, status, stages(name, position)')
+          .eq('user_id', userId)
+          .eq('status', 'open');
+
+        if (error) throw error;
+
+        if (!opportunities || opportunities.length === 0) {
+          return {
+            success: true,
+            message: `📊 Pipeline vacío. No hay oportunidades activas.`,
+            data: { total: 0, byStage: {} },
+          };
+        }
+
+        // Group by stage
+        const byStage: Record<string, { count: number; value: number }> = {};
+        let totalValue = 0;
+
+        for (const opp of opportunities) {
+          const stageName = opp.stages?.name || 'Sin etapa';
+          if (!byStage[stageName]) {
+            byStage[stageName] = { count: 0, value: 0 };
+          }
+          byStage[stageName].count++;
+          byStage[stageName].value += opp.value || 0;
+          totalValue += opp.value || 0;
+        }
+
+        const summary = Object.entries(byStage)
+          .map(([stage, data]) => `• ${stage}: ${data.count} deal(s) - $${data.value.toLocaleString()}`)
+          .join('\n');
+
+        return {
+          success: true,
+          message: `📊 **Resumen del Pipeline**\n\n${summary}\n\n**Total:** ${opportunities.length} oportunidades por $${totalValue.toLocaleString()}`,
+          data: { total: totalValue, count: opportunities.length, byStage },
+        };
+      }
+
+      case "schedule_meeting": {
+        // Find contact if provided
+        let contactId = null;
+        if (args.contact_email) {
+          const { data: contact } = await supabase
+            .from('contacts')
+            .select('id')
+            .eq('user_id', userId)
+            .ilike('email', args.contact_email)
+            .limit(1)
+            .single();
+          contactId = contact?.id || null;
+        }
+
+        // Build due_date from date and time
+        let dueDate = null;
+        if (args.date) {
+          dueDate = args.time ? `${args.date}T${args.time}:00` : `${args.date}T09:00:00`;
+        }
+
+        const { data, error } = await supabase
+          .from('activities')
+          .insert({
+            user_id: userId,
+            title: args.title,
+            description: args.description || null,
+            type: 'meeting',
+            priority: 'high',
+            due_date: dueDate,
+            contact_id: contactId,
+            completed: false,
+          })
+          .select()
+          .single();
+        
+        if (error) throw error;
+
+        const dateStr = args.date ? ` para el ${args.date}${args.time ? ` a las ${args.time}` : ''}` : '';
+        return {
+          success: true,
+          message: `✅ Reunión programada: "${args.title}"${dateStr}`,
+          data,
+        };
+      }
+
+      case "add_note": {
+        const entityType = args.entity_type || 'contact';
+        
+        if (entityType === 'contact') {
+          // Find and update contact
+          const { data: contact } = await supabase
+            .from('contacts')
+            .select('id, notes')
+            .eq('user_id', userId)
+            .ilike('email', args.entity_identifier || '')
+            .limit(1)
+            .single();
+
+          if (!contact) {
+            return {
+              success: false,
+              message: `❌ No se encontró un contacto con email "${args.entity_identifier}"`,
+            };
+          }
+
+          const newNotes = contact.notes 
+            ? `${contact.notes}\n\n[${new Date().toLocaleDateString('es-ES')}] ${args.note_content}`
+            : `[${new Date().toLocaleDateString('es-ES')}] ${args.note_content}`;
+
+          const { error } = await supabase
+            .from('contacts')
+            .update({ notes: newNotes })
+            .eq('id', contact.id);
+
+          if (error) throw error;
+          return {
+            success: true,
+            message: `✅ Nota agregada al contacto ${args.entity_identifier}`,
+          };
+        } else {
+          // Find and update company
+          const { data: company } = await supabase
+            .from('companies')
+            .select('id, description')
+            .eq('user_id', userId)
+            .ilike('name', `%${args.entity_identifier || ''}%`)
+            .limit(1)
+            .single();
+
+          if (!company) {
+            return {
+              success: false,
+              message: `❌ No se encontró una empresa con nombre "${args.entity_identifier}"`,
+            };
+          }
+
+          const newDescription = company.description 
+            ? `${company.description}\n\n[${new Date().toLocaleDateString('es-ES')}] ${args.note_content}`
+            : `[${new Date().toLocaleDateString('es-ES')}] ${args.note_content}`;
+
+          const { error } = await supabase
+            .from('companies')
+            .update({ description: newDescription })
+            .eq('id', company.id);
+
+          if (error) throw error;
+          return {
+            success: true,
+            message: `✅ Nota agregada a la empresa ${args.entity_identifier}`,
+          };
+        }
       }
       
       default:

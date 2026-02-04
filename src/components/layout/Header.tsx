@@ -14,6 +14,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Search, Menu, LogOut, Settings, User } from 'lucide-react';
 import { toast } from 'sonner';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -60,6 +61,9 @@ export function Header({ onMenuClick }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-3">
+        {/* Notifications */}
+        <NotificationBell />
+
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

@@ -10,9 +10,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { Settings as SettingsIcon, Palette, User, Shield, Mail, Slack, Calendar, Video } from 'lucide-react';
+import { Settings as SettingsIcon, Palette, User, Shield, Bell } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { IntegrationsTab } from '@/components/settings/IntegrationsTab';
+import { NotificationPreferences } from '@/components/notifications/NotificationPreferences';
 
 export default function Settings() {
   const { user, signOut } = useAuth();
@@ -103,13 +105,6 @@ export default function Settings() {
 
   const userInitials = user?.email?.split('@')[0].slice(0, 2).toUpperCase() || 'U';
 
-  const integrations = [
-    { id: 'gmail', name: 'Gmail', icon: Mail, connected: false, description: 'Sincroniza tus emails automáticamente' },
-    { id: 'calendar', name: 'Google Calendar', icon: Calendar, connected: false, description: 'Conecta tu calendario de reuniones' },
-    { id: 'slack', name: 'Slack', icon: Slack, connected: false, description: 'Recibe notificaciones en Slack' },
-    { id: 'zoom', name: 'Zoom', icon: Video, connected: false, description: 'Graba y analiza tus reuniones' },
-  ];
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -135,6 +130,10 @@ export default function Settings() {
           <TabsTrigger value="integrations" className="gap-2">
             <SettingsIcon className="h-4 w-4" />
             Integraciones
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="gap-2">
+            <Bell className="h-4 w-4" />
+            Notificaciones
           </TabsTrigger>
         </TabsList>
 
@@ -278,28 +277,12 @@ export default function Settings() {
 
         {/* Integrations Tab */}
         <TabsContent value="integrations">
-          <div className="grid gap-4">
-            {integrations.map((integration) => (
-              <Card key={integration.id} className="border-0 shadow-card">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center">
-                        <integration.icon className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                      <div>
-                        <h3 className="font-medium">{integration.name}</h3>
-                        <p className="text-sm text-muted-foreground">{integration.description}</p>
-                      </div>
-                    </div>
-                    <Button variant={integration.connected ? 'outline' : 'default'}>
-                      {integration.connected ? 'Desconectar' : 'Conectar'}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <IntegrationsTab />
+        </TabsContent>
+
+        {/* Notifications Tab */}
+        <TabsContent value="notifications">
+          <NotificationPreferences />
         </TabsContent>
       </Tabs>
     </motion.div>
