@@ -152,3 +152,16 @@ export interface TimelineEntry {
   companies?: Company;
   opportunities?: Opportunity;
 }
+
+export interface ContactDocument {
+  id: string;
+  user_id: string;
+  contact_id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number;
+  mime_type: string;
+  document_type: 'contract' | 'proposal' | 'agreement' | 'invoice' | 'other';
+  description?: string;
+  created_at: string;
+}
