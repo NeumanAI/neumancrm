@@ -23,6 +23,7 @@ import Team from "./pages/Team";
 import Conversations from "./pages/Conversations";
 import PendingApproval from "./pages/PendingApproval";
 import Admin from "./pages/Admin";
+import ResellerAdmin from "./pages/ResellerAdmin";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,9 @@ const App = () => (
             
             {/* Admin panel - no layout (has its own) */}
             <Route path="/admin" element={<Admin />} />
+            
+            {/* Reseller admin panel - no layout (has its own) */}
+            <Route path="/reseller-admin" element={<ResellerAdmin />} />
             
             {/* Protected routes with layout */}
             <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />

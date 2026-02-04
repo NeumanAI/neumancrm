@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 import { EditOrganizationDialog } from '@/components/admin/EditOrganizationDialog';
 import { CreateOrganizationDialog } from '@/components/admin/CreateOrganizationDialog';
 import { DomainsTab } from '@/components/admin/DomainsTab';
@@ -65,6 +66,8 @@ function OrganizationRow({
   onEdit,
   isApproving,
   isRejecting,
+  isSubClient = false,
+  subClients = [],
 }: { 
   org: OrganizationWithAdmin;
   onApprove: () => void;
@@ -72,99 +75,125 @@ function OrganizationRow({
   onEdit: () => void;
   isApproving: boolean;
   isRejecting: boolean;
+  isSubClient?: boolean;
+  subClients?: OrganizationWithAdmin[];
 }) {
   return (
-    <TableRow>
-      <TableCell>
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden">
-            {org.logo_url ? (
-              <img src={org.logo_url} alt={org.name} className="h-full w-full object-contain" />
+    <>
+      <TableRow className={isSubClient ? 'bg-muted/30' : ''}>
+        <TableCell>
+          <div className={cn("flex items-center gap-3", isSubClient && "pl-8")}>
+            {isSubClient && (
+              <span className="text-muted-foreground">└</span>
+            )}
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden">
+              {org.logo_url ? (
+                <img src={org.logo_url} alt={org.name} className="h-full w-full object-contain" />
+              ) : (
+                <Building2 className="h-5 w-5 text-primary" />
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="font-medium">{org.name}</p>
+                {isSubClient ? (
+                  <Badge variant="outline" className="text-xs bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900/30 dark:text-slate-300 dark:border-slate-700">
+                    Sub-cliente
+                  </Badge>
+                ) : (
+                  <OrganizationTypeBadge type={org.organization_type} />
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {org.custom_domain || org.admin_email || 'Sin admin'}
+              </p>
+            </div>
+          </div>
+        </TableCell>
+        <TableCell>
+          <div className="flex items-center gap-1">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <span>{org.member_count}</span>
+          </div>
+        </TableCell>
+        <TableCell>
+          <span className="text-sm text-muted-foreground">
+            {format(new Date(org.created_at), "d MMM yyyy", { locale: es })}
+          </span>
+        </TableCell>
+        <TableCell>
+          {org.is_approved ? (
+            <Badge variant="default" className="bg-green-600">
+              <Check className="h-3 w-3 mr-1" />
+              Aprobada
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+              <Clock className="h-3 w-3 mr-1" />
+              Pendiente
+            </Badge>
+          )}
+        </TableCell>
+        <TableCell className="text-right">
+          <div className="flex gap-2 justify-end">
+            <Button 
+              size="sm" 
+              variant="ghost"
+              onClick={onEdit}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            {org.is_approved ? (
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+                onClick={onReject}
+                disabled={isRejecting}
+              >
+                {isRejecting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <X className="h-4 w-4 mr-1" />
+                    Revocar
+                  </>
+                )}
+              </Button>
             ) : (
-              <Building2 className="h-5 w-5 text-primary" />
+              <Button 
+                size="sm" 
+                variant="default"
+                onClick={onApprove}
+                disabled={isApproving}
+              >
+                {isApproving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Check className="h-4 w-4 mr-1" />
+                    Aprobar
+                  </>
+                )}
+              </Button>
             )}
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <p className="font-medium">{org.name}</p>
-              <OrganizationTypeBadge type={org.organization_type} />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {org.custom_domain || org.admin_email || 'Sin admin'}
-            </p>
-          </div>
-        </div>
-      </TableCell>
-      <TableCell>
-        <div className="flex items-center gap-1">
-          <Users className="h-4 w-4 text-muted-foreground" />
-          <span>{org.member_count}</span>
-        </div>
-      </TableCell>
-      <TableCell>
-        <span className="text-sm text-muted-foreground">
-          {format(new Date(org.created_at), "d MMM yyyy", { locale: es })}
-        </span>
-      </TableCell>
-      <TableCell>
-        {org.is_approved ? (
-          <Badge variant="default" className="bg-green-600">
-            <Check className="h-3 w-3 mr-1" />
-            Aprobada
-          </Badge>
-        ) : (
-          <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-            <Clock className="h-3 w-3 mr-1" />
-            Pendiente
-          </Badge>
-        )}
-      </TableCell>
-      <TableCell className="text-right">
-        <div className="flex gap-2 justify-end">
-          <Button 
-            size="sm" 
-            variant="ghost"
-            onClick={onEdit}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          {org.is_approved ? (
-            <Button 
-              size="sm" 
-              variant="outline"
-              className="text-destructive hover:text-destructive"
-              onClick={onReject}
-              disabled={isRejecting}
-            >
-              {isRejecting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  <X className="h-4 w-4 mr-1" />
-                  Revocar
-                </>
-              )}
-            </Button>
-          ) : (
-            <Button 
-              size="sm" 
-              variant="default"
-              onClick={onApprove}
-              disabled={isApproving}
-            >
-              {isApproving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  <Check className="h-4 w-4 mr-1" />
-                  Aprobar
-                </>
-              )}
-            </Button>
-          )}
-        </div>
-      </TableCell>
-    </TableRow>
+        </TableCell>
+      </TableRow>
+      {/* Render sub-clients inline if this is a whitelabel */}
+      {!isSubClient && subClients.map((subClient) => (
+        <OrganizationRow
+          key={subClient.id}
+          org={subClient}
+          onApprove={onApprove}
+          onReject={onReject}
+          onEdit={onEdit}
+          isApproving={isApproving}
+          isRejecting={isRejecting}
+          isSubClient={true}
+        />
+      ))}
+    </>
   );
 }
 
@@ -177,6 +206,8 @@ export default function Admin() {
     approvedOrganizations,
     directOrganizations,
     whitelabelOrganizations,
+    subClientOrganizations,
+    getSubClientsOf,
     approveOrganization,
     rejectOrganization,
     updateOrganization,
@@ -352,6 +383,13 @@ export default function Admin() {
                     {whitelabelOrganizations.length}
                   </Badge>
                 </TabsTrigger>
+                <TabsTrigger value="subclients" className="gap-2">
+                  <Users className="h-4 w-4" />
+                  Sub-clientes
+                  <Badge variant="secondary" className="ml-1">
+                    {subClientOrganizations.length}
+                  </Badge>
+                </TabsTrigger>
                 <TabsTrigger value="pending" className="gap-2">
                   <Clock className="h-4 w-4" />
                   Pendientes
@@ -408,6 +446,21 @@ export default function Admin() {
                   isRejecting={rejectOrganization.isPending}
                   emptyMessage="No hay empresas de marca blanca"
                   emptyIcon={Palette}
+                  getSubClientsOf={getSubClientsOf}
+                  showHierarchy={true}
+                />
+              </TabsContent>
+
+              <TabsContent value="subclients">
+                <OrganizationsTable 
+                  organizations={subClientOrganizations}
+                  onApprove={(id) => approveOrganization.mutate(id)}
+                  onReject={(id) => rejectOrganization.mutate(id)}
+                  onEdit={setEditingOrg}
+                  isApproving={approveOrganization.isPending}
+                  isRejecting={rejectOrganization.isPending}
+                  emptyMessage="No hay sub-clientes registrados"
+                  emptyIcon={Users}
                 />
               </TabsContent>
 
@@ -469,6 +522,8 @@ function OrganizationsTable({
   isRejecting,
   emptyMessage,
   emptyIcon: EmptyIcon,
+  getSubClientsOf,
+  showHierarchy = false,
 }: {
   organizations: OrganizationWithAdmin[];
   onApprove: (id: string) => void;
@@ -478,6 +533,8 @@ function OrganizationsTable({
   isRejecting: boolean;
   emptyMessage: string;
   emptyIcon: React.ComponentType<{ className?: string }>;
+  getSubClientsOf?: (parentId: string) => OrganizationWithAdmin[];
+  showHierarchy?: boolean;
 }) {
   if (organizations.length === 0) {
     return (
@@ -509,6 +566,7 @@ function OrganizationsTable({
             onEdit={() => onEdit(org)}
             isApproving={isApproving}
             isRejecting={isRejecting}
+            subClients={showHierarchy && getSubClientsOf ? getSubClientsOf(org.id) : []}
           />
         ))}
       </TableBody>

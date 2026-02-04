@@ -46,6 +46,7 @@ export interface Organization {
   secondary_color: string | null;
   custom_domain: string | null;
   organization_type: OrganizationType;
+  parent_organization_id: string | null;
   created_at: string;
   updated_at: string;
 }
