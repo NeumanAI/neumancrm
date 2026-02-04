@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useBrandingContext } from '@/contexts/BrandingContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,6 +22,7 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { signIn, signUp, user } = useAuth();
+  const { branding, isWhiteLabel } = useBrandingContext();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -85,11 +87,21 @@ export default function Auth() {
         className="w-full max-w-md relative z-10"
       >
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl gradient-primary shadow-glow mb-4">
-            <Sparkles className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-white mb-2">CRM AI</h1>
-          <p className="text-white/70">Tu CRM conversacional inteligente</p>
+          {branding.logo_url ? (
+            <img 
+              src={branding.logo_url} 
+              alt={branding.name} 
+              className="w-16 h-16 mx-auto mb-4 rounded-2xl object-contain"
+            />
+          ) : (
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl gradient-primary shadow-glow mb-4">
+              <Sparkles className="w-8 h-8 text-white" />
+            </div>
+          )}
+          <h1 className="text-3xl font-bold text-white mb-2">{branding.name}</h1>
+          <p className="text-white/70">
+            {isWhiteLabel ? `Bienvenido a ${branding.name}` : 'Tu CRM conversacional inteligente'}
+          </p>
         </div>
 
         <Card className="border-0 shadow-2xl bg-card/95 backdrop-blur">

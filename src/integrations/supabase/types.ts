@@ -1154,16 +1154,59 @@ export type Database = {
           },
         ]
       }
+      organization_domains: {
+        Row: {
+          created_at: string | null
+          domain: string
+          id: string
+          is_primary: boolean | null
+          is_verified: boolean | null
+          organization_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          domain: string
+          id?: string
+          is_primary?: boolean | null
+          is_verified?: boolean | null
+          organization_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          domain?: string
+          id?: string
+          is_primary?: boolean | null
+          is_verified?: boolean | null
+          organization_id?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_domains_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           approved_at: string | null
           approved_by: string | null
           created_at: string
+          custom_domain: string | null
+          favicon_url: string | null
           id: string
           is_approved: boolean
+          logo_url: string | null
           max_users: number
           name: string
           plan: string
+          primary_color: string | null
+          secondary_color: string | null
           settings: Json | null
           slug: string | null
           updated_at: string
@@ -1172,11 +1215,16 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
+          custom_domain?: string | null
+          favicon_url?: string | null
           id?: string
           is_approved?: boolean
+          logo_url?: string | null
           max_users?: number
           name: string
           plan?: string
+          primary_color?: string | null
+          secondary_color?: string | null
           settings?: Json | null
           slug?: string | null
           updated_at?: string
@@ -1185,11 +1233,16 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
+          custom_domain?: string | null
+          favicon_url?: string | null
           id?: string
           is_approved?: boolean
+          logo_url?: string | null
           max_users?: number
           name?: string
           plan?: string
+          primary_color?: string | null
+          secondary_color?: string | null
           settings?: Json | null
           slug?: string | null
           updated_at?: string
@@ -1431,6 +1484,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_organization_by_domain: {
+        Args: { domain_name: string }
+        Returns: {
+          favicon_url: string
+          id: string
+          logo_url: string
+          name: string
+          primary_color: string
+          secondary_color: string
+        }[]
+      }
       get_user_organization_id: { Args: never; Returns: string }
       get_user_role: {
         Args: never
