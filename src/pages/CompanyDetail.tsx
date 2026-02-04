@@ -10,12 +10,16 @@ import { CompanyTimeline } from '@/components/companies/CompanyTimeline';
 import { CompanyContacts } from '@/components/companies/CompanyContacts';
 import { CompanyDeals } from '@/components/companies/CompanyDeals';
 import { CompanyDocuments } from '@/components/companies/CompanyDocuments';
+import { ActivityFeedList } from '@/components/team/ActivityFeedList';
+import { CommentsSection } from '@/components/team/CommentsSection';
 import { 
   ArrowLeft, 
   Clock, 
   Users, 
   TrendingUp,
-  FileText 
+  FileText,
+  Activity,
+  MessageSquare
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -106,7 +110,7 @@ export default function CompanyDetail() {
         {/* Tabs content */}
         <div className="lg:col-span-2">
           <Tabs defaultValue="timeline" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="timeline" className="gap-2">
                 <Clock className="h-4 w-4" />
                 <span className="hidden sm:inline">Timeline</span>
@@ -121,7 +125,15 @@ export default function CompanyDetail() {
               </TabsTrigger>
               <TabsTrigger value="documents" className="gap-2">
                 <FileText className="h-4 w-4" />
-                <span className="hidden sm:inline">Documentos</span>
+                <span className="hidden sm:inline">Docs</span>
+              </TabsTrigger>
+              <TabsTrigger value="activity-feed" className="gap-2">
+                <Activity className="h-4 w-4" />
+                <span className="hidden sm:inline">Actividad</span>
+              </TabsTrigger>
+              <TabsTrigger value="comments" className="gap-2">
+                <MessageSquare className="h-4 w-4" />
+                <span className="hidden sm:inline">Notas</span>
               </TabsTrigger>
             </TabsList>
 
@@ -146,6 +158,20 @@ export default function CompanyDetail() {
             <TabsContent value="documents" className="mt-6">
               <div className="rounded-lg border bg-card p-6">
                 <CompanyDocuments companyId={company.id} />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="activity-feed" className="mt-6">
+              <div className="rounded-lg border bg-card p-6">
+                <h3 className="text-lg font-semibold mb-4">Historial de Cambios</h3>
+                <ActivityFeedList entityType="companies" entityId={company.id} />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="comments" className="mt-6">
+              <div className="rounded-lg border bg-card p-6">
+                <h3 className="text-lg font-semibold mb-4">Comentarios del Equipo</h3>
+                <CommentsSection entityType="companies" entityId={company.id} />
               </div>
             </TabsContent>
           </Tabs>

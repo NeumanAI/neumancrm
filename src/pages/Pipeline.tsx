@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { useOpportunities, usePipeline } from '@/hooks/useOpportunities';
 import { useCompanies } from '@/hooks/useCompanies';
 import { useContacts } from '@/hooks/useContacts';
+import { useTeam } from '@/hooks/useTeam';
 import { Opportunity, Stage } from '@/types/crm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Dialog,
   DialogContent,
@@ -43,15 +45,29 @@ import {
 import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { cn } from '@/lib/utils';
+import { TeamMember } from '@/hooks/useTeam';
 
 // Opportunity Card Component
-function OpportunityCard({ opportunity, isDragging }: { opportunity: Opportunity; isDragging?: boolean }) {
+function OpportunityCard({ 
+  opportunity, 
+  isDragging,
+  assignedMember 
+}: { 
+  opportunity: Opportunity; 
+  isDragging?: boolean;
+  assignedMember?: TeamMember;
+}) {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-ES', {
       style: 'currency',
       currency: opportunity.currency || 'USD',
       maximumFractionDigits: 0,
     }).format(value);
+  };
+
+  const getInitials = (name: string | null) => {
+    if (!name) return '?';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
   return (
@@ -62,6 +78,14 @@ function OpportunityCard({ opportunity, isDragging }: { opportunity: Opportunity
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-2">
           <h4 className="font-medium text-sm line-clamp-2">{opportunity.title}</h4>
+          {assignedMember && (
+            <Avatar className="h-6 w-6 flex-shrink-0">
+              <AvatarImage src={assignedMember.avatar_url || undefined} />
+              <AvatarFallback className="text-[10px]">
+                {getInitials(assignedMember.full_name)}
+              </AvatarFallback>
+            </Avatar>
+          )}
         </div>
         
         <div className="text-xl font-bold text-primary">
@@ -105,7 +129,13 @@ function OpportunityCard({ opportunity, isDragging }: { opportunity: Opportunity
 }
 
 // Sortable Opportunity Card
-function SortableOpportunityCard({ opportunity }: { opportunity: Opportunity }) {
+function SortableOpportunityCard({ 
+  opportunity,
+  assignedMember 
+}: { 
+  opportunity: Opportunity;
+  assignedMember?: TeamMember;
+}) {
   const {
     attributes,
     listeners,
@@ -122,7 +152,7 @@ function SortableOpportunityCard({ opportunity }: { opportunity: Opportunity }) 
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <OpportunityCard opportunity={opportunity} isDragging={isDragging} />
+      <OpportunityCard opportunity={opportunity} isDragging={isDragging} assignedMember={assignedMember} />
     </div>
   );
 }
@@ -131,11 +161,13 @@ function SortableOpportunityCard({ opportunity }: { opportunity: Opportunity }) 
 function StageColumn({ 
   stage, 
   opportunities, 
-  onAddClick 
+  onAddClick,
+  teamMembers
 }: { 
   stage: Stage; 
   opportunities: Opportunity[];
   onAddClick: (stageId: string) => void;
+  teamMembers: TeamMember[];
 }) {
   const totalValue = opportunities.reduce((sum, o) => sum + Number(o.value || 0), 0);
   
@@ -146,6 +178,11 @@ function StageColumn({
       notation: 'compact',
       maximumFractionDigits: 1,
     }).format(value);
+  };
+
+  const getMemberForOpportunity = (opp: Opportunity) => {
+    if (!opp.assigned_to) return undefined;
+    return teamMembers.find(m => m.user_id === opp.assigned_to);
   };
 
   return (
@@ -174,7 +211,11 @@ function StageColumn({
           strategy={verticalListSortingStrategy}
         >
           {opportunities.map((opp) => (
-            <SortableOpportunityCard key={opp.id} opportunity={opp} />
+            <SortableOpportunityCard 
+              key={opp.id} 
+              opportunity={opp} 
+              assignedMember={getMemberForOpportunity(opp)}
+            />
           ))}
         </SortableContext>
       </div>
@@ -197,6 +238,7 @@ export default function Pipeline() {
   const { pipeline, stages, isLoading: pipelineLoading, createPipeline } = usePipeline();
   const { companies } = useCompanies();
   const { contacts } = useContacts();
+  const { teamMembers } = useTeam();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedStageId, setSelectedStageId] = useState<string>('');
@@ -364,13 +406,18 @@ export default function Pipeline() {
                 stage={stage}
                 opportunities={openOpportunities.filter(o => o.stage_id === stage.id)}
                 onAddClick={openCreateDialog}
+                teamMembers={teamMembers}
               />
             ))}
           </div>
 
           <DragOverlay>
             {activeOpportunity && (
-              <OpportunityCard opportunity={activeOpportunity} isDragging />
+              <OpportunityCard 
+                opportunity={activeOpportunity} 
+                isDragging 
+                assignedMember={teamMembers.find(m => m.user_id === activeOpportunity.assigned_to)}
+              />
             )}
           </DragOverlay>
         </DndContext>

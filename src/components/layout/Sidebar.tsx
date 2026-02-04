@@ -2,7 +2,6 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
-  MessageSquare,
   Users,
   Building2,
   TrendingUp,
@@ -12,6 +11,7 @@ import {
   ChevronRight,
   Sparkles,
   Database,
+  UsersRound,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -28,6 +28,7 @@ const navItems = [
   { to: '/pipeline', icon: TrendingUp, label: 'Pipeline' },
   { to: '/tasks', icon: CheckSquare, label: 'Tareas' },
   { to: '/data-management', icon: Database, label: 'Datos' },
+  { to: '/team', icon: UsersRound, label: 'Equipo' },
   { to: '/settings', icon: Settings, label: 'Configuración' },
 ];
 

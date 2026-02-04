@@ -15,6 +15,9 @@ export interface Company {
   linkedin_url?: string;
   twitter_url?: string;
   logo_url?: string;
+  organization_id?: string;
+  assigned_to?: string;
+  created_by?: string;
   created_at: string;
   updated_at: string;
 }
@@ -36,6 +39,9 @@ export interface Contact {
   avatar_url?: string;
   notes?: string;
   last_contacted_at?: string;
+  organization_id?: string;
+  assigned_to?: string;
+  created_by?: string;
   created_at: string;
   updated_at: string;
   companies?: Pick<Company, 'id' | 'name' | 'logo_url'>;
@@ -79,11 +85,14 @@ export interface Opportunity {
   closed_at?: string;
   status: 'open' | 'won' | 'lost';
   lost_reason?: string;
+  organization_id?: string;
+  assigned_to?: string;
+  created_by?: string;
   created_at: string;
   updated_at: string;
-  companies?: Company;
-  contacts?: Contact;
-  stages?: Stage;
+  companies?: Pick<Company, 'id' | 'name' | 'logo_url'>;
+  contacts?: Pick<Contact, 'id' | 'first_name' | 'last_name'>;
+  stages?: Pick<Stage, 'id' | 'name' | 'color'>;
 }
 
 export interface Activity {
@@ -99,11 +108,14 @@ export interface Activity {
   contact_id?: string;
   company_id?: string;
   opportunity_id?: string;
+  organization_id?: string;
+  assigned_to?: string;
+  created_by?: string;
   created_at: string;
   updated_at: string;
-  contacts?: Contact;
-  companies?: Company;
-  opportunities?: Opportunity;
+  contacts?: Pick<Contact, 'id' | 'first_name' | 'last_name'>;
+  companies?: Pick<Company, 'id' | 'name'>;
+  opportunities?: Pick<Opportunity, 'id' | 'title'>;
 }
 
 export interface AIConversation {
