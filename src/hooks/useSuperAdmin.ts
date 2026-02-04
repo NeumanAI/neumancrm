@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
 
+export type OrganizationType = 'direct' | 'whitelabel';
+
 export interface OrganizationWithAdmin {
   id: string;
   name: string;
@@ -22,6 +24,7 @@ export interface OrganizationWithAdmin {
   primary_color: string | null;
   secondary_color: string | null;
   custom_domain: string | null;
+  organization_type: OrganizationType;
 }
 
 export interface OrganizationDomain {
@@ -86,6 +89,7 @@ export function useSuperAdmin() {
 
           return {
             ...org,
+            organization_type: (org.organization_type || 'direct') as OrganizationType,
             admin_email: admins?.[0]?.email || null,
             admin_name: admins?.[0]?.full_name || null,
             member_count: count || 0,
@@ -236,6 +240,7 @@ export function useSuperAdmin() {
       admin_email: string;
       admin_name?: string;
       is_approved?: boolean;
+      organization_type: OrganizationType;
       logo_url?: string;
       primary_color?: string;
       secondary_color?: string;
@@ -250,10 +255,11 @@ export function useSuperAdmin() {
           is_approved: data.is_approved ?? true,
           approved_at: data.is_approved ? new Date().toISOString() : null,
           approved_by: data.is_approved ? user?.id : null,
-          logo_url: data.logo_url || null,
-          primary_color: data.primary_color || '#3B82F6',
-          secondary_color: data.secondary_color || '#8B5CF6',
-          custom_domain: data.custom_domain || null,
+          organization_type: data.organization_type,
+          logo_url: data.organization_type === 'whitelabel' ? (data.logo_url || null) : null,
+          primary_color: data.organization_type === 'whitelabel' ? (data.primary_color || '#3B82F6') : '#3B82F6',
+          secondary_color: data.organization_type === 'whitelabel' ? (data.secondary_color || '#8B5CF6') : '#8B5CF6',
+          custom_domain: data.organization_type === 'whitelabel' ? (data.custom_domain || null) : null,
         })
         .select()
         .single();
@@ -344,6 +350,8 @@ export function useSuperAdmin() {
   // Derived data
   const pendingOrganizations = organizations.filter(org => !org.is_approved);
   const approvedOrganizations = organizations.filter(org => org.is_approved);
+  const directOrganizations = organizations.filter(org => org.organization_type === 'direct');
+  const whitelabelOrganizations = organizations.filter(org => org.organization_type === 'whitelabel');
 
   return {
     isSuperAdmin,
@@ -351,6 +359,8 @@ export function useSuperAdmin() {
     organizations,
     pendingOrganizations,
     approvedOrganizations,
+    directOrganizations,
+    whitelabelOrganizations,
     approveOrganization,
     rejectOrganization,
     updateOrganization,

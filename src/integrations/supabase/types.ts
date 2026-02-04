@@ -1204,6 +1204,7 @@ export type Database = {
           logo_url: string | null
           max_users: number
           name: string
+          organization_type: string
           plan: string
           primary_color: string | null
           secondary_color: string | null
@@ -1222,6 +1223,7 @@ export type Database = {
           logo_url?: string | null
           max_users?: number
           name: string
+          organization_type?: string
           plan?: string
           primary_color?: string | null
           secondary_color?: string | null
@@ -1240,6 +1242,7 @@ export type Database = {
           logo_url?: string | null
           max_users?: number
           name?: string
+          organization_type?: string
           plan?: string
           primary_color?: string | null
           secondary_color?: string | null

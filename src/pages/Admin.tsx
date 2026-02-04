@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSuperAdmin, OrganizationWithAdmin } from '@/hooks/useSuperAdmin';
+import { useSuperAdmin, OrganizationWithAdmin, OrganizationType } from '@/hooks/useSuperAdmin';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,12 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { 
   Building2, 
   Check, 
@@ -26,13 +32,31 @@ import {
   Pencil,
   Plus,
   Globe,
-  Palette
+  Palette,
+  ChevronDown
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { EditOrganizationDialog } from '@/components/admin/EditOrganizationDialog';
 import { CreateOrganizationDialog } from '@/components/admin/CreateOrganizationDialog';
 import { DomainsTab } from '@/components/admin/DomainsTab';
+
+function OrganizationTypeBadge({ type }: { type: OrganizationType }) {
+  if (type === 'whitelabel') {
+    return (
+      <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700">
+        <Palette className="h-3 w-3 mr-1" />
+        Marca Blanca
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700">
+      <Building2 className="h-3 w-3 mr-1" />
+      Directo
+    </Badge>
+  );
+}
 
 function OrganizationRow({ 
   org, 
@@ -49,8 +73,6 @@ function OrganizationRow({
   isApproving: boolean;
   isRejecting: boolean;
 }) {
-  const hasCustomBranding = org.logo_url || org.custom_domain;
-  
   return (
     <TableRow>
       <TableCell>
@@ -65,12 +87,7 @@ function OrganizationRow({
           <div>
             <div className="flex items-center gap-2">
               <p className="font-medium">{org.name}</p>
-              {hasCustomBranding && (
-                <Badge variant="outline" className="text-xs">
-                  <Palette className="h-3 w-3 mr-1" />
-                  Marca blanca
-                </Badge>
-              )}
+              <OrganizationTypeBadge type={org.organization_type} />
             </div>
             <p className="text-xs text-muted-foreground">
               {org.custom_domain || org.admin_email || 'Sin admin'}
@@ -158,6 +175,8 @@ export default function Admin() {
     isLoading, 
     pendingOrganizations, 
     approvedOrganizations,
+    directOrganizations,
+    whitelabelOrganizations,
     approveOrganization,
     rejectOrganization,
     updateOrganization,
@@ -169,7 +188,7 @@ export default function Admin() {
   } = useSuperAdmin();
 
   const [editingOrg, setEditingOrg] = useState<OrganizationWithAdmin | null>(null);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [createDialogType, setCreateDialogType] = useState<OrganizationType | null>(null);
 
   // Redirect if not super-admin
   useEffect(() => {
@@ -185,7 +204,7 @@ export default function Admin() {
 
   const handleCreateOrg = async (data: any) => {
     await createOrganization.mutateAsync(data);
-    setShowCreateDialog(false);
+    setCreateDialogType(null);
   };
 
   if (isLoading) {
@@ -199,10 +218,6 @@ export default function Admin() {
   if (!isSuperAdmin) {
     return null;
   }
-
-  const whitelabelCount = [...pendingOrganizations, ...approvedOrganizations].filter(
-    org => org.logo_url || org.custom_domain
-  ).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -235,13 +250,37 @@ export default function Admin() {
               <RefreshCw className="h-4 w-4 mr-2" />
               Actualizar
             </Button>
-            <Button 
-              size="sm"
-              onClick={() => setShowCreateDialog(true)}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Nueva empresa
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nueva empresa
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem 
+                  onClick={() => setCreateDialogType('direct')}
+                  className="flex items-start gap-3 p-3"
+                >
+                  <Building2 className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Cliente directo</p>
+                    <p className="text-xs text-muted-foreground">Usa tu marca NeumanCRM</p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setCreateDialogType('whitelabel')}
+                  className="flex items-start gap-3 p-3"
+                >
+                  <Palette className="h-5 w-5 text-purple-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Marca blanca</p>
+                    <p className="text-xs text-muted-foreground">Reseller con su propia marca</p>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
@@ -258,17 +297,17 @@ export default function Admin() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Aprobadas</CardDescription>
-              <CardTitle className="text-3xl text-green-600">
-                {approvedOrganizations.length}
+              <CardDescription>Clientes directos</CardDescription>
+              <CardTitle className="text-3xl text-blue-600">
+                {directOrganizations.length}
               </CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Marca blanca</CardDescription>
-              <CardTitle className="text-3xl text-primary">
-                {whitelabelCount}
+              <CardTitle className="text-3xl text-purple-600">
+                {whitelabelOrganizations.length}
               </CardTitle>
             </CardHeader>
           </Card>
@@ -290,20 +329,37 @@ export default function Admin() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="pending">
+            <Tabs defaultValue="all">
               <TabsList className="mb-4">
+                <TabsTrigger value="all" className="gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Todas
+                  <Badge variant="secondary" className="ml-1">
+                    {pendingOrganizations.length + approvedOrganizations.length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="direct" className="gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Directos
+                  <Badge variant="secondary" className="ml-1">
+                    {directOrganizations.length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="whitelabel" className="gap-2">
+                  <Palette className="h-4 w-4" />
+                  Marca Blanca
+                  <Badge variant="secondary" className="ml-1">
+                    {whitelabelOrganizations.length}
+                  </Badge>
+                </TabsTrigger>
                 <TabsTrigger value="pending" className="gap-2">
                   <Clock className="h-4 w-4" />
                   Pendientes
                   {pendingOrganizations.length > 0 && (
-                    <Badge variant="secondary" className="ml-1">
+                    <Badge variant="destructive" className="ml-1">
                       {pendingOrganizations.length}
                     </Badge>
                   )}
-                </TabsTrigger>
-                <TabsTrigger value="approved" className="gap-2">
-                  <Check className="h-4 w-4" />
-                  Aprobadas
                 </TabsTrigger>
                 <TabsTrigger value="domains" className="gap-2">
                   <Globe className="h-4 w-4" />
@@ -316,72 +372,56 @@ export default function Admin() {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="pending">
-                {pendingOrganizations.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No hay empresas pendientes de aprobación</p>
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Empresa</TableHead>
-                        <TableHead>Usuarios</TableHead>
-                        <TableHead>Registrada</TableHead>
-                        <TableHead>Estado</TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {pendingOrganizations.map((org) => (
-                        <OrganizationRow
-                          key={org.id}
-                          org={org}
-                          onApprove={() => approveOrganization.mutate(org.id)}
-                          onReject={() => rejectOrganization.mutate(org.id)}
-                          onEdit={() => setEditingOrg(org)}
-                          isApproving={approveOrganization.isPending}
-                          isRejecting={rejectOrganization.isPending}
-                        />
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
+              <TabsContent value="all">
+                <OrganizationsTable 
+                  organizations={[...pendingOrganizations, ...approvedOrganizations]}
+                  onApprove={(id) => approveOrganization.mutate(id)}
+                  onReject={(id) => rejectOrganization.mutate(id)}
+                  onEdit={setEditingOrg}
+                  isApproving={approveOrganization.isPending}
+                  isRejecting={rejectOrganization.isPending}
+                  emptyMessage="No hay empresas registradas"
+                  emptyIcon={Building2}
+                />
               </TabsContent>
 
-              <TabsContent value="approved">
-                {approvedOrganizations.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No hay empresas aprobadas</p>
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Empresa</TableHead>
-                        <TableHead>Usuarios</TableHead>
-                        <TableHead>Registrada</TableHead>
-                        <TableHead>Estado</TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {approvedOrganizations.map((org) => (
-                        <OrganizationRow
-                          key={org.id}
-                          org={org}
-                          onApprove={() => approveOrganization.mutate(org.id)}
-                          onReject={() => rejectOrganization.mutate(org.id)}
-                          onEdit={() => setEditingOrg(org)}
-                          isApproving={approveOrganization.isPending}
-                          isRejecting={rejectOrganization.isPending}
-                        />
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
+              <TabsContent value="direct">
+                <OrganizationsTable 
+                  organizations={directOrganizations}
+                  onApprove={(id) => approveOrganization.mutate(id)}
+                  onReject={(id) => rejectOrganization.mutate(id)}
+                  onEdit={setEditingOrg}
+                  isApproving={approveOrganization.isPending}
+                  isRejecting={rejectOrganization.isPending}
+                  emptyMessage="No hay clientes directos"
+                  emptyIcon={Building2}
+                />
+              </TabsContent>
+
+              <TabsContent value="whitelabel">
+                <OrganizationsTable 
+                  organizations={whitelabelOrganizations}
+                  onApprove={(id) => approveOrganization.mutate(id)}
+                  onReject={(id) => rejectOrganization.mutate(id)}
+                  onEdit={setEditingOrg}
+                  isApproving={approveOrganization.isPending}
+                  isRejecting={rejectOrganization.isPending}
+                  emptyMessage="No hay empresas de marca blanca"
+                  emptyIcon={Palette}
+                />
+              </TabsContent>
+
+              <TabsContent value="pending">
+                <OrganizationsTable 
+                  organizations={pendingOrganizations}
+                  onApprove={(id) => approveOrganization.mutate(id)}
+                  onReject={(id) => rejectOrganization.mutate(id)}
+                  onEdit={setEditingOrg}
+                  isApproving={approveOrganization.isPending}
+                  isRejecting={rejectOrganization.isPending}
+                  emptyMessage="No hay empresas pendientes de aprobación"
+                  emptyIcon={Clock}
+                />
               </TabsContent>
 
               <TabsContent value="domains">
@@ -407,12 +447,71 @@ export default function Admin() {
       />
 
       {/* Create Organization Dialog */}
-      <CreateOrganizationDialog
-        open={showCreateDialog}
-        onOpenChange={setShowCreateDialog}
-        onCreate={handleCreateOrg}
-        isCreating={createOrganization.isPending}
-      />
+      {createDialogType && (
+        <CreateOrganizationDialog
+          open={!!createDialogType}
+          onOpenChange={(open) => !open && setCreateDialogType(null)}
+          onCreate={handleCreateOrg}
+          isCreating={createOrganization.isPending}
+          organizationType={createDialogType}
+        />
+      )}
     </div>
+  );
+}
+
+function OrganizationsTable({
+  organizations,
+  onApprove,
+  onReject,
+  onEdit,
+  isApproving,
+  isRejecting,
+  emptyMessage,
+  emptyIcon: EmptyIcon,
+}: {
+  organizations: OrganizationWithAdmin[];
+  onApprove: (id: string) => void;
+  onReject: (id: string) => void;
+  onEdit: (org: OrganizationWithAdmin) => void;
+  isApproving: boolean;
+  isRejecting: boolean;
+  emptyMessage: string;
+  emptyIcon: React.ComponentType<{ className?: string }>;
+}) {
+  if (organizations.length === 0) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        <EmptyIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+        <p>{emptyMessage}</p>
+      </div>
+    );
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Empresa</TableHead>
+          <TableHead>Usuarios</TableHead>
+          <TableHead>Registrada</TableHead>
+          <TableHead>Estado</TableHead>
+          <TableHead className="text-right">Acciones</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {organizations.map((org) => (
+          <OrganizationRow
+            key={org.id}
+            org={org}
+            onApprove={() => onApprove(org.id)}
+            onReject={() => onReject(org.id)}
+            onEdit={() => onEdit(org)}
+            isApproving={isApproving}
+            isRejecting={isRejecting}
+          />
+        ))}
+      </TableBody>
+    </Table>
   );
 }

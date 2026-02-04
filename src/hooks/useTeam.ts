@@ -23,6 +23,8 @@ export interface TeamMember {
   updated_at: string;
 }
 
+export type OrganizationType = 'direct' | 'whitelabel';
+
 export interface Organization {
   id: string;
   name: string;
@@ -43,6 +45,7 @@ export interface Organization {
   primary_color: string | null;
   secondary_color: string | null;
   custom_domain: string | null;
+  organization_type: OrganizationType;
   created_at: string;
   updated_at: string;
 }
@@ -61,7 +64,14 @@ export function useTeam() {
         .maybeSingle();
       
       if (error) throw error;
-      return data as Organization | null;
+      if (!data) return null;
+      
+      // Cast settings and organization_type appropriately
+      return {
+        ...data,
+        organization_type: (data.organization_type || 'direct') as OrganizationType,
+        settings: data.settings as Organization['settings'],
+      } as Organization;
     },
     enabled: !!user,
   });
