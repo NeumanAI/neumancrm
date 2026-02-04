@@ -603,6 +603,143 @@ export type Database = {
           },
         ]
       }
+      conversation_messages: {
+        Row: {
+          attachment_url: string | null
+          content: string | null
+          conversation_id: string
+          created_at: string
+          delivered_at: string | null
+          id: string
+          is_bot: boolean | null
+          is_from_contact: boolean
+          is_internal_note: boolean | null
+          message_type: string
+          metadata: Json | null
+          read_at: string | null
+          sender_id: string | null
+          sender_name: string | null
+        }
+        Insert: {
+          attachment_url?: string | null
+          content?: string | null
+          conversation_id: string
+          created_at?: string
+          delivered_at?: string | null
+          id?: string
+          is_bot?: boolean | null
+          is_from_contact?: boolean
+          is_internal_note?: boolean | null
+          message_type?: string
+          metadata?: Json | null
+          read_at?: string | null
+          sender_id?: string | null
+          sender_name?: string | null
+        }
+        Update: {
+          attachment_url?: string | null
+          content?: string | null
+          conversation_id?: string
+          created_at?: string
+          delivered_at?: string | null
+          id?: string
+          is_bot?: boolean | null
+          is_from_contact?: boolean
+          is_internal_note?: boolean | null
+          message_type?: string
+          metadata?: Json | null
+          read_at?: string | null
+          sender_id?: string | null
+          sender_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          assigned_to: string | null
+          channel: string
+          contact_id: string | null
+          created_at: string
+          external_avatar: string | null
+          external_email: string | null
+          external_id: string | null
+          external_name: string | null
+          external_phone: string | null
+          id: string
+          last_message_at: string | null
+          last_message_preview: string | null
+          metadata: Json | null
+          organization_id: string | null
+          status: string
+          unread_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          channel: string
+          contact_id?: string | null
+          created_at?: string
+          external_avatar?: string | null
+          external_email?: string | null
+          external_id?: string | null
+          external_name?: string | null
+          external_phone?: string | null
+          id?: string
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          metadata?: Json | null
+          organization_id?: string | null
+          status?: string
+          unread_count?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_to?: string | null
+          channel?: string
+          contact_id?: string | null
+          created_at?: string
+          external_avatar?: string | null
+          external_email?: string | null
+          external_id?: string | null
+          external_name?: string | null
+          external_phone?: string | null
+          id?: string
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          metadata?: Json | null
+          organization_id?: string | null
+          status?: string
+          unread_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       duplicates: {
         Row: {
           created_at: string | null

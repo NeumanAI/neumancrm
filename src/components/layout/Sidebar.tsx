@@ -12,9 +12,12 @@ import {
   Sparkles,
   Database,
   UsersRound,
+  MessageSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useUnreadConversationsCount } from '@/hooks/useConversations';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -23,6 +26,7 @@ interface SidebarProps {
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/conversations', icon: MessageSquare, label: 'Conversaciones', showBadge: true },
   { to: '/contacts', icon: Users, label: 'Contactos' },
   { to: '/companies', icon: Building2, label: 'Empresas' },
   { to: '/pipeline', icon: TrendingUp, label: 'Pipeline' },
@@ -34,6 +38,7 @@ const navItems = [
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const location = useLocation();
+  const unreadCount = useUnreadConversationsCount();
 
   return (
     <motion.aside
@@ -71,10 +76,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         </Button>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = location.pathname === item.to;
+          const showBadge = item.showBadge && unreadCount > 0;
+          
           return (
             <NavLink
               key={item.to}
@@ -86,17 +92,30 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 !isActive && 'text-sidebar-foreground/70 hover:text-sidebar-foreground'
               )}
             >
-              <item.icon className="h-5 w-5 flex-shrink-0" />
+              <div className="relative">
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                {showBadge && collapsed && (
+                  <span className="absolute -top-1 -right-1 h-2 w-2 bg-destructive rounded-full" />
+                )}
+              </div>
               <AnimatePresence>
                 {!collapsed && (
-                  <motion.span
+                  <motion.div
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -10 }}
-                    className="font-medium text-sm"
+                    className="flex items-center justify-between flex-1"
                   >
-                    {item.label}
-                  </motion.span>
+                    <span className="font-medium text-sm">{item.label}</span>
+                    {showBadge && (
+                      <Badge 
+                        variant="destructive" 
+                        className="h-5 min-w-5 flex items-center justify-center text-[10px] px-1.5"
+                      >
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </Badge>
+                    )}
+                  </motion.div>
                 )}
               </AnimatePresence>
             </NavLink>
