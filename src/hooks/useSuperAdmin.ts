@@ -254,6 +254,7 @@ export function useSuperAdmin() {
         .insert({
           name: data.name,
           slug: data.name.toLowerCase().replace(/\s+/g, '-'),
+          pending_admin_email: data.admin_email.toLowerCase(),
           is_approved: data.is_approved ?? true,
           approved_at: data.is_approved ? new Date().toISOString() : null,
           approved_by: data.is_approved ? user?.id : null,
