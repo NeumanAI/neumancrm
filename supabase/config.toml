@@ -32,3 +32,12 @@ verify_jwt = false
 
 [functions.generate-daily-brief]
 verify_jwt = false
+
+[functions.n8n-chat]
+verify_jwt = false
+
+[functions.manychat-webhook]
+verify_jwt = false
+
+[functions.send-conversation-reply]
+verify_jwt = false
