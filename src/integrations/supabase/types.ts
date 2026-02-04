@@ -1156,8 +1156,11 @@ export type Database = {
       }
       organizations: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           created_at: string
           id: string
+          is_approved: boolean
           max_users: number
           name: string
           plan: string
@@ -1166,8 +1169,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
           id?: string
+          is_approved?: boolean
           max_users?: number
           name: string
           plan?: string
@@ -1176,8 +1182,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string
           id?: string
+          is_approved?: boolean
           max_users?: number
           name?: string
           plan?: string
@@ -1260,6 +1269,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      super_admins: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       team_members: {
         Row: {
@@ -1409,6 +1436,7 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["team_role"]
       }
+      is_super_admin: { Args: never; Returns: boolean }
       user_has_role: {
         Args: { _role: Database["public"]["Enums"]["team_role"] }
         Returns: boolean

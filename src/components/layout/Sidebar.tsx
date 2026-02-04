@@ -13,6 +13,7 @@ import {
   Database,
   UsersRound,
   MessageSquare,
+  ShieldCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +23,7 @@ import { useUnreadConversationsCount } from '@/hooks/useConversations';
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  isSuperAdmin?: boolean;
 }
 
 const navItems = [
@@ -36,9 +38,15 @@ const navItems = [
   { to: '/settings', icon: Settings, label: 'Configuración' },
 ];
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+const adminNavItems = [
+  { to: '/admin', icon: ShieldCheck, label: 'Administración', isAdmin: true },
+];
+
+export function Sidebar({ collapsed, onToggle, isSuperAdmin = false }: SidebarProps) {
   const location = useLocation();
   const unreadCount = useUnreadConversationsCount();
+  
+  const allNavItems = isSuperAdmin ? [...navItems, ...adminNavItems] : navItems;
 
   return (
     <motion.aside
@@ -77,9 +85,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </div>
 
       <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
+        {allNavItems.map((item) => {
           const isActive = location.pathname === item.to;
-          const showBadge = item.showBadge && unreadCount > 0;
+          const showBadge = 'showBadge' in item && item.showBadge && unreadCount > 0;
+          const isAdminItem = 'isAdmin' in item && item.isAdmin;
           
           return (
             <NavLink
@@ -89,11 +98,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
                 'hover:bg-sidebar-accent',
                 isActive && 'bg-sidebar-primary text-sidebar-primary-foreground',
-                !isActive && 'text-sidebar-foreground/70 hover:text-sidebar-foreground'
+                !isActive && 'text-sidebar-foreground/70 hover:text-sidebar-foreground',
+                isAdminItem && 'border border-primary/20 bg-primary/5'
               )}
             >
               <div className="relative">
-                <item.icon className="h-5 w-5 flex-shrink-0" />
+                <item.icon className={cn("h-5 w-5 flex-shrink-0", isAdminItem && "text-primary")} />
                 {showBadge && collapsed && (
                   <span className="absolute -top-1 -right-1 h-2 w-2 bg-destructive rounded-full" />
                 )}
@@ -106,7 +116,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     exit={{ opacity: 0, x: -10 }}
                     className="flex items-center justify-between flex-1"
                   >
-                    <span className="font-medium text-sm">{item.label}</span>
+                    <span className={cn("font-medium text-sm", isAdminItem && "text-primary")}>{item.label}</span>
                     {showBadge && (
                       <Badge 
                         variant="destructive" 
