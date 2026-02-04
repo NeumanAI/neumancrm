@@ -1,10 +1,14 @@
 
-
-# Plan: Documentos de Contacto (Contratos, Acuerdos, etc.)
+# Plan: Vista de Detalle de Empresa con Timeline, Contactos, Deals y Documentos
 
 ## Objetivo
 
-Agregar la capacidad de cargar, visualizar y gestionar documentos asociados a cada contacto, como contratos firmados, acuerdos, propuestas, etc.
+Implementar para Empresas las mismas funcionalidades que ya existen para Contactos:
+- Vista de detalle completa con sidebar
+- Timeline de interacciones
+- Contactos asociados a la empresa
+- Oportunidades/Deals asociados
+- Gestión de documentos
 
 ---
 
@@ -12,24 +16,26 @@ Agregar la capacidad de cargar, visualizar y gestionar documentos asociados a ca
 
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
-│                    /contacts/:contactId                          │
+│                    /companies/:companyId                         │
 ├─────────────────────────────────────────────────────────────────┤
-│  Tabs: [Timeline] [Actividades] [Deals] [Documentos]            │
-│                                          ▲ NUEVO                 │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │                    TAB DOCUMENTOS                          │  │
-│  │  ┌─────────────────────────────────────────────────────┐  │  │
-│  │  │  [+] Subir documento     [Filtrar por tipo ▼]       │  │  │
-│  │  └─────────────────────────────────────────────────────┘  │  │
-│  │                                                            │  │
-│  │  ┌──────┐  contrato_firmado.pdf                           │  │
-│  │  │ PDF  │  Contrato • 2.3 MB • hace 3 dias                │  │
-│  │  └──────┘  [Descargar] [Eliminar]                         │  │
-│  │                                                            │  │
-│  │  ┌──────┐  propuesta_comercial.docx                       │  │
-│  │  │ DOCX │  Propuesta • 1.1 MB • hace 1 semana             │  │
-│  │  └──────┘  [Descargar] [Eliminar]                         │  │
-│  └────────────────────────────────────────────────────────────┘  │
+│  ┌─────────────────────┐   ┌─────────────────────────────────┐  │
+│  │   SIDEBAR IZQUIERDO │   │         CONTENIDO PRINCIPAL     │  │
+│  │                     │   │                                 │  │
+│  │  Logo + Nombre      │   │  Tabs:                          │  │
+│  │  Industria          │   │  ┌────────┬──────────┬────────┐ │  │
+│  │  ────────────────   │   │  │Timeline│Contactos │Deals   │ │  │
+│  │  Website            │   │  ├────────┴──────────┴────────┤ │  │
+│  │  Telefono           │   │  │         Documentos          │ │  │
+│  │  Ubicacion          │   │  └─────────────────────────────┘ │  │
+│  │  LinkedIn/Twitter   │   │                                 │  │
+│  │  ────────────────   │   │  (Contenido del tab activo)     │  │
+│  │  Descripcion        │   │                                 │  │
+│  │  ────────────────   │   │                                 │  │
+│  │  Acciones:          │   │                                 │  │
+│  │  [Editar] [Web]     │   │                                 │  │
+│  │  [Llamar]           │   │                                 │  │
+│  │                     │   │                                 │  │
+│  └─────────────────────┘   └─────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -37,13 +43,15 @@ Agregar la capacidad de cargar, visualizar y gestionar documentos asociados a ca
 
 ## Cambios en Base de Datos
 
-### Nueva Tabla: `contact_documents`
+### Nueva Tabla: `company_documents`
+
+Crear tabla identica a `contact_documents` pero para empresas:
 
 | Columna | Tipo | Descripcion |
 |---------|------|-------------|
 | `id` | uuid | Clave primaria |
 | `user_id` | uuid | FK al usuario propietario |
-| `contact_id` | uuid | FK al contacto asociado |
+| `company_id` | uuid | FK a la empresa asociada |
 | `file_name` | text | Nombre original del archivo |
 | `file_path` | text | Ruta en storage bucket |
 | `file_size` | integer | Tamano en bytes |
@@ -52,11 +60,11 @@ Agregar la capacidad de cargar, visualizar y gestionar documentos asociados a ca
 | `description` | text | Descripcion opcional |
 | `created_at` | timestamp | Fecha de subida |
 
-### Nuevo Storage Bucket: `contact-documents`
+### Storage
 
-- Bucket privado (solo usuarios autenticados)
-- Estructura: `{user_id}/{contact_id}/{file_name}`
-- Politicas RLS para que cada usuario solo vea sus documentos
+Reutilizar el bucket existente `contact-documents` con estructura extendida:
+- Contactos: `{user_id}/{contact_id}/{file_name}`
+- Empresas: `{user_id}/company_{company_id}/{file_name}`
 
 ---
 
@@ -64,11 +72,13 @@ Agregar la capacidad de cargar, visualizar y gestionar documentos asociados a ca
 
 | Archivo | Proposito |
 |---------|-----------|
-| `src/components/contacts/ContactDocuments.tsx` | Tab principal de documentos |
-| `src/components/contacts/DocumentUploader.tsx` | Componente de upload con dropzone |
-| `src/components/contacts/DocumentItem.tsx` | Item individual de documento |
-| `src/hooks/useContactDocuments.ts` | Hook para CRUD de documentos |
-| `src/types/crm.ts` | Agregar tipo ContactDocument |
+| `src/pages/CompanyDetail.tsx` | Pagina principal de detalle de empresa |
+| `src/components/companies/CompanySidebar.tsx` | Panel lateral con info de la empresa |
+| `src/components/companies/CompanyTimeline.tsx` | Timeline de interacciones de la empresa |
+| `src/components/companies/CompanyContacts.tsx` | Contactos asociados a la empresa |
+| `src/components/companies/CompanyDeals.tsx` | Oportunidades asociadas a la empresa |
+| `src/components/companies/CompanyDocuments.tsx` | Documentos de la empresa |
+| `src/hooks/useCompanyDocuments.ts` | Hook para CRUD de documentos de empresa |
 
 ---
 
@@ -76,21 +86,23 @@ Agregar la capacidad de cargar, visualizar y gestionar documentos asociados a ca
 
 | Archivo | Cambio |
 |---------|--------|
-| `src/pages/ContactDetail.tsx` | Agregar tab "Documentos" |
+| `src/App.tsx` | Agregar ruta `/companies/:companyId` |
+| `src/pages/Companies.tsx` | Hacer click en fila navegue al detalle |
+| `src/types/crm.ts` | Agregar tipo `CompanyDocument` |
 
 ---
 
 ## Implementacion Detallada
 
-### 1. Tipo ContactDocument
+### 1. Tipo CompanyDocument
 
-Agregar al archivo `src/types/crm.ts`:
+Agregar a `src/types/crm.ts`:
 
 ```typescript
-export interface ContactDocument {
+export interface CompanyDocument {
   id: string;
   user_id: string;
-  contact_id: string;
+  company_id: string;
   file_name: string;
   file_path: string;
   file_size: number;
@@ -101,61 +113,67 @@ export interface ContactDocument {
 }
 ```
 
-### 2. Hook useContactDocuments
+### 2. Pagina CompanyDetail
 
-Funcionalidades del hook:
-- Query: Obtener documentos por contact_id
-- Mutation: Subir documento (archivo + metadata)
-- Mutation: Eliminar documento (storage + registro DB)
-- Funcion auxiliar: Generar URL firmada para descarga
+Layout similar a ContactDetail:
+- Boton volver a lista de empresas
+- Grid de 2 columnas: sidebar (1/3) y contenido (2/3)
+- 4 tabs: Timeline, Contactos, Deals, Documentos
 
-### 3. Componente DocumentUploader
+### 3. CompanySidebar
 
-Caracteristicas:
-- Dropzone usando `react-dropzone` (ya instalado)
-- Tipos permitidos: PDF, Word, Excel, imagenes
-- Limite: 10 MB por archivo
-- Selector de tipo de documento (contrato, propuesta, etc)
-- Campo opcional de descripcion
-- Preview antes de subir
-- Barra de progreso durante upload
+Mostrar informacion de la empresa:
+- Logo/inicial con nombre
+- Industria como badge
+- Website, telefono, ubicacion
+- Redes sociales (LinkedIn, Twitter)
+- Descripcion
+- Acciones rapidas: Editar, Abrir web, Llamar
 
-### 4. Componente DocumentItem
+### 4. CompanyTimeline
 
-Muestra cada documento con:
-- Icono segun tipo de archivo (PDF, DOCX, XLSX, imagen)
-- Nombre del archivo
-- Badge de categoria (Contrato, Propuesta, etc)
-- Tamano formateado (KB/MB)
-- Fecha relativa de subida
-- Boton descargar (genera URL firmada)
-- Boton eliminar con confirmacion
+Reutilizar la logica del hook `useTimelineEntries` con `companyId`:
+- Mismos filtros por tipo de entrada
+- Misma funcionalidad de agregar notas
+- Mostrar interacciones asociadas a la empresa
 
-### 5. Componente ContactDocuments
+### 5. CompanyContacts
 
-Tab principal que incluye:
-- Header con boton "Subir documento"
-- Filtro por tipo de documento
-- Lista de documentos ordenados por fecha
-- Empty state cuando no hay documentos
-- Dialog para subir nuevo documento
+Mostrar contactos que pertenecen a esta empresa:
+- Lista de contactos con avatar, nombre, cargo
+- Click navega al detalle del contacto
+- Mostrar total de contactos
 
-### 6. Modificar ContactDetail
+### 6. CompanyDeals
 
-Agregar cuarto tab "Documentos":
-- Nuevo TabsTrigger con icono FileText
-- Nuevo TabsContent con ContactDocuments
+Oportunidades asociadas a la empresa:
+- Resumen: total deals, ganados, valor total
+- Lista de deals con estado, etapa, valor
+- Similar a ContactDeals pero filtrando por company_id
+
+### 7. CompanyDocuments
+
+Reutilizar componentes `DocumentItem` y `DocumentUploader`:
+- Hook separado `useCompanyDocuments`
+- Misma logica de filtros y upload
+- Bucket compartido con estructura diferenciada
+
+### 8. Navegacion desde lista
+
+Modificar Companies.tsx:
+- Click en fila navega a `/companies/:id`
+- Mantener botones de editar/eliminar en acciones
 
 ---
 
 ## Migracion SQL
 
 ```sql
--- Crear tabla contact_documents
-CREATE TABLE public.contact_documents (
+-- Crear tabla company_documents
+CREATE TABLE public.company_documents (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  contact_id uuid NOT NULL REFERENCES public.contacts(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL,
+  company_id uuid NOT NULL,
   file_name text NOT NULL,
   file_path text NOT NULL,
   file_size integer NOT NULL DEFAULT 0,
@@ -166,101 +184,47 @@ CREATE TABLE public.contact_documents (
 );
 
 -- Habilitar RLS
-ALTER TABLE public.contact_documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.company_documents ENABLE ROW LEVEL SECURITY;
 
 -- Politica: usuarios solo ven sus documentos
-CREATE POLICY "Users see own contact documents"
-  ON public.contact_documents
+CREATE POLICY "Users see own company documents"
+  ON public.company_documents
   FOR ALL
   USING (auth.uid() = user_id);
-
--- Crear bucket de storage
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('contact-documents', 'contact-documents', false);
-
--- Politicas de storage
-CREATE POLICY "Users can upload contact documents"
-  ON storage.objects FOR INSERT
-  WITH CHECK (
-    bucket_id = 'contact-documents' AND
-    auth.uid()::text = (storage.foldername(name))[1]
-  );
-
-CREATE POLICY "Users can view own contact documents"
-  ON storage.objects FOR SELECT
-  USING (
-    bucket_id = 'contact-documents' AND
-    auth.uid()::text = (storage.foldername(name))[1]
-  );
-
-CREATE POLICY "Users can delete own contact documents"
-  ON storage.objects FOR DELETE
-  USING (
-    bucket_id = 'contact-documents' AND
-    auth.uid()::text = (storage.foldername(name))[1]
-  );
 ```
-
----
-
-## Flujo de Usuario
-
-1. Usuario navega a `/contacts/:contactId`
-2. Hace click en tab "Documentos"
-3. Ve lista de documentos existentes (o empty state)
-4. Click en "Subir documento"
-5. Arrastra archivo o hace click para seleccionar
-6. Selecciona tipo de documento
-7. Opcionalmente agrega descripcion
-8. Click en "Subir"
-9. Archivo se sube a storage
-10. Registro se crea en base de datos
-11. Lista se actualiza automaticamente
-12. Puede descargar o eliminar documentos
-
----
-
-## Iconos por Tipo de Archivo
-
-| Extension | Icono | Color |
-|-----------|-------|-------|
-| .pdf | FileText | Red |
-| .doc/.docx | FileText | Blue |
-| .xls/.xlsx | FileSpreadsheet | Green |
-| .jpg/.png | Image | Purple |
-| otros | File | Gray |
-
----
-
-## Tipos de Documento
-
-| Valor | Etiqueta | Color Badge |
-|-------|----------|-------------|
-| contract | Contrato | Blue |
-| proposal | Propuesta | Purple |
-| agreement | Acuerdo | Green |
-| invoice | Factura | Orange |
-| other | Otro | Gray |
 
 ---
 
 ## Secuencia de Implementacion
 
-1. Crear migracion SQL (tabla + bucket + RLS)
-2. Agregar tipo ContactDocument a types/crm.ts
-3. Crear hook useContactDocuments.ts
-4. Crear componente DocumentItem.tsx
-5. Crear componente DocumentUploader.tsx
-6. Crear componente ContactDocuments.tsx
-7. Modificar ContactDetail.tsx para agregar tab
+1. Crear migracion SQL para tabla `company_documents`
+2. Agregar tipo `CompanyDocument` a `src/types/crm.ts`
+3. Crear hook `useCompanyDocuments.ts`
+4. Crear componente `CompanySidebar.tsx`
+5. Crear componente `CompanyTimeline.tsx`
+6. Crear componente `CompanyContacts.tsx`
+7. Crear componente `CompanyDeals.tsx`
+8. Crear componente `CompanyDocuments.tsx`
+9. Crear pagina `CompanyDetail.tsx`
+10. Modificar `App.tsx` para agregar ruta
+11. Modificar `Companies.tsx` para navegacion
+
+---
+
+## Componentes Reutilizados
+
+Los siguientes componentes existentes se reutilizaran:
+
+- `DocumentItem.tsx` - Ya es generico, funciona con cualquier documento
+- `DocumentUploader.tsx` - Ya es generico, funciona para subir cualquier archivo
+- `TimelineEntryItem.tsx` - Ya renderiza cualquier entrada de timeline
+- `useTimelineEntries.ts` - Ya soporta `companyId` como parametro
 
 ---
 
 ## Consideraciones Tecnicas
 
-- **Limite de archivo**: 10 MB maximo
-- **Tipos permitidos**: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG
-- **Seguridad**: URLs firmadas con expiracion de 1 hora
-- **Performance**: Paginacion si hay muchos documentos
-- **UX**: Toast de confirmacion al subir/eliminar
-
+- **RLS**: La tabla `company_documents` tendra RLS similar a `contact_documents`
+- **Storage**: Reutilizar el bucket `contact-documents` con prefijo diferente para empresas
+- **Timeline**: El hook existente ya soporta `companyId`, solo hay que usarlo
+- **Navegacion**: Click en fila de tabla navega al detalle, botones de accion se mantienen
