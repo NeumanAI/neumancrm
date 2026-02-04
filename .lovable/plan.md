@@ -1,40 +1,41 @@
-# Plan: Expandir Tools del Chat IA (Parte C)
 
-## ✅ COMPLETADO
 
-### Cambios de Base de Datos
-- ✅ Columna `whatsapp_number` agregada a tabla `contacts`
-- ✅ Tabla `timeline_entries` creada con RLS y Realtime habilitados
-- ✅ Índices optimizados para búsquedas eficientes
+# Plan: Corregir Imports de Edge Functions
 
-### Tools del Chat (15 total)
-| Tool | Estado | Descripción |
-|------|--------|-------------|
-| `create_contact` | ✅ Mejorado | Ahora soporta `whatsapp_number` y `company_name` |
-| `update_contact` | ✅ Nuevo | Actualiza contactos existentes por email |
-| `search_contacts` | ✅ Mejorado | Filtros avanzados: empresa, WhatsApp |
-| `create_company` | ✅ Existente | Sin cambios |
-| `search_companies` | ✅ Existente | Sin cambios |
-| `create_task` | ✅ Existente | Sin cambios |
-| `schedule_meeting` | ✅ Existente | Sin cambios |
-| `create_opportunity` | ✅ Existente | Sin cambios |
-| `update_opportunity_stage` | ✅ Existente | Sin cambios |
-| `get_pipeline_summary` | ✅ Mejorado | Ahora incluye deals en riesgo y valor ponderado |
-| `analyze_deal_health` | ✅ Nuevo | Score de salud 0-100 con advertencias |
-| `search_timeline` | ✅ Nuevo | Busca en historial de interacciones |
-| `find_promises` | ✅ Nuevo | Encuentra action items pendientes |
-| `get_next_best_action` | ✅ Nuevo | Sugiere siguiente mejor acción |
-| `add_note` | ✅ Existente | Sin cambios |
+## Problema Detectado
 
-### System Prompt
-- ✅ Actualizado con descripción de nuevas capacidades
-- ✅ Documentación de todos los 15 tools
+Algunas Edge Functions aún tienen imports inconsistentes que pueden causar el error de bundling `troika-three-utils`. El error ocurre cuando `esm.sh` intenta resolver dependencias sin el target `deno` especificado.
 
-### Tipos TypeScript
-- ✅ `Contact` actualizado con `whatsapp_number`
-- ✅ Fix de tipo para `companies` (Pick<Company, ...>)
+## Archivos a Corregir
 
-## Próximos Pasos Sugeridos
-1. Probar los nuevos tools en el chat
-2. Poblar `timeline_entries` con datos de ejemplo
-3. Configurar integración Gmail para auto-captura
+| Archivo | Cambio |
+|---------|--------|
+| `supabase/functions/chat/index.ts` | Cambiar `@2.43.4` → `@2.43.4?target=deno` |
+| `supabase/functions/process-import/index.ts` | Cambiar `@2` → `@2.43.4?target=deno` |
+| `supabase/functions/process-export/index.ts` | Cambiar `@2` → `@2.43.4?target=deno` |
+| `supabase/functions/check-notifications/index.ts` | Cambiar `@2.43.4` → `@2.43.4?target=deno` |
+| `supabase/functions/gmail-auth/index.ts` | Verificar y corregir si es necesario |
+
+## Cambio Específico
+
+En cada archivo, la línea 2 debe quedar así:
+
+```typescript
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.4?target=deno";
+```
+
+## Por Qué Funciona
+
+- `?target=deno` le indica a esm.sh que genere el bundle específico para Deno runtime
+- Esto evita dependencias problemáticas como `troika-three-utils` que son para browsers
+- La versión fija `@2.43.4` garantiza consistencia entre todas las funciones
+
+## Pasos de Implementación
+
+1. Actualizar import en `chat/index.ts` (línea 2)
+2. Actualizar import en `process-import/index.ts` (línea 2)
+3. Actualizar import en `process-export/index.ts` (línea 2)
+4. Actualizar import en `check-notifications/index.ts` (línea 2)
+5. Verificar `gmail-auth/index.ts` y corregir si falta
+6. Redesplegar todas las Edge Functions
+
