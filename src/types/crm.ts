@@ -131,3 +131,24 @@ export interface Branding {
   created_at: string;
   updated_at: string;
 }
+
+export interface TimelineEntry {
+  id: string;
+  user_id: string;
+  contact_id?: string;
+  company_id?: string;
+  opportunity_id?: string;
+  entry_type: 'email' | 'call' | 'meeting' | 'note' | 'whatsapp' | 'task';
+  source?: string;
+  subject?: string;
+  body?: string;
+  summary?: string;
+  participants?: { name: string; email?: string }[];
+  action_items?: { text: string; completed: boolean }[];
+  metadata?: Record<string, unknown>;
+  occurred_at: string;
+  created_at: string;
+  contacts?: Contact;
+  companies?: Company;
+  opportunities?: Opportunity;
+}
