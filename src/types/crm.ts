@@ -165,3 +165,16 @@ export interface ContactDocument {
   description?: string;
   created_at: string;
 }
+
+export interface CompanyDocument {
+  id: string;
+  user_id: string;
+  company_id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number;
+  mime_type: string;
+  document_type: 'contract' | 'proposal' | 'agreement' | 'invoice' | 'other';
+  description?: string;
+  created_at: string;
+}

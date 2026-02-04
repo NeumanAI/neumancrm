@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Contacts from "./pages/Contacts";
 import Companies from "./pages/Companies";
+import CompanyDetail from "./pages/CompanyDetail";
 import Pipeline from "./pages/Pipeline";
 import Tasks from "./pages/Tasks";
 import Settings from "./pages/Settings";
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/contacts" element={<AppLayout><Contacts /></AppLayout>} />
             <Route path="/contacts/:contactId" element={<AppLayout><ContactDetail /></AppLayout>} />
             <Route path="/companies" element={<AppLayout><Companies /></AppLayout>} />
+            <Route path="/companies/:companyId" element={<AppLayout><CompanyDetail /></AppLayout>} />
             <Route path="/pipeline" element={<AppLayout><Pipeline /></AppLayout>} />
             <Route path="/tasks" element={<AppLayout><Tasks /></AppLayout>} />
             <Route path="/settings" element={<AppLayout><Settings /></AppLayout>} />
