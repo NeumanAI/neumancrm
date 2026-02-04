@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Contact } from '@/types/crm';
 import { toast } from 'sonner';
+import { Json } from '@/integrations/supabase/types';
 
 export function useContacts() {
   const queryClient = useQueryClient();
@@ -24,10 +25,14 @@ export function useContacts() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated user');
 
+      // Prepare data without the joined companies field
+      const { companies, metadata, ...contactData } = newContact;
+      
       const insertData = { 
-        ...newContact, 
+        ...contactData, 
         user_id: user.id,
-        email: newContact.email || ''
+        email: newContact.email || '',
+        metadata: metadata ? (metadata as Json) : undefined,
       };
 
       const { data, error } = await supabase
@@ -50,9 +55,15 @@ export function useContacts() {
 
   const updateContact = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Contact> & { id: string }) => {
+      // Remove joined data and cast metadata
+      const { companies, metadata, ...updateData } = updates;
+      
       const { data, error } = await supabase
         .from('contacts')
-        .update(updates)
+        .update({
+          ...updateData,
+          metadata: metadata ? (metadata as Json) : undefined,
+        })
         .eq('id', id)
         .select()
         .single();
