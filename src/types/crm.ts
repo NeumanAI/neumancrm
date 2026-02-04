@@ -44,6 +44,11 @@ export interface Contact {
   created_by?: string;
   created_at: string;
   updated_at: string;
+  // New fields for lead tracking
+  source?: 'manual' | 'webchat' | 'whatsapp' | 'instagram' | 'messenger' | 'email' | 'import';
+  source_id?: string;
+  instagram_username?: string;
+  metadata?: Record<string, unknown>;
   companies?: Pick<Company, 'id' | 'name' | 'logo_url'>;
 }
 
