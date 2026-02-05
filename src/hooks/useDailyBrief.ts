@@ -30,7 +30,7 @@ export interface DailyBrief {
 }
 
 export function useDailyBrief(enabled: boolean = true) {
-  const { clearInvalidSession } = useAuth();
+  const { user, clearInvalidSession } = useAuth();
 
   return useQuery({
     queryKey: ['daily-brief'],
@@ -58,7 +58,7 @@ export function useDailyBrief(enabled: boolean = true) {
 
       return data;
     },
-    enabled,
+    enabled: enabled && !!user, // Only run when explicitly enabled AND user is authenticated
     staleTime: 30 * 60 * 1000, // 30 minutes
     refetchOnWindowFocus: false,
     retry: false, // Don't retry on auth errors

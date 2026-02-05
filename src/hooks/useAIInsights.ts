@@ -34,7 +34,7 @@ export interface AIInsights {
 }
 
 export function useAIInsights() {
-  const { clearInvalidSession } = useAuth();
+  const { user, clearInvalidSession } = useAuth();
 
   return useQuery({
     queryKey: ['ai-insights'],
@@ -62,6 +62,7 @@ export function useAIInsights() {
 
       return data;
     },
+    enabled: !!user, // Only run query when user is authenticated
     staleTime: 60 * 60 * 1000, // 1 hour
     refetchOnWindowFocus: false,
     retry: false, // Don't retry on auth errors
