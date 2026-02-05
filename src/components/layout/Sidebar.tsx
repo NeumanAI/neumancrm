@@ -18,6 +18,7 @@ import {
   FolderOpen,
   PenTool,
   Bot,
+  FlaskConical,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -52,6 +53,7 @@ const adminNavItems = [
 const platformAINavItems = [
   { to: '/admin/firma-digital', icon: PenTool, label: 'Firma Digital', isPlatformAI: true },
   { to: '/admin/agentic-rag', icon: Bot, label: 'AgenticRAG', isPlatformAI: true },
+  { to: '/admin/labs', icon: FlaskConical, label: 'Labs', isPlatformAI: true },
 ];
 
 const resellerNavItems = [

@@ -28,6 +28,7 @@ import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
 import FirmaDigital from "./pages/FirmaDigital";
 import AgenticRAG from "./pages/AgenticRAG";
+import Labs from "./pages/Labs";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +51,7 @@ const App = () => (
             <Route path="/admin" element={<Admin />} />
             <Route path="/admin/firma-digital" element={<FirmaDigital />} />
             <Route path="/admin/agentic-rag" element={<AgenticRAG />} />
+            <Route path="/admin/labs" element={<Labs />} />
             
             {/* Reseller admin panel - no layout (has its own) */}
             <Route path="/reseller-admin" element={<ResellerAdmin />} />

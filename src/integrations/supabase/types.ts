@@ -1565,15 +1565,17 @@ export type Database = {
           email: string
           full_name: string | null
           id: string
+          invitation_status: string | null
           invited_by: string | null
           is_active: boolean | null
           joined_at: string | null
           organization_id: string
+          pending_email: string | null
           quota_monthly: number | null
           quota_quarterly: number | null
           role: Database["public"]["Enums"]["team_role"]
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -1582,15 +1584,17 @@ export type Database = {
           email: string
           full_name?: string | null
           id?: string
+          invitation_status?: string | null
           invited_by?: string | null
           is_active?: boolean | null
           joined_at?: string | null
           organization_id: string
+          pending_email?: string | null
           quota_monthly?: number | null
           quota_quarterly?: number | null
           role?: Database["public"]["Enums"]["team_role"]
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -1599,15 +1603,17 @@ export type Database = {
           email?: string
           full_name?: string | null
           id?: string
+          invitation_status?: string | null
           invited_by?: string | null
           is_active?: boolean | null
           joined_at?: string | null
           organization_id?: string
+          pending_email?: string | null
           quota_monthly?: number | null
           quota_quarterly?: number | null
           role?: Database["public"]["Enums"]["team_role"]
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
