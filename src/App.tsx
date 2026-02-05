@@ -24,6 +24,8 @@ import Conversations from "./pages/Conversations";
 import PendingApproval from "./pages/PendingApproval";
 import Admin from "./pages/Admin";
 import ResellerAdmin from "./pages/ResellerAdmin";
+import Projects from "./pages/Projects";
+import ProjectDetail from "./pages/ProjectDetail";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +62,8 @@ const App = () => (
             <Route path="/data-management" element={<AppLayout><DataManagement /></AppLayout>} />
             <Route path="/team" element={<AppLayout><Team /></AppLayout>} />
             <Route path="/conversations" element={<AppLayout><Conversations /></AppLayout>} />
+            <Route path="/projects" element={<AppLayout><Projects /></AppLayout>} />
+            <Route path="/projects/:projectId" element={<AppLayout><ProjectDetail /></AppLayout>} />
             
             {/* Redirect root to dashboard */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />

@@ -368,6 +368,7 @@ export type Database = {
           name: string
           organization_id: string | null
           phone: string | null
+          project_id: string | null
           revenue: number | null
           twitter_url: string | null
           updated_at: string | null
@@ -391,6 +392,7 @@ export type Database = {
           name: string
           organization_id?: string | null
           phone?: string | null
+          project_id?: string | null
           revenue?: number | null
           twitter_url?: string | null
           updated_at?: string | null
@@ -414,6 +416,7 @@ export type Database = {
           name?: string
           organization_id?: string | null
           phone?: string | null
+          project_id?: string | null
           revenue?: number | null
           twitter_url?: string | null
           updated_at?: string | null
@@ -426,6 +429,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "companies_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -512,6 +522,60 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_projects: {
+        Row: {
+          added_by: string | null
+          contact_id: string
+          created_at: string
+          id: string
+          interest_level: number | null
+          notes: string | null
+          project_id: string
+          source: string | null
+          status: Database["public"]["Enums"]["contact_project_status"]
+          updated_at: string
+        }
+        Insert: {
+          added_by?: string | null
+          contact_id: string
+          created_at?: string
+          id?: string
+          interest_level?: number | null
+          notes?: string | null
+          project_id: string
+          source?: string | null
+          status?: Database["public"]["Enums"]["contact_project_status"]
+          updated_at?: string
+        }
+        Update: {
+          added_by?: string | null
+          contact_id?: string
+          created_at?: string
+          id?: string
+          interest_level?: number | null
+          notes?: string | null
+          project_id?: string
+          source?: string | null
+          status?: Database["public"]["Enums"]["contact_project_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_projects_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_projects_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -1065,6 +1129,7 @@ export type Database = {
           organization_id: string | null
           pipeline_id: string | null
           probability: number | null
+          project_id: string | null
           stage_id: string | null
           status: string | null
           title: string
@@ -1087,6 +1152,7 @@ export type Database = {
           organization_id?: string | null
           pipeline_id?: string | null
           probability?: number | null
+          project_id?: string | null
           stage_id?: string | null
           status?: string | null
           title: string
@@ -1109,6 +1175,7 @@ export type Database = {
           organization_id?: string | null
           pipeline_id?: string | null
           probability?: number | null
+          project_id?: string | null
           stage_id?: string | null
           status?: string | null
           title?: string
@@ -1143,6 +1210,13 @@ export type Database = {
             columns: ["pipeline_id"]
             isOneToOne: false
             referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunities_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -1295,6 +1369,131 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      project_members: {
+        Row: {
+          created_at: string
+          id: string
+          permissions: Json | null
+          project_id: string
+          role: Database["public"]["Enums"]["project_member_role"]
+          team_member_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          permissions?: Json | null
+          project_id: string
+          role?: Database["public"]["Enums"]["project_member_role"]
+          team_member_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          permissions?: Json | null
+          project_id?: string
+          role?: Database["public"]["Enums"]["project_member_role"]
+          team_member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_members_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_members_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          address: string | null
+          budget: number | null
+          city: string | null
+          code: string | null
+          color: string | null
+          country: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          end_date: string | null
+          icon: string | null
+          id: string
+          image_url: string | null
+          location: string | null
+          metadata: Json | null
+          name: string
+          organization_id: string
+          revenue_target: number | null
+          start_date: string | null
+          status: Database["public"]["Enums"]["project_status"]
+          type: Database["public"]["Enums"]["project_type"]
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          budget?: number | null
+          city?: string | null
+          code?: string | null
+          color?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_date?: string | null
+          icon?: string | null
+          id?: string
+          image_url?: string | null
+          location?: string | null
+          metadata?: Json | null
+          name: string
+          organization_id: string
+          revenue_target?: number | null
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["project_status"]
+          type?: Database["public"]["Enums"]["project_type"]
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          budget?: number | null
+          city?: string | null
+          code?: string | null
+          color?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_date?: string | null
+          icon?: string | null
+          id?: string
+          image_url?: string | null
+          location?: string | null
+          metadata?: Json | null
+          name?: string
+          organization_id?: string
+          revenue_target?: number | null
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["project_status"]
+          type?: Database["public"]["Enums"]["project_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stages: {
         Row: {
@@ -1527,6 +1726,19 @@ export type Database = {
       user_is_org_member: { Args: { _org_id: string }; Returns: boolean }
     }
     Enums: {
+      contact_project_status: "lead" | "qualified" | "customer" | "inactive"
+      project_member_role: "owner" | "admin" | "member" | "viewer"
+      project_status: "active" | "inactive" | "completed" | "cancelled"
+      project_type:
+        | "project"
+        | "real_estate"
+        | "construction"
+        | "business_unit"
+        | "department"
+        | "brand"
+        | "product_line"
+        | "location"
+        | "other"
       team_role: "admin" | "manager" | "sales_rep" | "viewer"
     }
     CompositeTypes: {
@@ -1655,6 +1867,20 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      contact_project_status: ["lead", "qualified", "customer", "inactive"],
+      project_member_role: ["owner", "admin", "member", "viewer"],
+      project_status: ["active", "inactive", "completed", "cancelled"],
+      project_type: [
+        "project",
+        "real_estate",
+        "construction",
+        "business_unit",
+        "department",
+        "brand",
+        "product_line",
+        "location",
+        "other",
+      ],
       team_role: ["admin", "manager", "sales_rep", "viewer"],
     },
   },
