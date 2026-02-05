@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
+import { generateUniqueSlug } from '@/lib/utils';
 
 export type OrganizationType = 'direct' | 'whitelabel';
 
@@ -253,7 +254,7 @@ export function useSuperAdmin() {
         .from('organizations')
         .insert({
           name: data.name,
-          slug: data.name.toLowerCase().replace(/\s+/g, '-'),
+          slug: generateUniqueSlug(data.name),
           pending_admin_email: data.admin_email.toLowerCase(),
           is_approved: data.is_approved ?? true,
           approved_at: data.is_approved ? new Date().toISOString() : null,
@@ -350,8 +351,8 @@ export function useSuperAdmin() {
     },
   });
 
-  // Derived data
-  const pendingOrganizations = organizations.filter(org => !org.is_approved);
+  // Derived data - exclude sub-clients from pending (they should be approved by their reseller)
+  const pendingOrganizations = organizations.filter(org => !org.is_approved && !org.parent_organization_id);
   const approvedOrganizations = organizations.filter(org => org.is_approved);
   const rootOrganizations = organizations.filter(org => !org.parent_organization_id);
   const subClientOrganizations = organizations.filter(org => !!org.parent_organization_id);

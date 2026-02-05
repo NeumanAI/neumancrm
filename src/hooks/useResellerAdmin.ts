@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
+import { generateUniqueSlug } from '@/lib/utils';
 
 export interface SubClient {
   id: string;
@@ -128,7 +129,7 @@ export function useResellerAdmin() {
         .from('organizations')
         .insert({
           name: data.name,
-          slug: data.name.toLowerCase().replace(/\s+/g, '-'),
+          slug: generateUniqueSlug(data.name),
           parent_organization_id: resellerOrg.id,
           organization_type: 'direct', // Sub-clients are always 'direct'
           is_approved: data.is_approved ?? false,

@@ -96,6 +96,8 @@ export function useOpportunities() {
       if (error) throw error;
       return data as Opportunity[];
     },
+    staleTime: 30000, // 30 seconds
+    refetchOnWindowFocus: false,
   });
 
   const createOpportunity = useMutation({
