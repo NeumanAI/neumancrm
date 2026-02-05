@@ -1,164 +1,225 @@
 
+# Plan: Corrección de Problemas y Mejoras Reportados
 
-# Plan: Menús Plataforma IA (Firma Digital y AgenticRAG)
+## Resumen de Problemas Identificados
 
-## Resumen
-Agregar dos nuevas páginas dentro de la sección de administración bajo el grupo "Plataforma IA":
-1. **Firma Digital** - Iframe embebido que oculta el dominio
-2. **AgenticRAG** - Página con mensaje "En Desarrollo"
-
----
-
-## Cambios Requeridos
-
-### 1. Actualizar Sidebar (`src/components/layout/Sidebar.tsx`)
-
-Agregar nuevos items de navegación para super admins debajo de Administración:
-
-```typescript
-// Nuevos iconos a importar
-import { PenTool, Bot, Cpu } from 'lucide-react';
-
-// Nuevo grupo de items para Plataforma IA
-const platformAINavItems = [
-  { to: '/admin/firma-digital', icon: PenTool, label: 'Firma Digital', isPlatformAI: true },
-  { to: '/admin/agentic-rag', icon: Bot, label: 'AgenticRAG', isPlatformAI: true },
-];
-
-// En la lógica de construcción de menú, agregar después de adminNavItems
-if (isSuperAdmin) {
-  allNavItems = [...allNavItems, ...adminNavItems, ...platformAINavItems];
-}
-```
-
-### 2. Crear Página FirmaDigital (`src/pages/FirmaDigital.tsx`)
-
-Página con iframe embebido a pantalla completa que oculta el dominio:
-
-```typescript
-export default function FirmaDigital() {
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header con navegación */}
-      <div className="border-b">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex items-center gap-3">
-            <PenTool className="h-5 w-5 text-primary" />
-            <h1 className="text-xl font-bold">Firma Digital</h1>
-          </div>
-        </div>
-      </div>
-      
-      {/* Iframe embebido sin barra de URL visible */}
-      <div className="w-full h-[calc(100vh-65px)]">
-        <iframe
-          src="https://demo.stg.mifirmadigital.com/login"
-          className="w-full h-full border-0"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-          title="Firma Digital"
-        />
-      </div>
-    </div>
-  );
-}
-```
-
-### 3. Crear Página AgenticRAG (`src/pages/AgenticRAG.tsx`)
-
-Página placeholder con mensaje de desarrollo:
-
-```typescript
-export default function AgenticRAG() {
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header con navegación */}
-      <div className="border-b">...</div>
-      
-      {/* Contenido placeholder */}
-      <div className="flex flex-col items-center justify-center h-[calc(100vh-65px)] gap-6">
-        <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center">
-          <Bot className="h-12 w-12 text-primary animate-pulse" />
-        </div>
-        <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold">AgenticRAG</h2>
-          <p className="text-muted-foreground text-lg">En Desarrollo</p>
-          <p className="text-sm text-muted-foreground max-w-md">
-            Sistema de IA agéntica con capacidades RAG avanzadas.
-            Próximamente disponible.
-          </p>
-        </div>
-        <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">
-          <Cpu className="h-4 w-4 mr-1" />
-          Próximamente
-        </Badge>
-      </div>
-    </div>
-  );
-}
-```
-
-### 4. Actualizar Rutas (`src/App.tsx`)
-
-Agregar las nuevas rutas de administración:
-
-```typescript
-import FirmaDigital from "./pages/FirmaDigital";
-import AgenticRAG from "./pages/AgenticRAG";
-
-// Agregar rutas después de /admin
-<Route path="/admin/firma-digital" element={<FirmaDigital />} />
-<Route path="/admin/agentic-rag" element={<AgenticRAG />} />
-```
+| # | Problema | Prioridad |
+|---|----------|-----------|
+| 1 | Dashboard lento con múltiples refrescos | Alta |
+| 2 | Aprobaciones de sub-clientes llegan a super admin en vez de marca blanca | Alta |
+| 3 | Emails de empresas no visibles en panel admin | Media |
+| 4 | No permite modificar nombre de organización (usuario empresa) | Media |
+| 5 | Error slug duplicado al crear sub-cliente | Alta |
+| 6 | Falta opción "Sin empresa" en selector de contactos | Baja |
 
 ---
 
-## Archivos a Crear
+## Corrección 1: Dashboard Lento y Refrescos Múltiples
 
-| Archivo | Descripción |
-|---------|-------------|
-| `src/pages/FirmaDigital.tsx` | Página con iframe embebido |
-| `src/pages/AgenticRAG.tsx` | Página placeholder en desarrollo |
+### Problema
+El Dashboard ejecuta 4 queries independientes (`useContacts`, `useCompanies`, `useOpportunities`, `useActivities`) sin optimización. Cada hook hace su propia petición y puede causar re-renders múltiples.
 
-## Archivos a Modificar
+### Solución
+- Agregar `staleTime` y `refetchOnWindowFocus: false` a los hooks del dashboard
+- Optimizar las queries para cargar solo los datos necesarios (limitar resultados)
+- Usar `useMemo` para cálculos derivados
 
-| Archivo | Cambios |
-|---------|---------|
-| `src/components/layout/Sidebar.tsx` | Agregar grupo Plataforma IA con 2 items |
-| `src/App.tsx` | Agregar 2 rutas nuevas |
+### Archivos a modificar
+- `src/pages/Dashboard.tsx`: Agregar memoización y optimizar renders
+- `src/hooks/useContacts.ts`: Agregar configuración de cache
+- `src/hooks/useCompanies.ts`: Agregar configuración de cache
+- `src/hooks/useOpportunities.ts`: Agregar configuración de cache
+- `src/hooks/useActivities.ts`: Agregar configuración de cache
 
 ---
 
-## Diseño Visual
+## Corrección 2: Aprobación de Sub-clientes por Marca Blanca
 
-### Sidebar
-- Los items de "Plataforma IA" aparecerán debajo de "Administración"
-- Usarán un estilo distintivo similar al de admin (borde y fondo sutil)
-- Solo visibles para super admins
+### Problema
+Cuando una marca blanca crea un sub-cliente, la aprobación debería ser manejada por la propia marca blanca, no por el super admin.
 
-### Firma Digital
-- Header minimalista con botón de retorno
-- Iframe a pantalla completa sin bordes
-- El dominio queda completamente oculto al usuario
+### Solución Actual
+El sistema ya implementa esto correctamente en `useResellerAdmin.ts`:
+- `approveSubClient` permite a las marcas blancas aprobar sus propios sub-clientes
+- El panel de marca blanca (`ResellerAdmin.tsx`) ya muestra los botones de aprobar
 
-### AgenticRAG
-- Diseño centrado con icono animado
-- Mensaje claro de "En Desarrollo"
-- Badge de "Próximamente"
+### Posible Bug
+Si las aprobaciones llegan al super admin, puede ser porque:
+1. La creación del sub-cliente no establece correctamente `parent_organization_id`
+2. Las RLS policies permiten que el super admin vea estas pendientes
+
+### Solución
+- Verificar que al crear sub-cliente se asigne correctamente `parent_organization_id`
+- En el panel de super admin, filtrar para no mostrar sub-clientes que pertenecen a una marca blanca
+- Añadir lógica en la tabla del admin para excluir organizaciones con `parent_organization_id`
+
+### Archivos a modificar
+- `src/pages/Admin.tsx`: Filtrar sub-clientes de la vista principal
+- `src/hooks/useSuperAdmin.ts`: Excluir sub-clientes de `pendingOrganizations`
+
+---
+
+## Corrección 3: Emails no Visibles en Panel Admin
+
+### Problema
+En la fila de la tabla de empresas, solo se muestra `custom_domain || admin_email` pero `admin_email` puede ser null si no hay admin asignado.
+
+### Código Actual (línea 107-109 Admin.tsx)
+```typescript
+<p className="text-xs text-muted-foreground">
+  {org.custom_domain || org.admin_email || 'Sin admin'}
+</p>
+```
+
+### Solución
+- Mostrar el email en una columna separada más visible
+- Añadir columna "Email Admin" a la tabla
+- Hacer clic en la fila para ver detalles de la empresa
+
+### Archivos a modificar
+- `src/pages/Admin.tsx`: Añadir columna de email y hacer filas clickeables
+- `src/components/admin/OrganizationDetailDialog.tsx`: Crear nuevo componente (opcional)
+
+---
+
+## Corrección 4: No Permite Modificar Nombre de Organización
+
+### Problema
+En Settings.tsx (línea 207-217), el campo de nombre de organización está marcado como `disabled` y dice "Solo lectura" para todos los usuarios.
+
+### Código Actual
+```typescript
+<Input
+  id="org_name"
+  value={organization?.name || ''}
+  disabled  // <-- Siempre deshabilitado
+  className="flex-1"
+/>
+<span className="text-xs text-muted-foreground">
+  Solo lectura
+</span>
+```
+
+### Solución
+- Permitir que los administradores de la organización editen el nombre
+- Usar `canEditBranding` (que ya verifica si es admin) para controlar el campo
+- Actualizar la mutación `updateBranding` para incluir el nombre
+
+### Archivos a modificar
+- `src/pages/Settings.tsx`: Hacer editable el nombre para admins
+
+---
+
+## Corrección 5: Error Slug Duplicado al Crear Sub-cliente
+
+### Problema
+Error: `duplicate key value violates unique constraint "organizations_slug_key"`
+
+El slug se genera así:
+```typescript
+slug: data.name.toLowerCase().replace(/\s+/g, '-'),
+```
+
+Si dos empresas tienen el mismo nombre, el slug será idéntico causando conflicto.
+
+### Solución
+- Generar slug único añadiendo sufijo aleatorio o timestamp
+- Implementar función `generateUniqueSlug` que verifique existencia
+
+### Código Propuesto
+```typescript
+const generateSlug = (name: string) => {
+  const baseSlug = name.toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
+  const suffix = Date.now().toString(36).slice(-4);
+  return `${baseSlug}-${suffix}`;
+};
+```
+
+### Archivos a modificar
+- `src/hooks/useResellerAdmin.ts`: Usar slug único en createSubClient
+- `src/hooks/useSuperAdmin.ts`: Usar slug único en createOrganization
+
+---
+
+## Corrección 6: Falta Opción "Sin Empresa" en Selector
+
+### Problema
+El select de empresa al crear contacto no tiene opción para dejar sin empresa asignada.
+
+### Código Actual (Contacts.tsx líneas 306-320)
+```typescript
+<Select value={formData.company_id} onValueChange={...}>
+  <SelectTrigger>
+    <SelectValue placeholder="Selecciona una empresa" />
+  </SelectTrigger>
+  <SelectContent>
+    {companies.map((company) => (
+      <SelectItem key={company.id} value={company.id}>
+        {company.name}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+```
+
+### Solución
+Añadir opción "Sin empresa" al inicio del select:
+```typescript
+<SelectContent>
+  <SelectItem value="none">Sin empresa</SelectItem>
+  {companies.map((company) => (...))}
+</SelectContent>
+```
+
+### Archivos a modificar
+- `src/pages/Contacts.tsx`: Añadir opción "Sin empresa"
+
+---
+
+## Secuencia de Implementación
+
+1. **Corrección 5** - Slug duplicado (más crítico, bloquea funcionalidad)
+2. **Corrección 6** - Sin empresa (cambio simple)
+3. **Corrección 4** - Editar nombre organización
+4. **Corrección 3** - Emails en panel admin
+5. **Corrección 2** - Filtrar sub-clientes en admin
+6. **Corrección 1** - Optimización dashboard
 
 ---
 
 ## Sección Técnica
 
-### Seguridad del Iframe
-El atributo `sandbox` limita las capacidades del iframe:
-- `allow-scripts`: Permite ejecución de JavaScript
-- `allow-same-origin`: Necesario para autenticación
-- `allow-forms`: Permite envío de formularios
-- `allow-popups`: Permite ventanas emergentes si necesarias
+### Archivos a Modificar
 
-### Protección de Rutas
-Ambas páginas verificarán `isSuperAdmin` antes de renderizar, redirigiendo a `/dashboard` si el usuario no tiene permisos.
+| Archivo | Cambios |
+|---------|---------|
+| `src/hooks/useResellerAdmin.ts` | Generar slug único |
+| `src/hooks/useSuperAdmin.ts` | Generar slug único, filtrar pendientes |
+| `src/pages/Contacts.tsx` | Añadir opción "Sin empresa" |
+| `src/pages/Settings.tsx` | Hacer editable nombre para admins |
+| `src/pages/Admin.tsx` | Añadir columna email, filtrar sub-clientes |
+| `src/pages/Dashboard.tsx` | Optimizar con useMemo |
+| `src/hooks/useContacts.ts` | Añadir staleTime |
+| `src/hooks/useCompanies.ts` | Añadir staleTime |
+| `src/hooks/useOpportunities.ts` | Añadir staleTime |
+| `src/hooks/useActivities.ts` | Añadir staleTime |
 
+### Función Utilitaria a Crear
+
+```typescript
+// src/lib/utils.ts
+export function generateUniqueSlug(name: string): string {
+  const baseSlug = name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remover acentos
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim();
+  const suffix = Date.now().toString(36).slice(-4);
+  return `${baseSlug}-${suffix}`;
+}
+```
