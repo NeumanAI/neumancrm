@@ -1,201 +1,250 @@
 
-# Plan: Vincular Usuarios a Organizaciones Pre-creadas
+# Plan: Generar Documentación Completa del CRM
 
-## El Problema Actual
+## Objetivo
+Crear un archivo Markdown completo y exportable con toda la documentación de funcionalidades del CRM, organizado por módulos y con información técnica detallada.
 
-Cuando creas una marca blanca (o cliente directo) desde el panel de Super Admin:
+---
 
-1. Se crea la organización con el email del admin como información
-2. El usuario se registra con ese email
-3. El trigger `handle_new_user_organization()` **SIEMPRE** crea una nueva organización separada
-4. El usuario queda en su propia organización en lugar de la marca blanca
+## Contenido del Documento
 
+### 1. Resumen Ejecutivo
+- Descripción general del sistema CRM
+- Stack tecnológico (React, TypeScript, Tailwind, Shadcn/ui, Supabase)
+- Arquitectura de multi-tenancy (Super Admin → Resellers → Sub-clientes)
+
+### 2. Módulos Funcionales
+
+#### 2.1 Gestión de Contactos
+- CRUD completo de contactos
+- Campos: nombre, email, teléfono, WhatsApp, cargo, empresa asociada
+- Vista de detalle con Timeline integrado
+- Gestión de documentos adjuntos
+- Fuentes de leads: manual, webchat, WhatsApp, Instagram, Messenger, email, import
+
+#### 2.2 Gestión de Empresas
+- CRUD completo de empresas
+- Campos: nombre, industria, sitio web, teléfono, dirección, empleados, ingresos
+- Vista de detalle con contactos asociados
+- Gestión de documentos adjuntos
+- Timeline de interacciones
+
+#### 2.3 Pipeline de Ventas
+- Vista Kanban con drag-and-drop (@dnd-kit)
+- 7 etapas configurables: Lead, Calificación, Reunión Demo, Propuesta, Negociación, Ganado, Perdido
+- Probabilidad automática por etapa
+- Cálculo de valor total del pipeline
+- Asignación de oportunidades a miembros del equipo
+
+#### 2.4 Gestión de Tareas y Actividades
+- Tipos: tarea, llamada, email, reunión, nota
+- Prioridades: baja, media, alta, urgente
+- Fecha de vencimiento
+- Asociación con contactos, empresas y oportunidades
+
+#### 2.5 Conversaciones Omnicanal
+- Canales soportados: Webchat, WhatsApp, Instagram, Messenger, Email
+- Bandeja de entrada unificada
+- Estados: abierta, pendiente, resuelta, archivada
+- Asignación a miembros del equipo
+- Contador de mensajes no leídos
+- Creación automática de leads
+
+### 3. Integraciones
+
+#### 3.1 Gmail
+- Autenticación OAuth 2.0
+- Sincronización de emails
+- Captura automática de interacciones en Timeline
+
+#### 3.2 ManyChat
+- Integración via API Key
+- Canales: WhatsApp, Instagram, Messenger
+- Webhook para recibir conversaciones
+
+#### 3.3 Webchat
+- Widget embebible para sitios externos
+- Script de inserción generado
+- Integración con n8n para IA
+
+### 4. Asistente de IA
+
+#### 4.1 Chat Global
+- Panel flotante accesible desde cualquier vista
+- Persistencia de conversaciones
+
+#### 4.2 Herramientas del Asistente (30+)
+**Contactos y Empresas:**
+- create_contact, update_contact, search_contacts
+- create_company, search_companies
+
+**Tareas y Reuniones:**
+- create_task, schedule_meeting
+
+**Pipeline y Oportunidades:**
+- create_opportunity, update_opportunity_stage
+- get_pipeline_summary, analyze_deal_health
+
+**Timeline y Análisis:**
+- search_timeline, find_promises
+- get_next_best_action, add_note
+
+**Equipo y Colaboración:**
+- get_team_summary, get_member_info, get_quotas_progress
+- assign_contact, assign_company, assign_opportunity
+- get_my_assignments, add_team_comment
+- get_entity_comments, get_activity_feed, notify_team_member
+
+**Conversaciones Omnicanal:**
+- list_conversations, get_conversation_messages
+- reply_to_conversation, assign_conversation, resolve_conversation
+
+#### 4.3 Daily Brief
+- Resumen automático diario
+- Tareas del día, deals urgentes, próximas reuniones
+
+#### 4.4 AI Insights
+- Análisis de deals en riesgo
+- Sugerencias de próximas acciones
+- Métricas del pipeline
+
+### 5. Gestión de Equipos
+
+#### 5.1 Roles y Permisos
+| Rol | Permisos |
+|-----|----------|
+| Admin | Crear, editar, eliminar, asignar, comentar, gestionar equipo |
+| Manager | Crear, editar, asignar, comentar |
+| Sales Rep | Crear, editar, comentar (solo sus asignaciones) |
+| Viewer | Solo lectura |
+
+#### 5.2 Cuotas de Ventas
+- Establecimiento de cuotas mensuales/trimestrales
+- Seguimiento de progreso
+- Visualización en dashboard
+
+#### 5.3 Activity Feed
+- Registro de actividades del equipo
+- Filtrado por tipo de entidad
+- Historial de cambios
+
+### 6. Administración
+
+#### 6.1 Super Admin
+- Gestión de todas las organizaciones
+- Aprobación/rechazo de organizaciones pendientes
+- Creación de clientes directos y marca blanca
+- Gestión de dominios personalizados
+
+#### 6.2 Reseller Admin
+- Gestión de sub-clientes
+- Herencia de branding
+
+#### 6.3 White-Label (Marca Blanca)
+- Logo personalizado
+- Colores primario y secundario
+- Favicon personalizado
+- Dominio personalizado
+
+### 7. Gestión de Datos
+
+#### 7.1 Importación
+- Formatos: CSV, Excel
+- Mapeo automático de columnas
+- Validación de datos
+- Opciones: actualizar existentes, saltar duplicados
+
+#### 7.2 Exportación
+- Formatos: CSV, Excel, JSON
+- Filtros por fecha y tipo de entidad
+
+#### 7.3 Detección de Duplicados
+- Algoritmo de similitud
+- Herramienta de merge
+- Estados: pendiente, fusionado, descartado
+
+#### 7.4 Operaciones Masivas
+- Actualización en lote
+- Eliminación en lote
+- Asignación masiva
+
+#### 7.5 Registro de Auditoría
+- Historial de cambios
+- Usuario responsable
+- Valores anteriores y nuevos
+
+### 8. Notificaciones
+- Tipos: tareas vencidas, actualizaciones de deals, nuevos contactos, sync de email
+- Centro de notificaciones
+- Preferencias configurables
+- Notificaciones del navegador (opcional)
+
+### 9. Edge Functions (Backend)
+| Función | Descripción |
+|---------|-------------|
+| chat | Asistente de IA con herramientas |
+| generate-insights | Análisis de pipeline y sugerencias |
+| generate-daily-brief | Resumen diario automático |
+| gmail-auth / gmail-callback | OAuth para Gmail |
+| process-emails | Sincronización de emails |
+| manychat-webhook | Recepción de mensajes ManyChat |
+| n8n-chat | Webchat con IA |
+| send-conversation-reply | Envío de respuestas omnicanal |
+| process-import / process-export | Procesamiento de archivos |
+| scan-duplicates | Detección de duplicados |
+| check-notifications | Verificación de notificaciones |
+
+### 10. Seguridad
+- Autenticación con email/contraseña
+- Magic Link opcional
+- RLS (Row Level Security) por organización
+- Tokens JWT para Edge Functions
+- Verificación de email requerida
+
+---
+
+## Sección Técnica
+
+### Estructura de Archivos Principales
 ```text
-┌────────────────────────────────────────────────────────────────┐
-│  FLUJO ACTUAL (Incorrecto)                                     │
-├────────────────────────────────────────────────────────────────┤
-│  1. Super Admin crea "BitanAI" (whitelabel)                    │
-│     └─ admin_email: bitanaillc@gmail.com (solo informativo)    │
-│                                                                 │
-│  2. Usuario se registra con bitanaillc@gmail.com               │
-│     └─ Trigger crea "bitanaillc's Team" (NUEVA org)            │
-│                                                                 │
-│  Resultado: 2 organizaciones, usuario en la incorrecta         │
-└────────────────────────────────────────────────────────────────┘
+src/
+├── pages/           # Vistas principales (Dashboard, Contacts, Pipeline, etc.)
+├── components/      # Componentes React organizados por módulo
+├── hooks/           # Custom hooks para lógica de negocio
+├── contexts/        # Contextos (Auth, Branding, Chat)
+├── types/           # Definiciones TypeScript
+└── integrations/    # Cliente Supabase
+supabase/
+└── functions/       # Edge Functions (15+)
 ```
 
-## Solución Propuesta
-
-Modificar el trigger para buscar si existe una organización pre-creada con ese email como admin:
-
-```text
-┌────────────────────────────────────────────────────────────────┐
-│  FLUJO CORREGIDO                                               │
-├────────────────────────────────────────────────────────────────┤
-│  1. Super Admin crea "BitanAI" (whitelabel)                    │
-│     └─ Guarda pending_admin_email = bitanaillc@gmail.com       │
-│                                                                 │
-│  2. Usuario se registra con bitanaillc@gmail.com               │
-│     └─ Trigger busca org con ese pending_admin_email           │
-│     └─ SI existe: vincula usuario a "BitanAI"                  │
-│     └─ SI NO existe: crea nueva organización                   │
-│                                                                 │
-│  Resultado: Usuario correctamente en "BitanAI"                 │
-└────────────────────────────────────────────────────────────────┘
-```
+### Dependencias Clave
+- @dnd-kit: Drag and drop para Pipeline
+- @tanstack/react-query: Gestión de estado servidor
+- recharts: Gráficos del Dashboard
+- framer-motion: Animaciones
+- papaparse / xlsx: Import/Export de datos
+- react-dropzone: Carga de archivos
 
 ---
 
-## Cambios Técnicos
+## Implementación
 
-### 1. Agregar columna `pending_admin_email` a organizations
+### Archivo a crear:
+- **`docs/CRM_DOCUMENTATION.md`**: Documento Markdown completo
 
-```sql
-ALTER TABLE public.organizations
-ADD COLUMN pending_admin_email TEXT;
-```
-
-Esta columna guardará temporalmente el email del admin esperado cuando un Super Admin crea la organización. Se limpiará cuando el usuario se registre.
-
-### 2. Modificar el trigger `handle_new_user_organization()`
-
-```sql
-CREATE OR REPLACE FUNCTION public.handle_new_user_organization()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  existing_org_id UUID;
-  new_org_id UUID;
-BEGIN
-  -- Buscar organización pre-creada con este email pendiente
-  SELECT id INTO existing_org_id
-  FROM public.organizations
-  WHERE pending_admin_email = LOWER(NEW.email)
-  LIMIT 1;
-
-  IF existing_org_id IS NOT NULL THEN
-    -- Vincular usuario a la organización existente
-    INSERT INTO public.team_members (
-      user_id, organization_id, role, email, full_name, avatar_url
-    )
-    VALUES (
-      NEW.id,
-      existing_org_id,
-      'admin',
-      NEW.email,
-      COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
-      NEW.raw_user_meta_data->>'avatar_url'
-    );
-
-    -- Limpiar el email pendiente
-    UPDATE public.organizations
-    SET pending_admin_email = NULL
-    WHERE id = existing_org_id;
-  ELSE
-    -- Crear nueva organización (flujo normal)
-    INSERT INTO public.organizations (name, slug, is_approved)
-    VALUES (
-      COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)) || '''s Team',
-      NEW.id::text,
-      false
-    )
-    RETURNING id INTO new_org_id;
-
-    INSERT INTO public.team_members (
-      user_id, organization_id, role, email, full_name, avatar_url
-    )
-    VALUES (
-      NEW.id,
-      new_org_id,
-      'admin',
-      NEW.email,
-      COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
-      NEW.raw_user_meta_data->>'avatar_url'
-    );
-  END IF;
-
-  RETURN NEW;
-END;
-$$;
-```
-
-### 3. Modificar `useSuperAdmin.ts` para guardar el email pendiente
-
-```typescript
-// En createOrganization mutation
-const { data: org, error: orgError } = await supabase
-  .from('organizations')
-  .insert({
-    name: data.name,
-    slug: data.name.toLowerCase().replace(/\s+/g, '-'),
-    pending_admin_email: data.admin_email.toLowerCase(), // <-- NUEVO
-    is_approved: data.is_approved ?? true,
-    // ... resto de campos
-  })
-  .select()
-  .single();
-```
-
-### 4. Actualizar tipos de TypeScript
-
-```typescript
-// En src/integrations/supabase/types.ts (se actualiza automáticamente)
-// Y en useTeam.ts si se usa Organization type
-```
-
-### 5. (Opcional) Corregir datos existentes
-
-Vincular manualmente el usuario `bitanaillc@gmail.com` a la organización "BitanAI":
-
-```sql
--- Mover el team_member a la org correcta
-UPDATE public.team_members
-SET organization_id = '35e9abf9-aad1-4b02-b2c8-90c1a3dc0825'  -- BitanAI
-WHERE email = 'bitanaillc@gmail.com';
-
--- Eliminar la org huérfana
-DELETE FROM public.organizations
-WHERE id = '2241ade1-5f0c-42b3-a218-8af800dc02b8';  -- bitanaillc's Team
-```
+### Características del documento:
+- Tabla de contenidos con enlaces
+- Tablas formateadas para referencia rápida
+- Ejemplos de uso donde aplique
+- Secciones colapsables usando HTML details/summary
+- Exportable como PDF usando cualquier conversor Markdown-to-PDF
 
 ---
 
-## Archivos a Modificar
-
-| Archivo | Cambio |
-|---------|--------|
-| Nueva migración SQL | Agregar columna y modificar trigger |
-| `src/hooks/useSuperAdmin.ts` | Guardar `pending_admin_email` al crear org |
-| `src/components/admin/CreateOrganizationDialog.tsx` | Sin cambios (ya captura el email) |
-| `src/integrations/supabase/types.ts` | Se actualiza automáticamente |
-
----
-
-## Resumen del Nuevo Flujo
-
-1. **Super Admin crea marca blanca "BitanAI"**
-   - Se guarda `pending_admin_email = 'bitanaillc@gmail.com'`
-   - Estado: `is_approved = true`, sin team_members aún
-
-2. **Usuario se registra con bitanaillc@gmail.com**
-   - Trigger busca org con `pending_admin_email = 'bitanaillc@gmail.com'`
-   - Encuentra "BitanAI"
-   - Crea team_member con role='admin' en esa org
-   - Limpia `pending_admin_email`
-
-3. **Resultado**
-   - Usuario es admin de "BitanAI" (la marca blanca)
-   - Puede acceder al panel de reseller
-   - Hereda branding (logo, colores)
-
----
-
-## Beneficios
-
-1. Los usuarios se vinculan automáticamente a organizaciones pre-creadas
-2. Funciona tanto para marcas blancas como clientes directos
-3. Si no hay org pendiente, sigue creando una nueva (flujo normal)
-4. El Super Admin puede ver qué orgs aún esperan registro (tienen `pending_admin_email`)
+## Resultado Final
+Un documento de ~15-20 páginas que servirá como referencia completa del sistema, útil para:
+- Onboarding de nuevos usuarios
+- Documentación técnica para desarrolladores
+- Manual de referencia para ventas/demos
+- Base para centro de ayuda futuro
