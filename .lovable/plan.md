@@ -1,225 +1,244 @@
 
-# Plan: Corrección de Problemas y Mejoras Reportados
+# Plan: Corrección de Problemas y Mejoras del CRM
 
 ## Resumen de Problemas Identificados
 
-| # | Problema | Prioridad |
-|---|----------|-----------|
-| 1 | Dashboard lento con múltiples refrescos | Alta |
-| 2 | Aprobaciones de sub-clientes llegan a super admin en vez de marca blanca | Alta |
-| 3 | Emails de empresas no visibles en panel admin | Media |
-| 4 | No permite modificar nombre de organización (usuario empresa) | Media |
-| 5 | Error slug duplicado al crear sub-cliente | Alta |
-| 6 | Falta opción "Sin empresa" en selector de contactos | Baja |
+| # | Problema | Prioridad | Archivo Principal |
+|---|----------|-----------|-------------------|
+| 1 | Nombre de empresa no visible en lugar prominente | Media | `Header.tsx` |
+| 2 | "Configuración" y "Perfil" abren la misma página | Media | `Header.tsx` |
+| 3 | Error al invitar miembro: foreign key violation | Alta | `useTeam.ts` |
+| 4 | Menús "Firma Digital" y "AgenticRAG" visibles para todos | Alta | `Sidebar.tsx` |
+| 5 | Falta opción "Labs" en menú de Plataforma IA | Baja | `Sidebar.tsx` |
+| 6 | "Exportar datos" visible para todos (solo super admin) | Media | `DataManagement.tsx`, `Sidebar.tsx` |
+| 7 | Importación pendiente sin procesar (timeout en edge function) | Alta | `process-import/index.ts` |
+| 8 | Campos de contacto: simplificar a WhatsApp + Otro número + Instagram | Media | `ContactSidebar.tsx`, tipos |
+| 9 | Tareas: solo fecha, no hora | Baja | `Tasks.tsx` |
 
 ---
 
-## Corrección 1: Dashboard Lento y Refrescos Múltiples
+## Corrección 1: Mostrar Nombre de Empresa en Lugar Visible
 
 ### Problema
-El Dashboard ejecuta 4 queries independientes (`useContacts`, `useCompanies`, `useOpportunities`, `useActivities`) sin optimización. Cada hook hace su propia petición y puede causar re-renders múltiples.
+El nombre de la organización/empresa no se muestra de forma visible para el usuario.
 
 ### Solución
-- Agregar `staleTime` y `refetchOnWindowFocus: false` a los hooks del dashboard
-- Optimizar las queries para cargar solo los datos necesarios (limitar resultados)
-- Usar `useMemo` para cálculos derivados
+Agregar el nombre de la organización en el header, junto al email del usuario.
 
 ### Archivos a modificar
-- `src/pages/Dashboard.tsx`: Agregar memoización y optimizar renders
-- `src/hooks/useContacts.ts`: Agregar configuración de cache
-- `src/hooks/useCompanies.ts`: Agregar configuración de cache
-- `src/hooks/useOpportunities.ts`: Agregar configuración de cache
-- `src/hooks/useActivities.ts`: Agregar configuración de cache
+- `src/components/layout/Header.tsx`: Mostrar nombre de organización en el dropdown del usuario
 
 ---
 
-## Corrección 2: Aprobación de Sub-clientes por Marca Blanca
+## Corrección 2: "Configuración" y "Perfil" Abren la Misma Página
 
 ### Problema
-Cuando una marca blanca crea un sub-cliente, la aprobación debería ser manejada por la propia marca blanca, no por el super admin.
-
-### Solución Actual
-El sistema ya implementa esto correctamente en `useResellerAdmin.ts`:
-- `approveSubClient` permite a las marcas blancas aprobar sus propios sub-clientes
-- El panel de marca blanca (`ResellerAdmin.tsx`) ya muestra los botones de aprobar
-
-### Posible Bug
-Si las aprobaciones llegan al super admin, puede ser porque:
-1. La creación del sub-cliente no establece correctamente `parent_organization_id`
-2. Las RLS policies permiten que el super admin vea estas pendientes
+En el menú del usuario (Header), tanto "Perfil" como "Configuración" navegan a `/settings`.
 
 ### Solución
-- Verificar que al crear sub-cliente se asigne correctamente `parent_organization_id`
-- En el panel de super admin, filtrar para no mostrar sub-clientes que pertenecen a una marca blanca
-- Añadir lógica en la tabla del admin para excluir organizaciones con `parent_organization_id`
+Eliminar una de las opciones o diferenciar sus destinos. Recomendación: Mantener solo "Configuración" ya que `/settings` contiene todo.
 
 ### Archivos a modificar
-- `src/pages/Admin.tsx`: Filtrar sub-clientes de la vista principal
-- `src/hooks/useSuperAdmin.ts`: Excluir sub-clientes de `pendingOrganizations`
+- `src/components/layout/Header.tsx`: Eliminar la opción "Perfil" redundante
 
 ---
 
-## Corrección 3: Emails no Visibles en Panel Admin
+## Corrección 3: Error al Invitar Miembro del Equipo
 
 ### Problema
-En la fila de la tabla de empresas, solo se muestra `custom_domain || admin_email` pero `admin_email` puede ser null si no hay admin asignado.
+Error: `insert or update on table "team_members" violates foreign key constraint "team_members_user_id_fkey"`
 
-### Código Actual (línea 107-109 Admin.tsx)
-```typescript
-<p className="text-xs text-muted-foreground">
-  {org.custom_domain || org.admin_email || 'Sin admin'}
-</p>
-```
+El código actual genera un UUID aleatorio (`crypto.randomUUID()`) como `user_id` placeholder, pero la tabla tiene una foreign key a `auth.users` que no permite IDs inexistentes.
 
 ### Solución
-- Mostrar el email en una columna separada más visible
-- Añadir columna "Email Admin" a la tabla
-- Hacer clic en la fila para ver detalles de la empresa
+Cambiar el flujo de invitación:
+1. Crear el registro con `user_id = NULL` (nullable) o usar el ID del usuario que invita temporalmente
+2. Agregar campo `invited_email` para rastrear invitaciones pendientes
+3. Cuando el usuario invitado se registre, vincular el `user_id` real
+
+### Opción Alternativa (más simple)
+Usar el sistema de "pending_admin_email" existente en organizations, adaptado para team_members.
 
 ### Archivos a modificar
-- `src/pages/Admin.tsx`: Añadir columna de email y hacer filas clickeables
-- `src/components/admin/OrganizationDetailDialog.tsx`: Crear nuevo componente (opcional)
+- `src/hooks/useTeam.ts`: Cambiar lógica de invitación para no usar UUID falso
 
 ---
 
-## Corrección 4: No Permite Modificar Nombre de Organización
+## Corrección 4: Menús de Plataforma IA Visibles para Todos
 
 ### Problema
-En Settings.tsx (línea 207-217), el campo de nombre de organización está marcado como `disabled` y dice "Solo lectura" para todos los usuarios.
+Los menús "Firma Digital" y "AgenticRAG" son visibles para todos los usuarios, pero deberían estar solo disponibles para super admins y ubicados bajo "Administración".
 
 ### Código Actual
-```typescript
-<Input
-  id="org_name"
-  value={organization?.name || ''}
-  disabled  // <-- Siempre deshabilitado
-  className="flex-1"
-/>
-<span className="text-xs text-muted-foreground">
-  Solo lectura
-</span>
-```
+El sidebar ya tiene la lógica correcta (`isSuperAdmin`), pero puede haber un problema con la verificación del estado.
 
 ### Solución
-- Permitir que los administradores de la organización editen el nombre
-- Usar `canEditBranding` (que ya verifica si es admin) para controlar el campo
-- Actualizar la mutación `updateBranding` para incluir el nombre
+Verificar que `isSuperAdmin` se evalúe correctamente y que los items estén dentro del bloque condicional.
 
 ### Archivos a modificar
-- `src/pages/Settings.tsx`: Hacer editable el nombre para admins
+- `src/components/layout/Sidebar.tsx`: Confirmar que los items de Plataforma IA solo se muestran para super admins
 
 ---
 
-## Corrección 5: Error Slug Duplicado al Crear Sub-cliente
+## Corrección 5: Agregar Opción "Labs" en Plataforma IA
 
 ### Problema
-Error: `duplicate key value violates unique constraint "organizations_slug_key"`
-
-El slug se genera así:
-```typescript
-slug: data.name.toLowerCase().replace(/\s+/g, '-'),
-```
-
-Si dos empresas tienen el mismo nombre, el slug será idéntico causando conflicto.
+Falta la opción "Labs" en el menú de Plataforma IA, que debería mostrar un mensaje de "En construcción".
 
 ### Solución
-- Generar slug único añadiendo sufijo aleatorio o timestamp
-- Implementar función `generateUniqueSlug` que verifique existencia
+1. Crear nueva página `src/pages/Labs.tsx` similar a AgenticRAG
+2. Agregar item al array `platformAINavItems`
+3. Agregar ruta en `App.tsx`
 
-### Código Propuesto
-```typescript
-const generateSlug = (name: string) => {
-  const baseSlug = name.toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '');
-  const suffix = Date.now().toString(36).slice(-4);
-  return `${baseSlug}-${suffix}`;
-};
-```
-
-### Archivos a modificar
-- `src/hooks/useResellerAdmin.ts`: Usar slug único en createSubClient
-- `src/hooks/useSuperAdmin.ts`: Usar slug único en createOrganization
+### Archivos a modificar/crear
+- `src/pages/Labs.tsx`: Nueva página con mensaje "En construcción"
+- `src/components/layout/Sidebar.tsx`: Agregar item Labs
+- `src/App.tsx`: Agregar ruta `/admin/labs`
 
 ---
 
-## Corrección 6: Falta Opción "Sin Empresa" en Selector
+## Corrección 6: Exportar Datos Solo para Admin de Cuenta
 
 ### Problema
-El select de empresa al crear contacto no tiene opción para dejar sin empresa asignada.
-
-### Código Actual (Contacts.tsx líneas 306-320)
-```typescript
-<Select value={formData.company_id} onValueChange={...}>
-  <SelectTrigger>
-    <SelectValue placeholder="Selecciona una empresa" />
-  </SelectTrigger>
-  <SelectContent>
-    {companies.map((company) => (
-      <SelectItem key={company.id} value={company.id}>
-        {company.name}
-      </SelectItem>
-    ))}
-  </SelectContent>
-</Select>
-```
+La opción de "Exportar datos" debería estar disponible solo para el super administrador de cada cuenta (rol admin de la organización).
 
 ### Solución
-Añadir opción "Sin empresa" al inicio del select:
-```typescript
-<SelectContent>
-  <SelectItem value="none">Sin empresa</SelectItem>
-  {companies.map((company) => (...))}
-</SelectContent>
-```
+1. Ocultar la pestaña "Exportar" en DataManagement para usuarios que no sean admin
+2. O mover la funcionalidad de exportación a un lugar más restringido
 
 ### Archivos a modificar
-- `src/pages/Contacts.tsx`: Añadir opción "Sin empresa"
+- `src/pages/DataManagement.tsx`: Verificar rol y ocultar pestaña de exportación si no es admin
+- `src/components/data-management/ExportTab.tsx`: Agregar verificación de permisos
+
+---
+
+## Corrección 7: Importación Pendiente Sin Procesar
+
+### Problema
+La importación de Excel se quedó en "Procesando" y nunca completó (20 minutos esperando).
+
+### Causa Probable
+1. La edge function `process-import` tiene un timeout de 30 segundos por defecto
+2. Procesar 1558 registros uno por uno sin batch puede exceder el timeout
+3. No hay manejo de reconexión o procesamiento en chunks
+
+### Solución
+1. Procesar en batches más grandes (INSERT múltiple)
+2. Usar transacciones donde sea posible
+3. Agregar timeout handling y reintentos
+4. Actualizar estado a "failed" si hay error
+
+### Archivos a modificar
+- `supabase/functions/process-import/index.ts`: Optimizar procesamiento con batches
+
+---
+
+## Corrección 8: Simplificar Campos de Teléfono en Contactos
+
+### Problema
+Actualmente hay: Teléfono, Móvil, WhatsApp. El usuario solicita: Solo WhatsApp + Otro número + Instagram.
+
+### Solución
+1. Mantener campos en DB (retrocompatibilidad)
+2. En la UI mostrar solo: WhatsApp (principal), Otro teléfono (usar campo `phone`), Instagram
+3. Agregar campo `instagram_username` a la UI (ya existe en DB)
+
+### Archivos a modificar
+- `src/components/contacts/ContactSidebar.tsx`: Reorganizar campos visibles
+- `src/pages/Contacts.tsx`: Actualizar formulario de creación/edición
+
+---
+
+## Corrección 9: Tareas Solo Fecha Sin Hora
+
+### Problema
+El selector de fecha límite para tareas usa `datetime-local`, pero el usuario quiere solo fecha.
+
+### Solución
+Cambiar de `datetime-local` a `date` y ajustar el procesamiento.
+
+### Archivos a modificar
+- `src/pages/Tasks.tsx`: Cambiar input type de `datetime-local` a `date`
 
 ---
 
 ## Secuencia de Implementación
 
-1. **Corrección 5** - Slug duplicado (más crítico, bloquea funcionalidad)
-2. **Corrección 6** - Sin empresa (cambio simple)
-3. **Corrección 4** - Editar nombre organización
-4. **Corrección 3** - Emails en panel admin
-5. **Corrección 2** - Filtrar sub-clientes en admin
-6. **Corrección 1** - Optimización dashboard
+1. **Corrección 3** - Error invitación (bloquea funcionalidad crítica)
+2. **Corrección 7** - Importación (bloquea funcionalidad crítica)
+3. **Corrección 4** - Menús visibles (seguridad/permisos)
+4. **Corrección 6** - Exportar solo admin
+5. **Corrección 2** - Menú duplicado
+6. **Corrección 1** - Nombre empresa visible
+7. **Corrección 5** - Agregar Labs
+8. **Corrección 8** - Campos contacto
+9. **Corrección 9** - Solo fecha en tareas
 
 ---
 
 ## Sección Técnica
 
-### Archivos a Modificar
+### Archivos a Crear
+| Archivo | Descripción |
+|---------|-------------|
+| `src/pages/Labs.tsx` | Página placeholder para Labs |
 
+### Archivos a Modificar
 | Archivo | Cambios |
 |---------|---------|
-| `src/hooks/useResellerAdmin.ts` | Generar slug único |
-| `src/hooks/useSuperAdmin.ts` | Generar slug único, filtrar pendientes |
-| `src/pages/Contacts.tsx` | Añadir opción "Sin empresa" |
-| `src/pages/Settings.tsx` | Hacer editable nombre para admins |
-| `src/pages/Admin.tsx` | Añadir columna email, filtrar sub-clientes |
-| `src/pages/Dashboard.tsx` | Optimizar con useMemo |
-| `src/hooks/useContacts.ts` | Añadir staleTime |
-| `src/hooks/useCompanies.ts` | Añadir staleTime |
-| `src/hooks/useOpportunities.ts` | Añadir staleTime |
-| `src/hooks/useActivities.ts` | Añadir staleTime |
+| `src/hooks/useTeam.ts` | Cambiar lógica de invitación para usar flujo correcto |
+| `supabase/functions/process-import/index.ts` | Optimizar con batch inserts |
+| `src/components/layout/Sidebar.tsx` | Agregar Labs, verificar visibilidad |
+| `src/components/layout/Header.tsx` | Mostrar nombre org, eliminar menú duplicado |
+| `src/pages/DataManagement.tsx` | Verificar permisos para exportar |
+| `src/components/contacts/ContactSidebar.tsx` | Reorganizar campos (WhatsApp, Otro, Instagram) |
+| `src/pages/Contacts.tsx` | Actualizar formulario con nuevos campos |
+| `src/pages/Tasks.tsx` | Cambiar selector a solo fecha |
+| `src/App.tsx` | Agregar ruta Labs |
 
-### Función Utilitaria a Crear
+### Cambio de Base de Datos Posible
+Para la corrección 3 (invitación de miembros), se necesita:
+- Hacer `user_id` nullable en `team_members`, o
+- Agregar campo `pending_email` para invitaciones
+
+```sql
+-- Opción 1: Hacer user_id nullable temporalmente para invitaciones
+ALTER TABLE team_members ALTER COLUMN user_id DROP NOT NULL;
+ALTER TABLE team_members ADD COLUMN pending_email TEXT;
+ALTER TABLE team_members ADD COLUMN invitation_status TEXT DEFAULT 'active';
+```
+
+### Optimización de Import (Corrección 7)
 
 ```typescript
-// src/lib/utils.ts
-export function generateUniqueSlug(name: string): string {
-  const baseSlug = name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Remover acentos
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .trim();
-  const suffix = Date.now().toString(36).slice(-4);
-  return `${baseSlug}-${suffix}`;
+// Batch insert en lugar de uno por uno
+const batchSize = 100;
+for (let i = 0; i < data.length; i += batchSize) {
+  const batch = data.slice(i, i + batchSize).map(row => {
+    const mappedData: Record<string, unknown> = { user_id: userId };
+    for (const [sourceCol, targetField] of Object.entries(column_mapping)) {
+      if (row[sourceCol] !== undefined && row[sourceCol] !== '') {
+        mappedData[targetField] = row[sourceCol];
+      }
+    }
+    return mappedData;
+  });
+  
+  const { error } = await supabaseClient.from(entity_type).insert(batch);
+  if (error) {
+    failedCount += batch.length;
+  } else {
+    successCount += batch.length;
+  }
+  
+  // Update progress
+  const progress = Math.round(((i + batch.length) / data.length) * 100);
+  await supabaseClient.from('import_jobs').update({ 
+    progress, 
+    processed_rows: i + batch.length,
+    successful_rows: successCount,
+    failed_rows: failedCount 
+  }).eq('id', job_id);
 }
 ```
+
