@@ -272,6 +272,96 @@
  
  ---
  
+### 2.6 Gestión de Proyectos y Unidades de Negocio
+
+Sistema de segmentación de contactos, empresas y oportunidades por proyecto.
+
+#### Tipos de Proyecto
+
+| Tipo | Descripción |
+|------|-------------|
+| `project` | Proyecto genérico |
+| `real_estate` | Proyecto inmobiliario |
+| `construction` | Proyecto de construcción |
+| `business_unit` | Unidad de negocio |
+| `department` | Departamento |
+| `brand` | Marca |
+| `product_line` | Línea de producto |
+| `location` | Ubicación/Sucursal |
+| `other` | Otro |
+
+#### Estados de Proyecto
+
+| Estado | Color | Descripción |
+|--------|-------|-------------|
+| `active` | 🟢 | Proyecto activo y en operación |
+| `inactive` | 🟡 | Proyecto pausado temporalmente |
+| `completed` | ✅ | Proyecto completado |
+| `cancelled` | ❌ | Proyecto cancelado |
+
+#### Campos de Proyecto
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `name` | String | Nombre del proyecto (requerido) |
+| `code` | String | Código identificador único |
+| `type` | Enum | Tipo de proyecto |
+| `status` | Enum | Estado actual |
+| `description` | Text | Descripción del proyecto |
+| `budget` | Number | Presupuesto asignado |
+| `revenue_target` | Number | Meta de ingresos |
+| `start_date` | Date | Fecha de inicio |
+| `end_date` | Date | Fecha de finalización |
+| `city` | String | Ciudad |
+| `country` | String | País |
+| `color` | String | Color para UI (hex) |
+| `icon` | String | Icono para UI |
+
+#### Relación Contacto-Proyecto
+
+Un contacto puede estar asociado a múltiples proyectos con estado individual:
+
+| Estado | Descripción |
+|--------|-------------|
+| `lead` | Lead interesado en el proyecto |
+| `qualified` | Lead calificado |
+| `customer` | Cliente que compró/contrató |
+| `inactive` | Contacto inactivo en el proyecto |
+
+#### Métricas por Proyecto
+
+| Métrica | Descripción |
+|---------|-------------|
+| `total_contacts` | Contactos asociados al proyecto |
+| `total_companies` | Empresas vinculadas |
+| `total_opportunities` | Oportunidades en el proyecto |
+| `pipeline_value` | Valor del pipeline abierto |
+| `won_deals_value` | Valor de deals ganados |
+| `conversion_rate` | Tasa de conversión |
+
+#### Funcionalidades
+
+- ✅ CRUD completo de proyectos
+- ✅ Vista de lista con tarjetas y filtros
+- ✅ Vista de detalle con métricas
+- ✅ Asociación de contactos a múltiples proyectos
+- ✅ Filtro global por proyecto en el header
+- ✅ Métricas calculadas automáticamente
+- ✅ Permisos basados en rol (Admin/Manager pueden crear)
+
+#### Herramientas de IA para Proyectos
+
+| Herramienta | Descripción |
+|-------------|-------------|
+| `list_projects` | Listar proyectos con filtros |
+| `create_project` | Crear nuevo proyecto |
+| `get_project_stats` | Métricas detalladas por proyecto |
+| `add_contact_to_project` | Asociar contacto a proyecto |
+| `get_project_contacts` | Contactos de un proyecto |
+| `search_projects` | Buscar proyectos por nombre/código |
+
+---
+
  ## 3. Integraciones
  
  ### 3.1 Gmail

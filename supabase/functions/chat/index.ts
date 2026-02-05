@@ -427,6 +427,107 @@ const tools = [
       },
     },
   },
+  // ===== PROYECTOS Y UNIDADES DE NEGOCIO =====
+  {
+    type: "function",
+    function: {
+      name: "list_projects",
+      description: "Lista los proyectos/unidades de negocio de la organización. Úsala para ver proyectos disponibles, filtrar por tipo o estado.",
+      parameters: {
+        type: "object",
+        properties: {
+          status: { type: "string", enum: ["active", "inactive", "completed", "cancelled"], description: "Filtrar por estado del proyecto" },
+          type: { type: "string", enum: ["project", "real_estate", "construction", "business_unit", "department", "brand", "product_line", "location", "other"], description: "Filtrar por tipo de proyecto" },
+          limit: { type: "number", description: "Número máximo de resultados (default: 20)" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_project",
+      description: "Crea un nuevo proyecto o unidad de negocio para segmentar contactos y oportunidades. Ideal para organizar leads por proyecto inmobiliario, línea de producto, marca, etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Nombre del proyecto (requerido)" },
+          code: { type: "string", description: "Código corto identificador (ej: 'TORRE-N', 'PROD-01')" },
+          description: { type: "string", description: "Descripción del proyecto" },
+          type: { type: "string", enum: ["project", "real_estate", "construction", "business_unit", "department", "brand", "product_line", "location", "other"], description: "Tipo de proyecto" },
+          budget: { type: "number", description: "Presupuesto del proyecto" },
+          revenue_target: { type: "number", description: "Meta de ingresos" },
+          city: { type: "string", description: "Ciudad" },
+          country: { type: "string", description: "País" },
+          color: { type: "string", description: "Color del proyecto en formato hex (ej: '#3B82F6')" },
+        },
+        required: ["name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_project_stats",
+      description: "Obtiene métricas detalladas de un proyecto: contactos, empresas, pipeline value, deals ganados, tasa de conversión.",
+      parameters: {
+        type: "object",
+        properties: {
+          project_name: { type: "string", description: "Nombre del proyecto (o parte del nombre)" },
+          project_id: { type: "string", description: "ID del proyecto (alternativa al nombre)" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_contact_to_project",
+      description: "Añade un contacto existente a un proyecto. Permite segmentar contactos por proyecto/unidad de negocio.",
+      parameters: {
+        type: "object",
+        properties: {
+          contact_email: { type: "string", description: "Email del contacto a añadir (requerido)" },
+          project_name: { type: "string", description: "Nombre del proyecto (requerido)" },
+          status: { type: "string", enum: ["lead", "qualified", "customer", "inactive"], description: "Estado del contacto en el proyecto (default: lead)" },
+          interest_level: { type: "number", description: "Nivel de interés del 1 al 5" },
+          notes: { type: "string", description: "Notas sobre el contacto en este proyecto" },
+        },
+        required: ["contact_email", "project_name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_project_contacts",
+      description: "Lista los contactos asociados a un proyecto específico con su estado e interés.",
+      parameters: {
+        type: "object",
+        properties: {
+          project_name: { type: "string", description: "Nombre del proyecto (requerido)" },
+          status: { type: "string", enum: ["lead", "qualified", "customer", "inactive"], description: "Filtrar por estado" },
+          limit: { type: "number", description: "Número máximo de resultados (default: 20)" },
+        },
+        required: ["project_name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_projects",
+      description: "Busca proyectos por nombre o código. Útil para encontrar proyectos específicos.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Texto de búsqueda (nombre o código)" },
+          limit: { type: "number", description: "Número máximo de resultados (default: 10)" },
+        },
+        required: ["query"],
+      },
+    },
+  },
 ];
 
 // Types for team context
@@ -470,6 +571,7 @@ const buildSystemPrompt = (crmContext: {
   tasksCount: number;
   pendingTasks: number;
   pipelineValue: number;
+  projectsCount: number;
   recentContacts: Array<{ name: string; email: string; company?: string }>;
   recentOpportunities: Array<{ title: string; value: number; stage?: string }>;
   upcomingTasks: Array<{ title: string; dueDate?: string; priority?: string }>;
@@ -536,6 +638,7 @@ ${permissions.cannot.length > 0 ? `- No puedes: ${permissions.cannot.join(', ')}
 - Oportunidades: ${crmContext.opportunitiesCount}
 - Tareas: ${crmContext.tasksCount} (${crmContext.pendingTasks} pendientes)
 - Valor total del pipeline: $${crmContext.pipelineValue.toLocaleString()}
+- Proyectos activos: ${crmContext.projectsCount || 0}
 
 📇 **Contactos recientes**:
 ${crmContext.recentContacts.length > 0 
@@ -566,6 +669,8 @@ ${teamSection}
 - **Análisis**: Proporcionar insights sobre la actividad comercial basándote en los datos reales
 - **Equipo**: Puedes consultar información del equipo, asignar entidades a miembros, y gestionar comentarios colaborativos
 - **Colaboración**: Puedes agregar comentarios, mencionar miembros del equipo, y ver el activity feed
+- **Proyectos**: Puedes crear, listar y gestionar proyectos/unidades de negocio
+- **Segmentación**: Puedes añadir contactos a proyectos y ver métricas por proyecto
 
 ## IMPORTANTE - Funciones disponibles:
 ### Contactos y Empresas:
@@ -604,6 +709,14 @@ ${teamSection}
 - **get_activity_feed**: Ver actividad reciente del equipo
 - **notify_team_member**: Notificar a un miembro mencionándolo en un comentario
 
+### Proyectos y Segmentación:
+- **list_projects**: Listar proyectos de la organización con filtros por tipo/estado
+- **create_project**: Crear nuevo proyecto o unidad de negocio
+- **get_project_stats**: Obtener métricas de un proyecto (contactos, pipeline, conversión)
+- **add_contact_to_project**: Asociar contacto a un proyecto
+- **get_project_contacts**: Ver contactos de un proyecto
+- **search_projects**: Buscar proyectos por nombre o código
+
 ## Directrices:
 - Responde siempre en español
 - Usa formato markdown para mejor legibilidad (negritas, listas, emojis)
@@ -632,6 +745,7 @@ ${teamSection}
 - **Tareas** (/tasks): Lista de actividades pendientes
 - **Equipo** (/team): Gestión del equipo y miembros
 - **Configuración** (/settings): Integraciones y preferencias
+- **Proyectos** (/projects): Gestión de proyectos y unidades de negocio
 - **Chat** (/chat): Asistente IA (donde estamos ahora)`;
 };
 
@@ -656,12 +770,14 @@ async function fetchCRMContext(supabase: any, userId: string) {
       opportunitiesResult,
       activitiesResult,
       teamMemberResult,
+      projectsResult,
     ] = await Promise.all([
       supabase.from('contacts').select('id, first_name, last_name, email, companies(name)').order('created_at', { ascending: false }).limit(5),
       supabase.from('companies').select('id').limit(1000),
       supabase.from('opportunities').select('id, title, value, status, stage_id, stages(name)').order('created_at', { ascending: false }).limit(5),
       supabase.from('activities').select('id, title, due_date, priority, completed').order('due_date', { ascending: true }).limit(10),
       supabase.from('team_members').select('*, organizations(*)').eq('user_id', userId).eq('is_active', true).maybeSingle(),
+      supabase.from('projects').select('id', { count: 'exact', head: true }).eq('status', 'active'),
     ]);
 
     const contacts = contactsResult.data || [];
@@ -669,6 +785,7 @@ async function fetchCRMContext(supabase: any, userId: string) {
     const opportunities = opportunitiesResult.data || [];
     const activities = activitiesResult.data || [];
     const currentMember = teamMemberResult.data;
+    const projectsCount = projectsResult.count || 0;
 
     const pendingTasks = activities.filter((a: any) => !a.completed);
     const pipelineValue = opportunities
@@ -727,6 +844,7 @@ async function fetchCRMContext(supabase: any, userId: string) {
         priority: t.priority,
       })),
       teamContext,
+      projectsCount,
     };
   } catch (error) {
     console.error("Error fetching CRM context:", error);
@@ -737,6 +855,7 @@ async function fetchCRMContext(supabase: any, userId: string) {
       tasksCount: 0,
       pendingTasks: 0,
       pipelineValue: 0,
+      projectsCount: 0,
       recentContacts: [],
       recentOpportunities: [],
       upcomingTasks: [],
@@ -2048,6 +2167,486 @@ async function getActivityFeedTool(supabase: any, userId: string, args: any) {
   };
 }
 
+// ===== PROJECT TOOL FUNCTIONS =====
+
+async function listProjects(supabase: any, userId: string, args: any) {
+  // Get current user's organization
+  const { data: currentMember } = await supabase
+    .from('team_members')
+    .select('organization_id')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!currentMember) {
+    return { success: false, message: '❌ No perteneces a ninguna organización' };
+  }
+
+  let query = supabase
+    .from('projects')
+    .select('id, name, code, type, status, description, budget, revenue_target, city, country, color, icon, created_at')
+    .eq('organization_id', currentMember.organization_id)
+    .order('created_at', { ascending: false });
+
+  if (args.status) {
+    query = query.eq('status', args.status);
+  }
+
+  if (args.type) {
+    query = query.eq('type', args.type);
+  }
+
+  const { data: projects, error } = await query.limit(args.limit || 20);
+
+  if (error) {
+    return { success: false, message: `❌ Error al listar proyectos: ${error.message}` };
+  }
+
+  if (!projects || projects.length === 0) {
+    return {
+      success: true,
+      message: 'No hay proyectos registrados en la organización.',
+      data: [],
+    };
+  }
+
+  const typeLabels: Record<string, string> = {
+    project: 'Proyecto',
+    real_estate: 'Inmobiliario',
+    construction: 'Construcción',
+    business_unit: 'Unidad de Negocio',
+    department: 'Departamento',
+    brand: 'Marca',
+    product_line: 'Línea de Producto',
+    location: 'Ubicación',
+    other: 'Otro',
+  };
+
+  const statusLabels: Record<string, string> = {
+    active: '🟢 Activo',
+    inactive: '🟡 Inactivo',
+    completed: '✅ Completado',
+    cancelled: '❌ Cancelado',
+  };
+
+  let message = `## 📁 Proyectos (${projects.length})\n\n`;
+  message += projects.map((p: any) => {
+    const type = typeLabels[p.type] || p.type;
+    const status = statusLabels[p.status] || p.status;
+    const budget = p.budget ? ` | Presupuesto: $${p.budget.toLocaleString()}` : '';
+    const target = p.revenue_target ? ` | Meta: $${p.revenue_target.toLocaleString()}` : '';
+    const location = p.city ? ` | 📍 ${p.city}${p.country ? `, ${p.country}` : ''}` : '';
+    return `### ${p.name} ${p.code ? `(${p.code})` : ''}\n${status} | ${type}${budget}${target}${location}\n${p.description ? `> ${p.description}` : ''}`;
+  }).join('\n\n');
+
+  return {
+    success: true,
+    message,
+    data: projects,
+  };
+}
+
+async function createProject(supabase: any, userId: string, args: any) {
+  // Get current user's organization
+  const { data: currentMember } = await supabase
+    .from('team_members')
+    .select('organization_id, role')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!currentMember) {
+    return { success: false, message: '❌ No perteneces a ninguna organización' };
+  }
+
+  // Check permissions
+  if (!['admin', 'manager'].includes(currentMember.role)) {
+    return { success: false, message: '❌ Solo administradores y managers pueden crear proyectos' };
+  }
+
+  const { data: project, error } = await supabase
+    .from('projects')
+    .insert({
+      organization_id: currentMember.organization_id,
+      name: args.name,
+      code: args.code || null,
+      description: args.description || null,
+      type: args.type || 'project',
+      status: 'active',
+      budget: args.budget || null,
+      revenue_target: args.revenue_target || null,
+      city: args.city || null,
+      country: args.country || null,
+      color: args.color || '#3B82F6',
+      created_by: userId,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    return { success: false, message: `❌ Error al crear proyecto: ${error.message}` };
+  }
+
+  const typeLabels: Record<string, string> = {
+    project: 'Proyecto',
+    real_estate: 'Inmobiliario',
+    construction: 'Construcción',
+    business_unit: 'Unidad de Negocio',
+    department: 'Departamento',
+    brand: 'Marca',
+    product_line: 'Línea de Producto',
+    location: 'Ubicación',
+    other: 'Otro',
+  };
+
+  return {
+    success: true,
+    message: `✅ Proyecto creado: **${args.name}**${args.code ? ` (${args.code})` : ''}\nTipo: ${typeLabels[args.type] || 'Proyecto'}`,
+    data: project,
+  };
+}
+
+async function getProjectStats(supabase: any, userId: string, args: any) {
+  // Get current user's organization
+  const { data: currentMember } = await supabase
+    .from('team_members')
+    .select('organization_id')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!currentMember) {
+    return { success: false, message: '❌ No perteneces a ninguna organización' };
+  }
+
+  // Find the project
+  let projectQuery = supabase
+    .from('projects')
+    .select('id, name, code, type, status, budget, revenue_target')
+    .eq('organization_id', currentMember.organization_id);
+
+  if (args.project_id) {
+    projectQuery = projectQuery.eq('id', args.project_id);
+  } else if (args.project_name) {
+    projectQuery = projectQuery.ilike('name', `%${args.project_name}%`);
+  } else {
+    return { success: false, message: '❌ Debes proporcionar el nombre o ID del proyecto' };
+  }
+
+  const { data: project, error: projectError } = await projectQuery.limit(1).maybeSingle();
+
+  if (projectError || !project) {
+    return { success: false, message: `❌ No se encontró el proyecto "${args.project_name || args.project_id}"` };
+  }
+
+  // Get contacts count
+  const { count: contactsCount } = await supabase
+    .from('contact_projects')
+    .select('*', { count: 'exact', head: true })
+    .eq('project_id', project.id);
+
+  // Get companies count
+  const { count: companiesCount } = await supabase
+    .from('companies')
+    .select('*', { count: 'exact', head: true })
+    .eq('project_id', project.id);
+
+  // Get opportunities data
+  const { data: opportunities } = await supabase
+    .from('opportunities')
+    .select('value, status')
+    .eq('project_id', project.id);
+
+  const totalOpportunities = opportunities?.length || 0;
+  const pipelineValue = opportunities
+    ?.filter((o: any) => o.status === 'open')
+    .reduce((sum: number, o: any) => sum + (Number(o.value) || 0), 0) || 0;
+  const wonDealsValue = opportunities
+    ?.filter((o: any) => o.status === 'won')
+    .reduce((sum: number, o: any) => sum + (Number(o.value) || 0), 0) || 0;
+  const wonDeals = opportunities?.filter((o: any) => o.status === 'won').length || 0;
+  const conversionRate = totalOpportunities > 0 
+    ? Math.round((wonDeals / totalOpportunities) * 100) 
+    : 0;
+
+  // Get contact status breakdown
+  const { data: contactStatuses } = await supabase
+    .from('contact_projects')
+    .select('status')
+    .eq('project_id', project.id);
+
+  const statusCounts: Record<string, number> = {};
+  contactStatuses?.forEach((cp: any) => {
+    statusCounts[cp.status] = (statusCounts[cp.status] || 0) + 1;
+  });
+
+  const statusLabels: Record<string, string> = {
+    lead: '🔵 Leads',
+    qualified: '🟡 Calificados',
+    customer: '🟢 Clientes',
+    inactive: '⚫ Inactivos',
+  };
+
+  let message = `## 📊 Métricas de "${project.name}"${project.code ? ` (${project.code})` : ''}\n\n`;
+  message += `### Resumen General\n`;
+  message += `| Métrica | Valor |\n|---------|-------|\n`;
+  message += `| 👥 Contactos | ${contactsCount || 0} |\n`;
+  message += `| 🏢 Empresas | ${companiesCount || 0} |\n`;
+  message += `| 💼 Oportunidades | ${totalOpportunities} |\n`;
+  message += `| 💰 Pipeline Value | $${pipelineValue.toLocaleString()} |\n`;
+  message += `| ✅ Deals Ganados | $${wonDealsValue.toLocaleString()} |\n`;
+  message += `| 📈 Tasa de Conversión | ${conversionRate}% |\n\n`;
+
+  if (project.budget || project.revenue_target) {
+    message += `### Objetivos\n`;
+    if (project.budget) message += `- 💵 Presupuesto: $${project.budget.toLocaleString()}\n`;
+    if (project.revenue_target) {
+      const progress = project.revenue_target > 0 ? Math.round((wonDealsValue / project.revenue_target) * 100) : 0;
+      message += `- 🎯 Meta de Ingresos: $${project.revenue_target.toLocaleString()} (${progress}% alcanzado)\n`;
+    }
+    message += '\n';
+  }
+
+  if (Object.keys(statusCounts).length > 0) {
+    message += `### Estado de Contactos\n`;
+    Object.entries(statusCounts).forEach(([status, count]) => {
+      message += `- ${statusLabels[status] || status}: ${count}\n`;
+    });
+  }
+
+  return {
+    success: true,
+    message,
+    data: {
+      project,
+      metrics: {
+        total_contacts: contactsCount || 0,
+        total_companies: companiesCount || 0,
+        total_opportunities: totalOpportunities,
+        pipeline_value: pipelineValue,
+        won_deals_value: wonDealsValue,
+        conversion_rate: conversionRate,
+        contact_status_breakdown: statusCounts,
+      },
+    },
+  };
+}
+
+async function addContactToProject(supabase: any, userId: string, args: any) {
+  // Get current user's organization
+  const { data: currentMember } = await supabase
+    .from('team_members')
+    .select('organization_id')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!currentMember) {
+    return { success: false, message: '❌ No perteneces a ninguna organización' };
+  }
+
+  // Find the contact
+  const { data: contact, error: contactError } = await supabase
+    .from('contacts')
+    .select('id, first_name, last_name, email')
+    .eq('email', args.contact_email)
+    .maybeSingle();
+
+  if (contactError || !contact) {
+    return { success: false, message: `❌ No se encontró contacto con email "${args.contact_email}"` };
+  }
+
+  // Find the project
+  const { data: project, error: projectError } = await supabase
+    .from('projects')
+    .select('id, name')
+    .eq('organization_id', currentMember.organization_id)
+    .ilike('name', `%${args.project_name}%`)
+    .limit(1)
+    .maybeSingle();
+
+  if (projectError || !project) {
+    return { success: false, message: `❌ No se encontró proyecto "${args.project_name}"` };
+  }
+
+  // Check if already in project
+  const { data: existing } = await supabase
+    .from('contact_projects')
+    .select('id')
+    .eq('contact_id', contact.id)
+    .eq('project_id', project.id)
+    .maybeSingle();
+
+  if (existing) {
+    return { success: false, message: `⚠️ El contacto ya está en el proyecto "${project.name}"` };
+  }
+
+  // Add contact to project
+  const { error: insertError } = await supabase
+    .from('contact_projects')
+    .insert({
+      contact_id: contact.id,
+      project_id: project.id,
+      status: args.status || 'lead',
+      interest_level: args.interest_level || null,
+      notes: args.notes || null,
+      added_by: userId,
+    });
+
+  if (insertError) {
+    return { success: false, message: `❌ Error al agregar contacto: ${insertError.message}` };
+  }
+
+  const contactName = `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || contact.email;
+  return {
+    success: true,
+    message: `✅ Contacto **${contactName}** agregado al proyecto **${project.name}**`,
+  };
+}
+
+async function getProjectContacts(supabase: any, userId: string, args: any) {
+  // Get current user's organization
+  const { data: currentMember } = await supabase
+    .from('team_members')
+    .select('organization_id')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!currentMember) {
+    return { success: false, message: '❌ No perteneces a ninguna organización' };
+  }
+
+  // Find the project
+  const { data: project, error: projectError } = await supabase
+    .from('projects')
+    .select('id, name')
+    .eq('organization_id', currentMember.organization_id)
+    .ilike('name', `%${args.project_name}%`)
+    .limit(1)
+    .maybeSingle();
+
+  if (projectError || !project) {
+    return { success: false, message: `❌ No se encontró proyecto "${args.project_name}"` };
+  }
+
+  // Get contacts
+  let query = supabase
+    .from('contact_projects')
+    .select(`
+      id, status, interest_level, notes, created_at,
+      contacts:contact_id (id, first_name, last_name, email, phone)
+    `)
+    .eq('project_id', project.id)
+    .order('created_at', { ascending: false });
+
+  if (args.status) {
+    query = query.eq('status', args.status);
+  }
+
+  const { data: contactProjects, error } = await query.limit(args.limit || 20);
+
+  if (error) {
+    return { success: false, message: `❌ Error al obtener contactos: ${error.message}` };
+  }
+
+  if (!contactProjects || contactProjects.length === 0) {
+    return {
+      success: true,
+      message: `No hay contactos en el proyecto "${project.name}"`,
+      data: [],
+    };
+  }
+
+  const statusLabels: Record<string, string> = {
+    lead: '🔵 Lead',
+    qualified: '🟡 Calificado',
+    customer: '🟢 Cliente',
+    inactive: '⚫ Inactivo',
+  };
+
+  let message = `## 👥 Contactos de "${project.name}" (${contactProjects.length})\n\n`;
+  message += contactProjects.map((cp: any) => {
+    const c = cp.contacts;
+    const name = `${c?.first_name || ''} ${c?.last_name || ''}`.trim() || c?.email || 'Sin nombre';
+    const status = statusLabels[cp.status] || cp.status;
+    const interest = cp.interest_level ? `⭐ ${cp.interest_level}/5` : '';
+    return `- **${name}** (${c?.email})\n  ${status} ${interest}\n  ${cp.notes ? `> ${cp.notes}` : ''}`;
+  }).join('\n');
+
+  return {
+    success: true,
+    message,
+    data: contactProjects,
+  };
+}
+
+async function searchProjects(supabase: any, userId: string, args: any) {
+  // Get current user's organization
+  const { data: currentMember } = await supabase
+    .from('team_members')
+    .select('organization_id')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!currentMember) {
+    return { success: false, message: '❌ No perteneces a ninguna organización' };
+  }
+
+  const { data: projects, error } = await supabase
+    .from('projects')
+    .select('id, name, code, type, status, description, color')
+    .eq('organization_id', currentMember.organization_id)
+    .or(`name.ilike.%${args.query}%,code.ilike.%${args.query}%`)
+    .order('created_at', { ascending: false })
+    .limit(args.limit || 10);
+
+  if (error) {
+    return { success: false, message: `❌ Error al buscar proyectos: ${error.message}` };
+  }
+
+  if (!projects || projects.length === 0) {
+    return {
+      success: true,
+      message: `No se encontraron proyectos con "${args.query}"`,
+      data: [],
+    };
+  }
+
+  const typeLabels: Record<string, string> = {
+    project: 'Proyecto',
+    real_estate: 'Inmobiliario',
+    construction: 'Construcción',
+    business_unit: 'Unidad de Negocio',
+    department: 'Departamento',
+    brand: 'Marca',
+    product_line: 'Línea de Producto',
+    location: 'Ubicación',
+    other: 'Otro',
+  };
+
+  const statusLabels: Record<string, string> = {
+    active: '🟢',
+    inactive: '🟡',
+    completed: '✅',
+    cancelled: '❌',
+  };
+
+  let message = `## 🔍 Resultados para "${args.query}" (${projects.length})\n\n`;
+  message += projects.map((p: any) => {
+    const type = typeLabels[p.type] || p.type;
+    const status = statusLabels[p.status] || '';
+    return `- ${status} **${p.name}**${p.code ? ` (${p.code})` : ''} - ${type}\n  ${p.description ? `> ${p.description.substring(0, 100)}${p.description.length > 100 ? '...' : ''}` : ''}`;
+  }).join('\n');
+
+  return {
+    success: true,
+    message,
+    data: projects,
+  };
+}
+
 async function notifyTeamMember(supabase: any, userId: string, args: any) {
   // This is essentially adding a comment with a mention
   return await addTeamComment(supabase, userId, {
@@ -2453,6 +3052,25 @@ async function executeTool(supabase: any, userId: string, toolName: string, args
       case "notify_team_member":
         return await notifyTeamMember(supabase, userId, args);
       
+      // ===== PROJECT TOOLS =====
+      case "list_projects":
+        return await listProjects(supabase, userId, args);
+
+      case "create_project":
+        return await createProject(supabase, userId, args);
+
+      case "get_project_stats":
+        return await getProjectStats(supabase, userId, args);
+
+      case "add_contact_to_project":
+        return await addContactToProject(supabase, userId, args);
+
+      case "get_project_contacts":
+        return await getProjectContacts(supabase, userId, args);
+
+      case "search_projects":
+        return await searchProjects(supabase, userId, args);
+
       default:
         return {
           success: false,
