@@ -1,209 +1,269 @@
 
 
-# Plan: Sistema de Proyectos y Unidades de Negocio
+# Plan: Actualizar IA del CRM con Sistema de Proyectos
 
-## Resumen Ejecutivo
-Implementar un sistema completo de proyectos/unidades de negocio que permita segmentar contactos, oportunidades y métricas por proyecto. Ideal para constructoras inmobiliarias, empresas con múltiples líneas de negocio, o agencias con varios clientes.
-
-## Casos de Uso
-- Constructoras con múltiples proyectos inmobiliarios
-- Empresas con unidades de negocio separadas
-- Agencias con múltiples clientes
-- Desarrolladoras con diferentes líneas de producto
+## Objetivo
+Actualizar la Edge Function de chat para incluir herramientas de gestión de proyectos y expandir la base de conocimiento del asistente con la nueva funcionalidad.
 
 ---
 
-## Fase 1: Esquema de Base de Datos
+## Nuevas Herramientas a Agregar (6 tools)
 
-### Nuevas Tablas
-
-**1. `projects`** - Tabla principal de proyectos
-- Campos: id, organization_id, name, code, description, type, status
-- Tipos de proyecto: project, real_estate, construction, business_unit, department, brand, product_line, location, other
-- Estados: active, inactive, completed, cancelled
-- Metadatos: fechas, presupuesto, revenue_target, ubicación, color, icono
-
-**2. `contact_projects`** - Relación muchos-a-muchos entre contactos y proyectos
-- Campos: contact_id, project_id, status (lead/qualified/customer/inactive), interest_level, source, notes
-- Permite que un contacto esté en múltiples proyectos
-
-**3. `project_members`** - Miembros del equipo asignados a proyectos
-- Campos: project_id, team_member_id, role, permissions
-- Roles: owner, admin, member, viewer
-
-**4. `project_metrics`** - Métricas calculadas por proyecto
-- Campos: total_contacts, total_companies, total_opportunities, pipeline_value, won_deals_value, conversion_rate
-
-### Modificaciones a Tablas Existentes
-- `opportunities`: Añadir columna `project_id`
-- `companies`: Añadir columna `project_id`
-
-### RLS Policies
-- Políticas basadas en organization_id
-- Acceso controlado por membresía en proyecto
+| Herramienta | Descripción |
+|-------------|-------------|
+| `list_projects` | Listar proyectos de la organización con filtros por tipo/estado |
+| `create_project` | Crear un nuevo proyecto o unidad de negocio |
+| `get_project_stats` | Obtener métricas de un proyecto (contactos, pipeline, conversion) |
+| `add_contact_to_project` | Añadir un contacto existente a un proyecto |
+| `get_project_contacts` | Listar contactos asociados a un proyecto |
+| `search_projects` | Buscar proyectos por nombre o código |
 
 ---
 
-## Fase 2: Nuevos Hooks de React
+## Cambios en la Edge Function
 
-```text
-src/hooks/
-├── useProjects.ts          # CRUD de proyectos + estado global
-├── useContactProjects.ts   # Gestión de contactos por proyecto
-└── useProjectMetrics.ts    # Métricas calculadas
-```
+### 1. Nuevas Definiciones de Tools (líneas ~10-430)
 
-### `useProjects.ts`
-- Lista de proyectos con filtros por estado/tipo
-- Proyecto seleccionado global (para filtro en header)
-- Suscripción realtime para actualizaciones
-- Métodos: createProject, updateProject, deleteProject
+Se agregarán 6 nuevas herramientas en el array `tools`:
 
-### `useContactProjects.ts`
-- Lista de proyectos de un contacto
-- Métodos: addToProject, removeFromProject, updateStatus
-
-### `useProjectMetrics.ts`
-- Métricas agregadas por proyecto
-- Cálculo bajo demanda via RPC
-
----
-
-## Fase 3: Nuevas Páginas
-
-```text
-src/pages/
-├── Projects.tsx       # Lista de proyectos (cards grid)
-└── ProjectDetail.tsx  # Detalle con tabs
-```
-
-### `/projects` - Lista de Proyectos
-- Grid de tarjetas con color e icono
-- Estadísticas globales (total, activos, por tipo)
-- Búsqueda y filtros
-- Botón "Nuevo Proyecto"
-
-### `/projects/:projectId` - Detalle del Proyecto
-- Header con nombre, código, tipo y estado
-- Métricas: contactos, empresas, pipeline value, deals ganados
-- Tabs: Resumen, Contactos, Pipeline, Configuración
-
----
-
-## Fase 4: Nuevos Componentes
-
-```text
-src/components/projects/
-├── CreateProjectDialog.tsx     # Formulario de creación
-├── EditProjectDialog.tsx       # Formulario de edición
-├── ProjectSelector.tsx         # Select para formularios
-├── GlobalProjectFilter.tsx     # Filtro en header
-├── ProjectCard.tsx             # Tarjeta para grid
-├── ProjectContactsList.tsx     # Lista de contactos en proyecto
-└── AddContactToProjectDialog.tsx
-```
-
-### Diálogos
-- CreateProjectDialog: nombre, código, tipo, descripción, presupuesto, color
-- EditProjectDialog: edición de todos los campos
-- AddContactToProjectDialog: buscar y añadir contactos
-
-### Selectores
-- ProjectSelector: dropdown para formularios de contactos/oportunidades
-- GlobalProjectFilter: en el header para filtrar toda la vista
-
----
-
-## Fase 5: Integración con Módulos Existentes
-
-### Navegación (Sidebar.tsx)
-- Añadir item "Proyectos" con icono FolderOpen
-- Posición: después de Pipeline
-
-### Rutas (App.tsx)
 ```typescript
-<Route path="/projects" element={<AppLayout><Projects /></AppLayout>} />
-<Route path="/projects/:projectId" element={<AppLayout><ProjectDetail /></AppLayout>} />
+// ===== PROYECTOS =====
+{
+  type: "function",
+  function: {
+    name: "list_projects",
+    description: "Lista los proyectos/unidades de negocio de la organización. Úsala para ver proyectos disponibles.",
+    parameters: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["active", "inactive", "completed", "cancelled"] },
+        type: { type: "string", enum: ["project", "real_estate", "construction", "business_unit", "department", "brand", "product_line", "location", "other"] },
+        limit: { type: "number", description: "Número máximo de resultados (default: 20)" },
+      },
+    },
+  },
+},
+{
+  type: "function",
+  function: {
+    name: "create_project",
+    description: "Crea un nuevo proyecto o unidad de negocio para segmentar contactos y oportunidades.",
+    parameters: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Nombre del proyecto (requerido)" },
+        code: { type: "string", description: "Código corto identificador" },
+        description: { type: "string", description: "Descripción del proyecto" },
+        type: { type: "string", enum: ["project", "real_estate", "construction", "business_unit", "department", "brand", "product_line", "location", "other"] },
+        budget: { type: "number", description: "Presupuesto del proyecto" },
+        revenue_target: { type: "number", description: "Meta de ingresos" },
+        city: { type: "string", description: "Ciudad" },
+        country: { type: "string", description: "País" },
+      },
+      required: ["name"],
+    },
+  },
+},
+// ... más herramientas
 ```
 
-### Header (Header.tsx)
-- Añadir GlobalProjectFilter después del search
-- Permite filtrar contactos/oportunidades por proyecto activo
+### 2. Actualizar System Prompt (función `buildSystemPrompt`)
 
-### Formularios de Contactos
-- Añadir ProjectSelector opcional
-- Al crear contacto, puede asignarse a uno o más proyectos
+Agregar sección de proyectos al contexto del CRM:
 
-### Formularios de Oportunidades
-- Añadir ProjectSelector
-- Vincular deals directamente a un proyecto
+```typescript
+// En la sección de contexto agregar:
+📁 **Proyectos activos**: ${projectsCount}
+
+// En las capacidades agregar:
+- **Proyectos**: Puedes crear, listar y gestionar proyectos/unidades de negocio
+- **Segmentación**: Puedes añadir contactos a proyectos y ver métricas por proyecto
+
+// En las herramientas documentar:
+### Proyectos y Segmentación:
+- **list_projects**: Listar proyectos de la organización
+- **create_project**: Crear nuevo proyecto o unidad de negocio
+- **get_project_stats**: Obtener métricas de un proyecto
+- **add_contact_to_project**: Asociar contacto a proyecto
+- **get_project_contacts**: Ver contactos de un proyecto
+- **search_projects**: Buscar proyectos por nombre/código
+
+// En navegación agregar:
+- **Proyectos** (/projects): Gestión de proyectos y unidades de negocio
+```
+
+### 3. Actualizar `fetchCRMContext`
+
+Agregar consulta de proyectos al contexto:
+
+```typescript
+const [
+  // ... existing queries
+  projectsResult,
+] = await Promise.all([
+  // ... existing
+  supabase.from('projects').select('id, name, type, status')
+    .eq('organization_id', currentMember?.organization_id)
+    .eq('status', 'active')
+    .limit(5),
+]);
+```
+
+### 4. Implementar Funciones Ejecutoras
+
+Agregar 6 nuevas funciones:
+
+```typescript
+// ===== PROJECT TOOL FUNCTIONS =====
+
+async function listProjects(supabase: any, userId: string, args: any) {
+  // Obtener organization_id del usuario
+  // Consultar proyectos con filtros
+  // Retornar lista formateada
+}
+
+async function createProject(supabase: any, userId: string, args: any) {
+  // Obtener organization_id
+  // Insertar nuevo proyecto
+  // Retornar confirmación
+}
+
+async function getProjectStats(supabase: any, userId: string, args: any) {
+  // Consultar contact_projects, opportunities, companies
+  // Calcular métricas: pipeline_value, conversion_rate, etc.
+  // Retornar resumen formateado
+}
+
+async function addContactToProject(supabase: any, userId: string, args: any) {
+  // Buscar contacto por email
+  // Buscar proyecto por nombre
+  // Insertar en contact_projects
+  // Retornar confirmación
+}
+
+async function getProjectContacts(supabase: any, userId: string, args: any) {
+  // Consultar contact_projects con join a contacts
+  // Retornar lista formateada
+}
+
+async function searchProjects(supabase: any, userId: string, args: any) {
+  // Buscar por nombre o código usando ilike
+  // Retornar proyectos encontrados
+}
+```
+
+### 5. Agregar Cases en `executeTool`
+
+```typescript
+// ===== PROJECT TOOLS =====
+case "list_projects":
+  return await listProjects(supabase, userId, args);
+
+case "create_project":
+  return await createProject(supabase, userId, args);
+
+case "get_project_stats":
+  return await getProjectStats(supabase, userId, args);
+
+case "add_contact_to_project":
+  return await addContactToProject(supabase, userId, args);
+
+case "get_project_contacts":
+  return await getProjectContacts(supabase, userId, args);
+
+case "search_projects":
+  return await searchProjects(supabase, userId, args);
+```
 
 ---
 
-## Fase 6: Herramientas de IA (Edge Function Chat)
+## Actualizar Documentación
 
-Nuevas tools para el asistente:
+### Archivo: `docs/CRM_DOCUMENTATION.md`
 
-| Tool | Descripción |
+Agregar nueva sección de Proyectos a la documentación:
+
+```markdown
+## 2.6 Gestión de Proyectos y Unidades de Negocio
+
+Sistema de segmentación de contactos, empresas y oportunidades por proyecto.
+
+### Tipos de Proyecto
+| Tipo | Descripción |
 |------|-------------|
-| `list_projects` | Listar proyectos activos con filtro por tipo |
-| `get_project_stats` | Obtener métricas de un proyecto |
-| `add_contact_to_project` | Añadir contacto a proyecto por email/nombre |
-| `create_project` | Crear nuevo proyecto |
-| `get_project_contacts` | Listar contactos de un proyecto |
+| `project` | Proyecto genérico |
+| `real_estate` | Proyecto inmobiliario |
+| `construction` | Proyecto de construcción |
+| `business_unit` | Unidad de negocio |
+| `department` | Departamento |
+| `brand` | Marca |
+| `product_line` | Línea de producto |
+| `location` | Ubicación/Sucursal |
+| `other` | Otro |
+
+### Campos de Proyecto
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `name` | String | Nombre (requerido) |
+| `code` | String | Código identificador |
+| `type` | Enum | Tipo de proyecto |
+| `status` | Enum | active, inactive, completed, cancelled |
+| `budget` | Number | Presupuesto |
+| `revenue_target` | Number | Meta de ingresos |
+...
+
+### Herramientas de IA para Proyectos
+| Herramienta | Descripción |
+|-------------|-------------|
+| `list_projects` | Listar proyectos |
+| `create_project` | Crear proyecto |
+| `get_project_stats` | Métricas por proyecto |
+| `add_contact_to_project` | Asociar contacto |
+| `get_project_contacts` | Contactos del proyecto |
+| `search_projects` | Buscar proyectos |
+```
 
 ---
 
 ## Secuencia de Implementación
 
-1. **Base de datos**: Crear tablas y políticas RLS
-2. **Hooks**: useProjects, useContactProjects, useProjectMetrics
-3. **Tipos**: Actualizar src/types/crm.ts con interfaces
-4. **Componentes**: Diálogos y selectores
-5. **Páginas**: Projects.tsx y ProjectDetail.tsx
-6. **Navegación**: Sidebar y rutas
-7. **Filtro global**: Header y lógica de filtrado
-8. **Integración formularios**: Contactos y oportunidades
-9. **AI Tools**: Actualizar chat edge function
+1. **Agregar definiciones de tools** al array `tools`
+2. **Implementar funciones ejecutoras** (6 funciones)
+3. **Agregar cases en switch** de `executeTool`
+4. **Actualizar `fetchCRMContext`** para incluir proyectos
+5. **Actualizar `buildSystemPrompt`** con capacidades de proyectos
+6. **Actualizar documentación** en `docs/CRM_DOCUMENTATION.md`
+7. **Desplegar Edge Function**
 
 ---
 
-## Sección Tecnica
+## Sección Técnica
 
-### Estructura de Archivos Nuevos
+### Estructura de Cambios
+
 ```text
-src/
-├── hooks/
-│   ├── useProjects.ts
-│   ├── useContactProjects.ts
-│   └── useProjectMetrics.ts
-├── pages/
-│   ├── Projects.tsx
-│   └── ProjectDetail.tsx
-├── components/projects/
-│   ├── CreateProjectDialog.tsx
-│   ├── EditProjectDialog.tsx
-│   ├── ProjectSelector.tsx
-│   ├── GlobalProjectFilter.tsx
-│   ├── ProjectCard.tsx
-│   └── AddContactToProjectDialog.tsx
-└── types/
-    └── projects.ts (o añadir a crm.ts)
+supabase/functions/chat/index.ts
+├── tools[] - Agregar 6 nuevas definiciones
+├── buildSystemPrompt() - Agregar sección proyectos
+├── fetchCRMContext() - Agregar consulta proyectos
+├── listProjects() - Nueva función
+├── createProject() - Nueva función
+├── getProjectStats() - Nueva función
+├── addContactToProject() - Nueva función
+├── getProjectContacts() - Nueva función
+├── searchProjects() - Nueva función
+└── executeTool() - Agregar 6 cases
+
+docs/CRM_DOCUMENTATION.md
+└── Agregar sección 2.6 Proyectos
 ```
 
-### Modificaciones a Archivos Existentes
-- `src/App.tsx`: Añadir rutas de proyectos
-- `src/components/layout/Sidebar.tsx`: Añadir link a proyectos
-- `src/components/layout/Header.tsx`: Añadir filtro global
-- `supabase/functions/chat/index.ts`: Añadir tools de proyectos
+### Ejemplos de Uso para el Usuario
 
-### Tablas SQL a Crear
-- `projects` (tabla principal)
-- `contact_projects` (relación contacto-proyecto)
-- `project_members` (miembros por proyecto)
-- `project_metrics` (métricas calculadas)
-
-### Columnas a Añadir
-- `opportunities.project_id` (FK a projects)
-- `companies.project_id` (FK a projects)
+El asistente podrá responder a solicitudes como:
+- "Muéstrame los proyectos activos"
+- "Crea un proyecto inmobiliario llamado Torre Norte"
+- "¿Cuántos contactos tiene el proyecto Residencial Sur?"
+- "Agrega a juan@email.com al proyecto Centro Comercial"
+- "Dame las métricas del proyecto de marca Premium"
 
