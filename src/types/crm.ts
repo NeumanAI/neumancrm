@@ -195,3 +195,84 @@ export interface CompanyDocument {
   description?: string;
   created_at: string;
 }
+
+// Project types
+export type ProjectType = 
+  | 'project' 
+  | 'real_estate' 
+  | 'construction' 
+  | 'business_unit' 
+  | 'department' 
+  | 'brand' 
+  | 'product_line' 
+  | 'location' 
+  | 'other';
+
+export type ProjectStatus = 'active' | 'inactive' | 'completed' | 'cancelled';
+
+export type ContactProjectStatus = 'lead' | 'qualified' | 'customer' | 'inactive';
+
+export type ProjectMemberRole = 'owner' | 'admin' | 'member' | 'viewer';
+
+export interface Project {
+  id: string;
+  organization_id: string;
+  name: string;
+  code?: string;
+  description?: string;
+  type: ProjectType;
+  status: ProjectStatus;
+  start_date?: string;
+  end_date?: string;
+  budget?: number;
+  revenue_target?: number;
+  location?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  color?: string;
+  icon?: string;
+  image_url?: string;
+  metadata?: Record<string, unknown>;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContactProject {
+  id: string;
+  contact_id: string;
+  project_id: string;
+  status: ContactProjectStatus;
+  interest_level?: number;
+  source?: string;
+  notes?: string;
+  added_by?: string;
+  created_at: string;
+  updated_at: string;
+  // Relations
+  contacts?: Pick<Contact, 'id' | 'first_name' | 'last_name' | 'email' | 'avatar_url'>;
+  projects?: Pick<Project, 'id' | 'name' | 'code' | 'color' | 'type'>;
+}
+
+export interface ProjectMember {
+  id: string;
+  project_id: string;
+  team_member_id: string;
+  role: ProjectMemberRole;
+  permissions?: {
+    can_edit: boolean;
+    can_delete: boolean;
+    can_manage_members: boolean;
+  };
+  created_at: string;
+}
+
+export interface ProjectMetrics {
+  total_contacts: number;
+  total_companies: number;
+  total_opportunities: number;
+  pipeline_value: number;
+  won_deals_value: number;
+  conversion_rate: number;
+}

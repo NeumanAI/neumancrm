@@ -15,6 +15,7 @@ import {
   MessageSquare,
   ShieldCheck,
   Store,
+  FolderOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +36,7 @@ const navItems = [
   { to: '/contacts', icon: Users, label: 'Contactos' },
   { to: '/companies', icon: Building2, label: 'Empresas' },
   { to: '/pipeline', icon: TrendingUp, label: 'Pipeline' },
+  { to: '/projects', icon: FolderOpen, label: 'Proyectos' },
   { to: '/tasks', icon: CheckSquare, label: 'Tareas' },
   { to: '/data-management', icon: Database, label: 'Datos' },
   { to: '/team', icon: UsersRound, label: 'Equipo' },
