@@ -16,6 +16,8 @@ import {
   ShieldCheck,
   Store,
   FolderOpen,
+  PenTool,
+  Bot,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -47,6 +49,11 @@ const adminNavItems = [
   { to: '/admin', icon: ShieldCheck, label: 'Administración', isAdmin: true },
 ];
 
+const platformAINavItems = [
+  { to: '/admin/firma-digital', icon: PenTool, label: 'Firma Digital', isPlatformAI: true },
+  { to: '/admin/agentic-rag', icon: Bot, label: 'AgenticRAG', isPlatformAI: true },
+];
+
 const resellerNavItems = [
   { to: '/reseller-admin', icon: Store, label: 'Mis Clientes', isReseller: true },
 ];
@@ -62,7 +69,7 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
     allNavItems = [...allNavItems, ...resellerNavItems];
   }
   if (isSuperAdmin) {
-    allNavItems = [...allNavItems, ...adminNavItems];
+    allNavItems = [...allNavItems, ...adminNavItems, ...platformAINavItems];
   }
 
   return (
@@ -115,6 +122,7 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
           const showBadge = 'showBadge' in item && item.showBadge && unreadCount > 0;
           const isAdminItem = 'isAdmin' in item && item.isAdmin;
           const isResellerItem = 'isReseller' in item && item.isReseller;
+          const isPlatformAIItem = 'isPlatformAI' in item && item.isPlatformAI;
           
           return (
             <NavLink
@@ -125,11 +133,12 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
                 'hover:bg-sidebar-accent',
                 isActive && 'bg-sidebar-primary text-sidebar-primary-foreground',
                 !isActive && 'text-sidebar-foreground/70 hover:text-sidebar-foreground',
-                isAdminItem && 'border border-primary/20 bg-primary/5'
+                isAdminItem && 'border border-primary/20 bg-primary/5',
+                isPlatformAIItem && 'border border-violet-500/20 bg-violet-500/5 ml-4'
               )}
             >
               <div className="relative">
-                <item.icon className={cn("h-5 w-5 flex-shrink-0", isAdminItem && "text-primary")} />
+                <item.icon className={cn("h-5 w-5 flex-shrink-0", isAdminItem && "text-primary", isPlatformAIItem && "text-violet-500")} />
                 {showBadge && collapsed && (
                   <span className="absolute -top-1 -right-1 h-2 w-2 bg-destructive rounded-full" />
                 )}
@@ -142,7 +151,7 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
                     exit={{ opacity: 0, x: -10 }}
                     className="flex items-center justify-between flex-1"
                   >
-                    <span className={cn("font-medium text-sm", isAdminItem && "text-primary")}>{item.label}</span>
+                    <span className={cn("font-medium text-sm", isAdminItem && "text-primary", isPlatformAIItem && "text-violet-500")}>{item.label}</span>
                     {showBadge && (
                       <Badge 
                         variant="destructive" 
