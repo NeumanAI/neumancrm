@@ -22,6 +22,7 @@ export default function Settings() {
   const queryClient = useQueryClient();
 
   const [brandingForm, setBrandingForm] = useState({
+    name: '',
     primary_color: '#3B82F6',
     secondary_color: '#8B5CF6',
   });
@@ -30,6 +31,7 @@ export default function Settings() {
   useEffect(() => {
     if (organization) {
       setBrandingForm({
+        name: organization.name || '',
         primary_color: organization.primary_color || '#3B82F6',
         secondary_color: organization.secondary_color || '#8B5CF6',
       });
@@ -38,7 +40,7 @@ export default function Settings() {
 
   // Update organization branding
   const updateBranding = useMutation({
-    mutationFn: async (updates: { primary_color: string; secondary_color: string }) => {
+    mutationFn: async (updates: { name?: string; primary_color: string; secondary_color: string }) => {
       if (!organization) throw new Error('No organization found');
 
       const { error } = await supabase
@@ -92,6 +94,7 @@ export default function Settings() {
 
   const handleSaveBranding = () => {
     updateBranding.mutate({
+      name: brandingForm.name,
       primary_color: brandingForm.primary_color,
       secondary_color: brandingForm.secondary_color,
     });
@@ -200,20 +203,23 @@ export default function Settings() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Organization Name (read-only, managed by super admin) */}
+              {/* Organization Name - editable by admins */}
               <div className="space-y-2">
                 <Label htmlFor="org_name">Nombre de la Organización</Label>
                 <div className="flex gap-2 items-center">
                   <Input
                     id="org_name"
-                    value={organization?.name || ''}
-                    disabled
+                    value={brandingForm.name}
+                    onChange={(e) => setBrandingForm({ ...brandingForm, name: e.target.value })}
+                    disabled={!canEditBranding}
                     className="flex-1"
                   />
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Globe className="h-3 w-3" />
-                    Solo lectura
-                  </span>
+                  {!canEditBranding && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Globe className="h-3 w-3" />
+                      Solo lectura
+                    </span>
+                  )}
                 </div>
               </div>
 

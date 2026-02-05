@@ -304,13 +304,14 @@ export default function Contacts() {
             <div className="space-y-2">
               <Label htmlFor="company">Empresa</Label>
               <Select
-                value={formData.company_id}
-                onValueChange={(value) => setFormData({ ...formData, company_id: value })}
+                value={formData.company_id || 'none'}
+                onValueChange={(value) => setFormData({ ...formData, company_id: value === 'none' ? '' : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecciona una empresa" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">Sin empresa</SelectItem>
                   {companies.map((company) => (
                     <SelectItem key={company.id} value={company.id}>
                       {company.name}

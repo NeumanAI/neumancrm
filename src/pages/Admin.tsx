@@ -104,11 +104,16 @@ function OrganizationRow({
                   <OrganizationTypeBadge type={org.organization_type} />
                 )}
               </div>
-              <p className="text-xs text-muted-foreground">
-                {org.custom_domain || org.admin_email || 'Sin admin'}
-              </p>
+              {org.custom_domain && (
+                <p className="text-xs text-muted-foreground">{org.custom_domain}</p>
+              )}
             </div>
           </div>
+        </TableCell>
+        <TableCell>
+          <span className="text-sm text-muted-foreground">
+            {org.admin_email || 'Sin admin'}
+          </span>
         </TableCell>
         <TableCell>
           <div className="flex items-center gap-1">
@@ -550,6 +555,7 @@ function OrganizationsTable({
       <TableHeader>
         <TableRow>
           <TableHead>Empresa</TableHead>
+          <TableHead>Email Admin</TableHead>
           <TableHead>Usuarios</TableHead>
           <TableHead>Registrada</TableHead>
           <TableHead>Estado</TableHead>

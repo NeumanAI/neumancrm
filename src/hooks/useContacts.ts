@@ -18,6 +18,8 @@ export function useContacts() {
       if (error) throw error;
       return data as Contact[];
     },
+    staleTime: 30000, // 30 seconds
+    refetchOnWindowFocus: false,
   });
 
   const createContact = useMutation({

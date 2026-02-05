@@ -17,6 +17,8 @@ export function useCompanies() {
       if (error) throw error;
       return data as Company[];
     },
+    staleTime: 30000, // 30 seconds
+    refetchOnWindowFocus: false,
   });
 
   const createCompany = useMutation({

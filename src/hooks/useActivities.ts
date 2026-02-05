@@ -17,6 +17,8 @@ export function useActivities() {
       if (error) throw error;
       return data as Activity[];
     },
+    staleTime: 30000, // 30 seconds
+    refetchOnWindowFocus: false,
   });
 
   const createActivity = useMutation({
