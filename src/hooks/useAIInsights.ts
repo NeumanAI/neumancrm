@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 interface DealAtRisk {
   id: string;
@@ -33,6 +34,8 @@ export interface AIInsights {
 }
 
 export function useAIInsights() {
+  const { clearInvalidSession } = useAuth();
+
   return useQuery({
     queryKey: ['ai-insights'],
     queryFn: async (): Promise<AIInsights> => {
@@ -49,6 +52,11 @@ export function useAIInsights() {
       });
 
       if (error) {
+        // Check if it's an auth error (401) - session is invalid
+        if (error.message?.includes('401') || error.message?.includes('Invalid token') || error.message?.includes('Unauthorized')) {
+          await clearInvalidSession();
+          throw new Error('Session expired - please log in again');
+        }
         throw error;
       }
 
@@ -56,5 +64,6 @@ export function useAIInsights() {
     },
     staleTime: 60 * 60 * 1000, // 1 hour
     refetchOnWindowFocus: false,
+    retry: false, // Don't retry on auth errors
   });
 }

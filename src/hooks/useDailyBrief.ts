@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 interface TaskSummary {
   id: string;
@@ -29,6 +30,8 @@ export interface DailyBrief {
 }
 
 export function useDailyBrief(enabled: boolean = true) {
+  const { clearInvalidSession } = useAuth();
+
   return useQuery({
     queryKey: ['daily-brief'],
     queryFn: async (): Promise<DailyBrief> => {
@@ -45,6 +48,11 @@ export function useDailyBrief(enabled: boolean = true) {
       });
 
       if (error) {
+        // Check if it's an auth error (401) - session is invalid
+        if (error.message?.includes('401') || error.message?.includes('Invalid token') || error.message?.includes('Unauthorized')) {
+          await clearInvalidSession();
+          throw new Error('Session expired - please log in again');
+        }
         throw error;
       }
 
@@ -53,5 +61,6 @@ export function useDailyBrief(enabled: boolean = true) {
     enabled,
     staleTime: 30 * 60 * 1000, // 30 minutes
     refetchOnWindowFocus: false,
+    retry: false, // Don't retry on auth errors
   });
 }
