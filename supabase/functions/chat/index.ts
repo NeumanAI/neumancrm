@@ -2468,7 +2468,7 @@ async function executeTool(supabase: any, userId: string, toolName: string, args
   }
 }
 
-// Get user ID from JWT token using getClaims
+// Get user ID from JWT token using getUser
 async function getUserIdFromToken(supabase: any, authHeader: string | null): Promise<string | null> {
   if (!authHeader?.startsWith('Bearer ')) {
     console.error("No valid auth header");
@@ -2476,15 +2476,14 @@ async function getUserIdFromToken(supabase: any, authHeader: string | null): Pro
   }
   
   try {
-    const token = authHeader.replace('Bearer ', '');
-    const { data, error } = await supabase.auth.getClaims(token);
+    const { data, error } = await supabase.auth.getUser();
     
-    if (error || !data?.claims) {
-      console.error("Error getting claims:", error);
+    if (error || !data?.user) {
+      console.error("Error getting user:", error);
       return null;
     }
     
-    return data.claims.sub;
+    return data.user.id;
   } catch (error) {
     console.error("Error in getUserIdFromToken:", error);
     return null;
