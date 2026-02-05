@@ -1,6 +1,7 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 
 interface AuthContextType {
   user: User | null;
@@ -9,6 +10,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  clearInvalidSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,10 +31,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        // Session corrupted or expired - clear auth state
+        console.warn('Session error, clearing auth state:', error.message);
+        supabase.auth.signOut();
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+      } else {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -63,8 +74,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  // Function to clear invalid session when API returns 401
+  const clearInvalidSession = async () => {
+    console.warn('Clearing invalid session due to API auth error');
+    await supabase.auth.signOut();
+    setSession(null);
+    setUser(null);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut, clearInvalidSession }}>
       {children}
     </AuthContext.Provider>
   );
