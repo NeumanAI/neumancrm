@@ -1,244 +1,190 @@
 
-# Plan: Corrección de Problemas y Mejoras del CRM
+# Plan: Corrección Crítica del Sistema de Importación de Contactos
 
-## Resumen de Problemas Identificados
+## Diagnóstico del Problema
 
-| # | Problema | Prioridad | Archivo Principal |
-|---|----------|-----------|-------------------|
-| 1 | Nombre de empresa no visible en lugar prominente | Media | `Header.tsx` |
-| 2 | "Configuración" y "Perfil" abren la misma página | Media | `Header.tsx` |
-| 3 | Error al invitar miembro: foreign key violation | Alta | `useTeam.ts` |
-| 4 | Menús "Firma Digital" y "AgenticRAG" visibles para todos | Alta | `Sidebar.tsx` |
-| 5 | Falta opción "Labs" en menú de Plataforma IA | Baja | `Sidebar.tsx` |
-| 6 | "Exportar datos" visible para todos (solo super admin) | Media | `DataManagement.tsx`, `Sidebar.tsx` |
-| 7 | Importación pendiente sin procesar (timeout en edge function) | Alta | `process-import/index.ts` |
-| 8 | Campos de contacto: simplificar a WhatsApp + Otro número + Instagram | Media | `ContactSidebar.tsx`, tipos |
-| 9 | Tareas: solo fecha, no hora | Baja | `Tasks.tsx` |
+### Estado Actual del Job
+| Campo | Valor |
+|-------|-------|
+| ID | 8722c4c4-a3de-4ee8-b54d-bab3c71404dd |
+| Estado | `processing` (atascado) |
+| Progreso | 76% |
+| Procesados | 1181 / 1558 |
+| Exitosos | 0 |
+| Fallidos | 1181 |
 
----
+### Causas Raíz Identificadas
 
-## Corrección 1: Mostrar Nombre de Empresa en Lugar Visible
+1. **Columnas inválidas en el mapeo**: El usuario mapeó `ESTADO` → `status` y `TIPO` → `type`, pero estos campos **NO existen** en la tabla `contacts`. Cada INSERT falla por error de columna inexistente.
 
-### Problema
-El nombre de la organización/empresa no se muestra de forma visible para el usuario.
+2. **Sin validación de campos**: La edge function acepta cualquier campo del mapeo sin validar que exista en la tabla destino.
 
-### Solución
-Agregar el nombre de la organización en el header, junto al email del usuario.
+3. **Email vacío**: El campo `email` es `NOT NULL` en la tabla, pero algunos registros del Excel pueden tenerlo vacío.
 
-### Archivos a modificar
-- `src/components/layout/Header.tsx`: Mostrar nombre de organización en el dropdown del usuario
+4. **Falta organization_id**: Los contactos deben pertenecer a una organización, pero el import no está asignando este campo.
+
+5. **Job atascado**: La función terminó por timeout sin actualizar el estado final a `failed` o `completed_with_errors`.
 
 ---
 
-## Corrección 2: "Configuración" y "Perfil" Abren la Misma Página
+## Solución Propuesta
 
-### Problema
-En el menú del usuario (Header), tanto "Perfil" como "Configuración" navegan a `/settings`.
+### Cambio 1: Validar campos antes del mapeo (Edge Function)
 
-### Solución
-Eliminar una de las opciones o diferenciar sus destinos. Recomendación: Mantener solo "Configuración" ya que `/settings` contiene todo.
+Agregar una lista blanca de campos válidos por entidad y filtrar el mapeo:
 
-### Archivos a modificar
-- `src/components/layout/Header.tsx`: Eliminar la opción "Perfil" redundante
+```text
+const VALID_FIELDS = {
+  contacts: ['first_name', 'last_name', 'email', 'phone', 'mobile', 
+             'whatsapp_number', 'job_title', 'department', 'notes',
+             'linkedin_url', 'twitter_url', 'instagram_username'],
+  companies: ['name', 'domain', 'website', 'industry', 'phone', 
+              'address', 'city', 'country', 'employee_count', 'revenue', 'description'],
+  opportunities: ['title', 'value', 'currency', 'probability', 'status', 
+                  'expected_close_date', 'description'],
+  activities: ['title', 'type', 'description', 'due_date', 'priority', 'completed']
+};
+```
 
----
+### Cambio 2: Obtener organization_id del usuario
 
-## Corrección 3: Error al Invitar Miembro del Equipo
+La edge function debe obtener el `organization_id` del job owner usando la función RPC `get_user_organization_id` y asignarlo a cada registro importado.
 
-### Problema
-Error: `insert or update on table "team_members" violates foreign key constraint "team_members_user_id_fkey"`
+### Cambio 3: Manejar email vacío
 
-El código actual genera un UUID aleatorio (`crypto.randomUUID()`) como `user_id` placeholder, pero la tabla tiene una foreign key a `auth.users` que no permite IDs inexistentes.
+Para contactos donde email esté vacío, generar un email placeholder basado en el nombre y un identificador único: `{nombre}.import.{uuid_corto}@placeholder.local`
 
-### Solución
-Cambiar el flujo de invitación:
-1. Crear el registro con `user_id = NULL` (nullable) o usar el ID del usuario que invita temporalmente
-2. Agregar campo `invited_email` para rastrear invitaciones pendientes
-3. Cuando el usuario invitado se registre, vincular el `user_id` real
+### Cambio 4: Mejorar logs y manejo de errores
 
-### Opción Alternativa (más simple)
-Usar el sistema de "pending_admin_email" existente en organizations, adaptado para team_members.
+Agregar logging detallado de qué campo causó el error y asegurar que el job siempre se finalice correctamente (even on timeout).
 
-### Archivos a modificar
-- `src/hooks/useTeam.ts`: Cambiar lógica de invitación para no usar UUID falso
+### Cambio 5: Agregar recovery para jobs atascados
 
----
-
-## Corrección 4: Menús de Plataforma IA Visibles para Todos
-
-### Problema
-Los menús "Firma Digital" y "AgenticRAG" son visibles para todos los usuarios, pero deberían estar solo disponibles para super admins y ubicados bajo "Administración".
-
-### Código Actual
-El sidebar ya tiene la lógica correcta (`isSuperAdmin`), pero puede haber un problema con la verificación del estado.
-
-### Solución
-Verificar que `isSuperAdmin` se evalúe correctamente y que los items estén dentro del bloque condicional.
-
-### Archivos a modificar
-- `src/components/layout/Sidebar.tsx`: Confirmar que los items de Plataforma IA solo se muestran para super admins
+Crear mecanismo para detectar jobs en `processing` por más de 5 minutos y marcarlos como `failed` o permitir reintentar.
 
 ---
 
-## Corrección 5: Agregar Opción "Labs" en Plataforma IA
+## Archivos a Modificar
 
-### Problema
-Falta la opción "Labs" en el menú de Plataforma IA, que debería mostrar un mensaje de "En construcción".
-
-### Solución
-1. Crear nueva página `src/pages/Labs.tsx` similar a AgenticRAG
-2. Agregar item al array `platformAINavItems`
-3. Agregar ruta en `App.tsx`
-
-### Archivos a modificar/crear
-- `src/pages/Labs.tsx`: Nueva página con mensaje "En construcción"
-- `src/components/layout/Sidebar.tsx`: Agregar item Labs
-- `src/App.tsx`: Agregar ruta `/admin/labs`
-
----
-
-## Corrección 6: Exportar Datos Solo para Admin de Cuenta
-
-### Problema
-La opción de "Exportar datos" debería estar disponible solo para el super administrador de cada cuenta (rol admin de la organización).
-
-### Solución
-1. Ocultar la pestaña "Exportar" en DataManagement para usuarios que no sean admin
-2. O mover la funcionalidad de exportación a un lugar más restringido
-
-### Archivos a modificar
-- `src/pages/DataManagement.tsx`: Verificar rol y ocultar pestaña de exportación si no es admin
-- `src/components/data-management/ExportTab.tsx`: Agregar verificación de permisos
-
----
-
-## Corrección 7: Importación Pendiente Sin Procesar
-
-### Problema
-La importación de Excel se quedó en "Procesando" y nunca completó (20 minutos esperando).
-
-### Causa Probable
-1. La edge function `process-import` tiene un timeout de 30 segundos por defecto
-2. Procesar 1558 registros uno por uno sin batch puede exceder el timeout
-3. No hay manejo de reconexión o procesamiento en chunks
-
-### Solución
-1. Procesar en batches más grandes (INSERT múltiple)
-2. Usar transacciones donde sea posible
-3. Agregar timeout handling y reintentos
-4. Actualizar estado a "failed" si hay error
-
-### Archivos a modificar
-- `supabase/functions/process-import/index.ts`: Optimizar procesamiento con batches
-
----
-
-## Corrección 8: Simplificar Campos de Teléfono en Contactos
-
-### Problema
-Actualmente hay: Teléfono, Móvil, WhatsApp. El usuario solicita: Solo WhatsApp + Otro número + Instagram.
-
-### Solución
-1. Mantener campos en DB (retrocompatibilidad)
-2. En la UI mostrar solo: WhatsApp (principal), Otro teléfono (usar campo `phone`), Instagram
-3. Agregar campo `instagram_username` a la UI (ya existe en DB)
-
-### Archivos a modificar
-- `src/components/contacts/ContactSidebar.tsx`: Reorganizar campos visibles
-- `src/pages/Contacts.tsx`: Actualizar formulario de creación/edición
-
----
-
-## Corrección 9: Tareas Solo Fecha Sin Hora
-
-### Problema
-El selector de fecha límite para tareas usa `datetime-local`, pero el usuario quiere solo fecha.
-
-### Solución
-Cambiar de `datetime-local` a `date` y ajustar el procesamiento.
-
-### Archivos a modificar
-- `src/pages/Tasks.tsx`: Cambiar input type de `datetime-local` a `date`
-
----
-
-## Secuencia de Implementación
-
-1. **Corrección 3** - Error invitación (bloquea funcionalidad crítica)
-2. **Corrección 7** - Importación (bloquea funcionalidad crítica)
-3. **Corrección 4** - Menús visibles (seguridad/permisos)
-4. **Corrección 6** - Exportar solo admin
-5. **Corrección 2** - Menú duplicado
-6. **Corrección 1** - Nombre empresa visible
-7. **Corrección 5** - Agregar Labs
-8. **Corrección 8** - Campos contacto
-9. **Corrección 9** - Solo fecha en tareas
+| Archivo | Cambios |
+|---------|---------|
+| `supabase/functions/process-import/index.ts` | Validación de campos, organization_id, manejo de email vacío, mejores logs |
+| `src/components/data-management/ImportTab.tsx` | Agregar botón para reintentar/cancelar jobs atascados |
+| `src/hooks/useImportJobs.ts` | Agregar función para reintentar importación fallida |
+| `src/components/data-management/ColumnMappingDialog.tsx` | Mostrar advertencia cuando se mapean columnas a campos inexistentes |
 
 ---
 
 ## Sección Técnica
 
-### Archivos a Crear
-| Archivo | Descripción |
-|---------|-------------|
-| `src/pages/Labs.tsx` | Página placeholder para Labs |
-
-### Archivos a Modificar
-| Archivo | Cambios |
-|---------|---------|
-| `src/hooks/useTeam.ts` | Cambiar lógica de invitación para usar flujo correcto |
-| `supabase/functions/process-import/index.ts` | Optimizar con batch inserts |
-| `src/components/layout/Sidebar.tsx` | Agregar Labs, verificar visibilidad |
-| `src/components/layout/Header.tsx` | Mostrar nombre org, eliminar menú duplicado |
-| `src/pages/DataManagement.tsx` | Verificar permisos para exportar |
-| `src/components/contacts/ContactSidebar.tsx` | Reorganizar campos (WhatsApp, Otro, Instagram) |
-| `src/pages/Contacts.tsx` | Actualizar formulario con nuevos campos |
-| `src/pages/Tasks.tsx` | Cambiar selector a solo fecha |
-| `src/App.tsx` | Agregar ruta Labs |
-
-### Cambio de Base de Datos Posible
-Para la corrección 3 (invitación de miembros), se necesita:
-- Hacer `user_id` nullable en `team_members`, o
-- Agregar campo `pending_email` para invitaciones
-
-```sql
--- Opción 1: Hacer user_id nullable temporalmente para invitaciones
-ALTER TABLE team_members ALTER COLUMN user_id DROP NOT NULL;
-ALTER TABLE team_members ADD COLUMN pending_email TEXT;
-ALTER TABLE team_members ADD COLUMN invitation_status TEXT DEFAULT 'active';
-```
-
-### Optimización de Import (Corrección 7)
+### Edge Function Actualizada (process-import/index.ts)
 
 ```typescript
-// Batch insert en lugar de uno por uno
-const batchSize = 100;
-for (let i = 0; i < data.length; i += batchSize) {
-  const batch = data.slice(i, i + batchSize).map(row => {
-    const mappedData: Record<string, unknown> = { user_id: userId };
-    for (const [sourceCol, targetField] of Object.entries(column_mapping)) {
-      if (row[sourceCol] !== undefined && row[sourceCol] !== '') {
-        mappedData[targetField] = row[sourceCol];
-      }
-    }
-    return mappedData;
-  });
-  
-  const { error } = await supabaseClient.from(entity_type).insert(batch);
-  if (error) {
-    failedCount += batch.length;
+// Lista de campos válidos por entidad
+const VALID_FIELDS: Record<string, string[]> = {
+  contacts: ['first_name', 'last_name', 'email', 'phone', 'mobile', 
+             'whatsapp_number', 'job_title', 'department', 'notes',
+             'linkedin_url', 'twitter_url', 'instagram_username'],
+  companies: ['name', 'domain', 'website', 'industry', 'phone', 
+              'address', 'city', 'country', 'employee_count', 'revenue', 'description'],
+  opportunities: ['title', 'value', 'currency', 'probability', 'status', 
+                  'expected_close_date', 'description'],
+  activities: ['title', 'type', 'description', 'due_date', 'priority', 'completed']
+};
+
+// Filtrar mapeo a solo campos válidos
+const validMapping: Record<string, string> = {};
+const invalidFields: string[] = [];
+for (const [source, target] of Object.entries(column_mapping)) {
+  if (VALID_FIELDS[entity_type].includes(target as string)) {
+    validMapping[source] = target as string;
   } else {
-    successCount += batch.length;
+    invalidFields.push(`${source} -> ${target}`);
   }
-  
-  // Update progress
-  const progress = Math.round(((i + batch.length) / data.length) * 100);
-  await supabaseClient.from('import_jobs').update({ 
-    progress, 
-    processed_rows: i + batch.length,
-    successful_rows: successCount,
-    failed_rows: failedCount 
-  }).eq('id', job_id);
+}
+
+console.log(`Valid mappings: ${Object.keys(validMapping).length}`);
+if (invalidFields.length > 0) {
+  console.log(`Invalid fields ignored: ${invalidFields.join(', ')}`);
+}
+
+// Obtener organization_id del usuario
+const { data: teamMember } = await supabaseClient
+  .from('team_members')
+  .select('organization_id')
+  .eq('user_id', userId)
+  .eq('is_active', true)
+  .single();
+
+const organizationId = teamMember?.organization_id;
+
+// En el mapeo de cada fila
+const mappedData: Record<string, unknown> = { 
+  user_id: userId,
+  organization_id: organizationId // Agregar organization
+};
+
+// Manejo de email vacío para contactos
+if (entity_type === 'contacts' && !mappedData.email) {
+  const name = (mappedData.first_name || 'contact') as string;
+  const shortId = crypto.randomUUID().slice(0, 8);
+  mappedData.email = `${name.toLowerCase().replace(/\s+/g, '.')}.import.${shortId}@placeholder.local`;
 }
 ```
+
+### Actualización del Frontend (ImportTab.tsx)
+
+Agregar detección de jobs atascados y opciones de acción:
+
+```typescript
+// Detectar si un job está atascado (más de 5 min en processing)
+const isJobStuck = (job: ImportJob) => {
+  if (job.status !== 'processing') return false;
+  const startTime = job.started_at ? new Date(job.started_at).getTime() : 0;
+  const now = Date.now();
+  return (now - startTime) > 5 * 60 * 1000; // 5 minutos
+};
+
+// Mostrar botón de retry/cancel para jobs atascados
+{isJobStuck(job) && (
+  <div className="flex gap-2">
+    <Button size="sm" variant="outline" onClick={() => retryImport(job)}>
+      Reintentar
+    </Button>
+    <Button size="sm" variant="destructive" onClick={() => cancelImport(job.id)}>
+      Cancelar
+    </Button>
+  </div>
+)}
+```
+
+### Consulta para Limpiar Job Atascado
+
+Antes de la implementación, limpiar el job actual:
+
+```sql
+UPDATE import_jobs 
+SET status = 'failed', 
+    completed_at = now(),
+    errors = '[{"row": 0, "field": "system", "error": "Campos mapeados inválidos: status, type no existen en contacts"}]'::jsonb
+WHERE id = '8722c4c4-a3de-4ee8-b54d-bab3c71404dd';
+```
+
+---
+
+## Secuencia de Implementación
+
+1. **Limpiar job atascado** - Marcar como fallido vía SQL
+2. **Actualizar edge function** - Validación de campos, organization_id, email placeholder
+3. **Actualizar frontend** - Detección de jobs atascados, botones de acción
+4. **Mejorar ColumnMappingDialog** - Advertencia visual para campos inválidos
+5. **Testing** - Probar importación con archivo de ejemplo
+
+---
+
+## Mejoras de Rendimiento Adicionales
+
+- Usar `Promise.allSettled` para procesar batches en paralelo (con límite)
+- Implementar streaming para archivos muy grandes (+10,000 filas)
+- Agregar cola de procesamiento con estado persistente
 
