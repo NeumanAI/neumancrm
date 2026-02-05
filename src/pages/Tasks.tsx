@@ -322,8 +322,8 @@ export default function Tasks() {
               <Label htmlFor="task_due_date">Fecha límite</Label>
               <Input
                 id="task_due_date"
-                type="datetime-local"
-                value={formData.due_date}
+                type="date"
+                value={formData.due_date ? formData.due_date.split('T')[0] : ''}
                 onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
               />
             </div>

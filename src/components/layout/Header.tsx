@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useTeam } from '@/hooks/useTeam';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Search, Menu, LogOut, Settings, User } from 'lucide-react';
+import { Search, Menu, LogOut, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { GlobalProjectFilter } from '@/components/projects/GlobalProjectFilter';
@@ -23,6 +24,7 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const { user, signOut } = useAuth();
+  const { organization } = useTeam();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -82,17 +84,15 @@ export function Header({ onMenuClick }: HeaderProps) {
           <DropdownMenuContent className="w-56" align="end" forceMount>
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">Mi Cuenta</p>
+                <p className="text-sm font-medium leading-none">
+                  {organization?.name || 'Mi Cuenta'}
+                </p>
                 <p className="text-xs leading-none text-muted-foreground">
                   {user?.email}
                 </p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate('/settings')}>
-              <User className="mr-2 h-4 w-4" />
-              Perfil
-            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate('/settings')}>
               <Settings className="mr-2 h-4 w-4" />
               Configuración

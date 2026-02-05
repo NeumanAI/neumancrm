@@ -18,11 +18,11 @@ import {
   Mail, 
   Phone, 
   MessageCircle, 
-  Linkedin, 
   Building2,
   Edit,
   ExternalLink,
-  StickyNote
+  StickyNote,
+  Instagram
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -37,12 +37,11 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
     first_name: contact.first_name || '',
     last_name: contact.last_name || '',
     email: contact.email,
-    phone: contact.phone || '',
-    mobile: contact.mobile || '',
+    phone: contact.phone || '', // Otro teléfono
     whatsapp_number: contact.whatsapp_number || '',
+    instagram_username: contact.instagram_username || '',
     job_title: contact.job_title || '',
     department: contact.department || '',
-    linkedin_url: contact.linkedin_url || '',
     notes: contact.notes || '',
   });
 
@@ -100,24 +99,6 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
             />
           )}
           
-          {contact.phone && (
-            <ContactInfoItem 
-              icon={Phone} 
-              label="Teléfono" 
-              value={contact.phone}
-              href={`tel:${contact.phone}`}
-            />
-          )}
-          
-          {contact.mobile && (
-            <ContactInfoItem 
-              icon={Phone} 
-              label="Móvil" 
-              value={contact.mobile}
-              href={`tel:${contact.mobile}`}
-            />
-          )}
-          
           {contact.whatsapp_number && (
             <ContactInfoItem 
               icon={MessageCircle} 
@@ -128,12 +109,21 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
             />
           )}
           
-          {contact.linkedin_url && (
+          {contact.phone && (
             <ContactInfoItem 
-              icon={Linkedin} 
-              label="LinkedIn" 
-              value="Ver perfil"
-              href={contact.linkedin_url}
+              icon={Phone} 
+              label="Otro teléfono" 
+              value={contact.phone}
+              href={`tel:${contact.phone}`}
+            />
+          )}
+          
+          {contact.instagram_username && (
+            <ContactInfoItem 
+              icon={Instagram} 
+              label="Instagram" 
+              value={`@${contact.instagram_username.replace('@', '')}`}
+              href={`https://instagram.com/${contact.instagram_username.replace('@', '')}`}
               external
             />
           )}
@@ -252,9 +242,18 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="whatsapp">WhatsApp</Label>
+              <Input
+                id="whatsapp"
+                value={formData.whatsapp_number}
+                onChange={(e) => setFormData({ ...formData, whatsapp_number: e.target.value })}
+                placeholder="+52 55 1234 5678"
+              />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="phone">Teléfono</Label>
+                <Label htmlFor="phone">Otro teléfono</Label>
                 <Input
                   id="phone"
                   value={formData.phone}
@@ -262,21 +261,14 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="mobile">Móvil</Label>
+                <Label htmlFor="instagram">Instagram</Label>
                 <Input
-                  id="mobile"
-                  value={formData.mobile}
-                  onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
+                  id="instagram"
+                  value={formData.instagram_username}
+                  onChange={(e) => setFormData({ ...formData, instagram_username: e.target.value })}
+                  placeholder="@usuario"
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="whatsapp">WhatsApp</Label>
-              <Input
-                id="whatsapp"
-                value={formData.whatsapp_number}
-                onChange={(e) => setFormData({ ...formData, whatsapp_number: e.target.value })}
-              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -295,14 +287,6 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
                   onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="linkedin">LinkedIn URL</Label>
-              <Input
-                id="linkedin"
-                value={formData.linkedin_url}
-                onChange={(e) => setFormData({ ...formData, linkedin_url: e.target.value })}
-              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="notes">Notas</Label>

@@ -114,6 +114,7 @@ export function useTeam() {
         throw new Error(`Límite de usuarios alcanzado (${organization.max_users})`);
       }
 
+      // Create invitation with pending_email - user_id will be linked when they register
       const { data, error } = await supabase
         .from('team_members')
         .insert({
@@ -121,9 +122,11 @@ export function useTeam() {
           email,
           role,
           full_name: fullName || email.split('@')[0],
-          user_id: crypto.randomUUID(), // Placeholder until they accept invite
+          user_id: null, // Will be linked when user registers
+          pending_email: email.toLowerCase(),
+          invitation_status: 'pending',
           invited_by: user?.id,
-          is_active: false, // Will be activated when they accept
+          is_active: false, // Will be activated when they register
         })
         .select()
         .single();

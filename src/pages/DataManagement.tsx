@@ -6,8 +6,10 @@ import ExportTab from '@/components/data-management/ExportTab';
 import DuplicatesTab from '@/components/data-management/DuplicatesTab';
 import BulkOperationsTab from '@/components/data-management/BulkOperationsTab';
 import AuditLogTab from '@/components/data-management/AuditLogTab';
+import { useTeam } from '@/hooks/useTeam';
 
 export default function DataManagement() {
+  const { isAdmin } = useTeam();
   const [activeTab, setActiveTab] = useState('import');
 
   return (
@@ -27,15 +29,17 @@ export default function DataManagement() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
+        <TabsList className={`grid w-full lg:w-auto lg:inline-flex ${isAdmin ? 'grid-cols-5' : 'grid-cols-4'}`}>
           <TabsTrigger value="import" className="flex items-center gap-2">
             <Upload className="h-4 w-4" />
             <span className="hidden sm:inline">Importar</span>
           </TabsTrigger>
-          <TabsTrigger value="export" className="flex items-center gap-2">
-            <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Exportar</span>
-          </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="export" className="flex items-center gap-2">
+              <Download className="h-4 w-4" />
+              <span className="hidden sm:inline">Exportar</span>
+            </TabsTrigger>
+          )}
           <TabsTrigger value="duplicates" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">Duplicados</span>
@@ -54,9 +58,11 @@ export default function DataManagement() {
           <ImportTab />
         </TabsContent>
 
-        <TabsContent value="export">
-          <ExportTab />
-        </TabsContent>
+        {isAdmin && (
+          <TabsContent value="export">
+            <ExportTab />
+          </TabsContent>
+        )}
 
         <TabsContent value="duplicates">
           <DuplicatesTab />
