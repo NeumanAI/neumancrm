@@ -1,66 +1,45 @@
 
-# Plan: Corrección Crítica del Sistema de Importación de Contactos
+# Plan: Optimización del Rendimiento del Dashboard
 
 ## Diagnóstico del Problema
 
-### Estado Actual del Job
-| Campo | Valor |
-|-------|-------|
-| ID | 8722c4c4-a3de-4ee8-b54d-bab3c71404dd |
-| Estado | `processing` (atascado) |
-| Progreso | 76% |
-| Procesados | 1181 / 1558 |
-| Exitosos | 0 |
-| Fallidos | 1181 |
+El Dashboard está mostrando un spinner indefinido debido a una combinación de factores:
 
-### Causas Raíz Identificadas
-
-1. **Columnas inválidas en el mapeo**: El usuario mapeó `ESTADO` → `status` y `TIPO` → `type`, pero estos campos **NO existen** en la tabla `contacts`. Cada INSERT falla por error de columna inexistente.
-
-2. **Sin validación de campos**: La edge function acepta cualquier campo del mapeo sin validar que exista en la tabla destino.
-
-3. **Email vacío**: El campo `email` es `NOT NULL` en la tabla, pero algunos registros del Excel pueden tenerlo vacío.
-
-4. **Falta organization_id**: Los contactos deben pertenecer a una organización, pero el import no está asignando este campo.
-
-5. **Job atascado**: La función terminó por timeout sin actualizar el estado final a `failed` o `completed_with_errors`.
-
----
+| Problema | Impacto | Ubicación |
+|----------|---------|-----------|
+| Cadena de carga bloqueante | **Crítico** - El AppLayout espera 4 hooks antes de renderizar | `AppLayout.tsx` |
+| Llamadas RPC secuenciales | **Alto** - `is_super_admin` y `is_reseller_admin` bloquean render | `useSuperAdmin.ts`, `useResellerAdmin.ts` |
+| Edge Function timeout | **Medio** - `generate-insights` falla repetidamente | `AIInsightsCard.tsx` |
+| Queries sin límite | **Medio** - Consultas traen todos los registros | Hooks de datos |
 
 ## Solución Propuesta
 
-### Cambio 1: Validar campos antes del mapeo (Edge Function)
+### 1. Desbloquear el render del AppLayout
 
-Agregar una lista blanca de campos válidos por entidad y filtrar el mapeo:
+Cambiar la lógica de carga para que solo `authLoading` y `teamLoading` sean bloqueantes. Los checks de admin pueden ejecutarse en paralelo sin bloquear.
 
 ```text
-const VALID_FIELDS = {
-  contacts: ['first_name', 'last_name', 'email', 'phone', 'mobile', 
-             'whatsapp_number', 'job_title', 'department', 'notes',
-             'linkedin_url', 'twitter_url', 'instagram_username'],
-  companies: ['name', 'domain', 'website', 'industry', 'phone', 
-              'address', 'city', 'country', 'employee_count', 'revenue', 'description'],
-  opportunities: ['title', 'value', 'currency', 'probability', 'status', 
-                  'expected_close_date', 'description'],
-  activities: ['title', 'type', 'description', 'due_date', 'priority', 'completed']
-};
+// ANTES (bloqueante)
+const isLoading = authLoading || teamLoading || adminLoading || resellerLoading;
+
+// DESPUÉS (solo bloquea lo esencial)
+const isLoading = authLoading || teamLoading;
 ```
 
-### Cambio 2: Obtener organization_id del usuario
+### 2. Limitar queries del Dashboard
 
-La edge function debe obtener el `organization_id` del job owner usando la función RPC `get_user_organization_id` y asignarlo a cada registro importado.
+Agregar límites a las consultas que se usan en el Dashboard:
+- Contactos: solo últimos 10 para "Actividad Reciente"
+- Oportunidades: solo abiertas, máximo 10
+- Actividades: solo pendientes de hoy, máximo 10
 
-### Cambio 3: Manejar email vacío
+### 3. Lazy load del AIInsightsCard
 
-Para contactos donde email esté vacío, generar un email placeholder basado en el nombre y un identificador único: `{nombre}.import.{uuid_corto}@placeholder.local`
+Envolver el componente AIInsightsCard en Suspense o cargar de forma diferida para que no bloquee el render inicial.
 
-### Cambio 4: Mejorar logs y manejo de errores
+### 4. Agregar staleTime a queries de permisos
 
-Agregar logging detallado de qué campo causó el error y asegurar que el job siempre se finalice correctamente (even on timeout).
-
-### Cambio 5: Agregar recovery para jobs atascados
-
-Crear mecanismo para detectar jobs en `processing` por más de 5 minutos y marcarlos como `failed` o permitir reintentar.
+Los hooks de admin deben cachear sus resultados por más tiempo ya que los roles no cambian frecuentemente.
 
 ---
 
@@ -68,123 +47,125 @@ Crear mecanismo para detectar jobs en `processing` por más de 5 minutos y marca
 
 | Archivo | Cambios |
 |---------|---------|
-| `supabase/functions/process-import/index.ts` | Validación de campos, organization_id, manejo de email vacío, mejores logs |
-| `src/components/data-management/ImportTab.tsx` | Agregar botón para reintentar/cancelar jobs atascados |
-| `src/hooks/useImportJobs.ts` | Agregar función para reintentar importación fallida |
-| `src/components/data-management/ColumnMappingDialog.tsx` | Mostrar advertencia cuando se mapean columnas a campos inexistentes |
+| `src/components/layout/AppLayout.tsx` | Remover admin/reseller loading del bloqueo principal |
+| `src/pages/Dashboard.tsx` | Lazy load del AIInsightsCard, limitar datos mostrados |
+| `src/hooks/useSuperAdmin.ts` | Agregar staleTime de 5 minutos |
+| `src/hooks/useResellerAdmin.ts` | Agregar staleTime de 5 minutos |
+| `src/hooks/useContacts.ts` | Agregar hook separado para dashboard con límite |
+| `src/hooks/useOpportunities.ts` | Agregar opción de límite |
+| `src/hooks/useActivities.ts` | Agregar opción de límite |
 
 ---
 
-## Sección Técnica
+## Sección Tecnica
 
-### Edge Function Actualizada (process-import/index.ts)
+### AppLayout Optimizado
 
 ```typescript
-// Lista de campos válidos por entidad
-const VALID_FIELDS: Record<string, string[]> = {
-  contacts: ['first_name', 'last_name', 'email', 'phone', 'mobile', 
-             'whatsapp_number', 'job_title', 'department', 'notes',
-             'linkedin_url', 'twitter_url', 'instagram_username'],
-  companies: ['name', 'domain', 'website', 'industry', 'phone', 
-              'address', 'city', 'country', 'employee_count', 'revenue', 'description'],
-  opportunities: ['title', 'value', 'currency', 'probability', 'status', 
-                  'expected_close_date', 'description'],
-  activities: ['title', 'type', 'description', 'due_date', 'priority', 'completed']
-};
-
-// Filtrar mapeo a solo campos válidos
-const validMapping: Record<string, string> = {};
-const invalidFields: string[] = [];
-for (const [source, target] of Object.entries(column_mapping)) {
-  if (VALID_FIELDS[entity_type].includes(target as string)) {
-    validMapping[source] = target as string;
-  } else {
-    invalidFields.push(`${source} -> ${target}`);
-  }
-}
-
-console.log(`Valid mappings: ${Object.keys(validMapping).length}`);
-if (invalidFields.length > 0) {
-  console.log(`Invalid fields ignored: ${invalidFields.join(', ')}`);
-}
-
-// Obtener organization_id del usuario
-const { data: teamMember } = await supabaseClient
-  .from('team_members')
-  .select('organization_id')
-  .eq('user_id', userId)
-  .eq('is_active', true)
-  .single();
-
-const organizationId = teamMember?.organization_id;
-
-// En el mapeo de cada fila
-const mappedData: Record<string, unknown> = { 
-  user_id: userId,
-  organization_id: organizationId // Agregar organization
-};
-
-// Manejo de email vacío para contactos
-if (entity_type === 'contacts' && !mappedData.email) {
-  const name = (mappedData.first_name || 'contact') as string;
-  const shortId = crypto.randomUUID().slice(0, 8);
-  mappedData.email = `${name.toLowerCase().replace(/\s+/g, '.')}.import.${shortId}@placeholder.local`;
+export function AppLayout({ children }: AppLayoutProps) {
+  const { user, loading: authLoading } = useAuth();
+  const { organization, isLoading: teamLoading } = useTeam();
+  const { isSuperAdmin } = useSuperAdmin(); // No usar isLoading
+  const { isResellerAdmin } = useResellerAdmin(); // No usar isLoading
+  
+  // Solo bloquear en auth y team - criticos para el flujo
+  const isLoading = authLoading || teamLoading;
+  
+  // El resto del componente...
 }
 ```
 
-### Actualización del Frontend (ImportTab.tsx)
-
-Agregar detección de jobs atascados y opciones de acción:
+### Dashboard con Lazy Loading
 
 ```typescript
-// Detectar si un job está atascado (más de 5 min en processing)
-const isJobStuck = (job: ImportJob) => {
-  if (job.status !== 'processing') return false;
-  const startTime = job.started_at ? new Date(job.started_at).getTime() : 0;
-  const now = Date.now();
-  return (now - startTime) > 5 * 60 * 1000; // 5 minutos
-};
+import { lazy, Suspense } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
-// Mostrar botón de retry/cancel para jobs atascados
-{isJobStuck(job) && (
-  <div className="flex gap-2">
-    <Button size="sm" variant="outline" onClick={() => retryImport(job)}>
-      Reintentar
-    </Button>
-    <Button size="sm" variant="destructive" onClick={() => cancelImport(job.id)}>
-      Cancelar
-    </Button>
-  </div>
-)}
+// Lazy load el componente de AI que es pesado
+const AIInsightsCard = lazy(() => import('@/components/dashboard/AIInsightsCard')
+  .then(module => ({ default: module.AIInsightsCard })));
+
+export default function Dashboard() {
+  // Usar versiones limitadas de los hooks
+  const { contacts, isLoading: contactsLoading } = useContacts({ limit: 10 });
+  const { opportunities, isLoading: oppsLoading } = useOpportunities({ limit: 10, status: 'open' });
+  const { activities } = useActivities({ limit: 10, onlyPending: true });
+  
+  return (
+    <motion.div>
+      {/* Lazy AI Insights */}
+      <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+        <AIInsightsCard />
+      </Suspense>
+      
+      {/* Resto del dashboard */}
+    </motion.div>
+  );
+}
 ```
 
-### Consulta para Limpiar Job Atascado
+### Hooks con staleTime extendido
 
-Antes de la implementación, limpiar el job actual:
+```typescript
+// useSuperAdmin.ts
+const { data: isSuperAdmin = false, isLoading: checkingAdmin } = useQuery({
+  queryKey: ['is_super_admin', user?.id],
+  queryFn: async () => {
+    const { data, error } = await supabase.rpc('is_super_admin');
+    if (error) return false;
+    return data as boolean;
+  },
+  enabled: !!user,
+  staleTime: 5 * 60 * 1000, // 5 minutos - roles no cambian frecuentemente
+  refetchOnWindowFocus: false,
+});
+```
 
-```sql
-UPDATE import_jobs 
-SET status = 'failed', 
-    completed_at = now(),
-    errors = '[{"row": 0, "field": "system", "error": "Campos mapeados inválidos: status, type no existen en contacts"}]'::jsonb
-WHERE id = '8722c4c4-a3de-4ee8-b54d-bab3c71404dd';
+### Hook de Contactos con opciones
+
+```typescript
+interface UseContactsOptions {
+  limit?: number;
+  enabled?: boolean;
+}
+
+export function useContacts(options: UseContactsOptions = {}) {
+  const { limit, enabled = true } = options;
+  
+  const { data: contacts, isLoading } = useQuery({
+    queryKey: ['contacts', { limit }],
+    queryFn: async () => {
+      let query = supabase
+        .from('contacts')
+        .select('*, companies(id, name, logo_url)')
+        .order('created_at', { ascending: false });
+      
+      if (limit) {
+        query = query.limit(limit);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as Contact[];
+    },
+    enabled,
+    staleTime: 30000,
+    refetchOnWindowFocus: false,
+  });
+  
+  // ...resto del hook
+}
 ```
 
 ---
 
-## Secuencia de Implementación
+## Resultado Esperado
 
-1. **Limpiar job atascado** - Marcar como fallido vía SQL
-2. **Actualizar edge function** - Validación de campos, organization_id, email placeholder
-3. **Actualizar frontend** - Detección de jobs atascados, botones de acción
-4. **Mejorar ColumnMappingDialog** - Advertencia visual para campos inválidos
-5. **Testing** - Probar importación con archivo de ejemplo
+| Metrica | Antes | Despues |
+|---------|-------|---------|
+| Tiempo hasta primer render | 5-10s+ (bloqueado) | <1s |
+| Queries iniciales | 6+ sin limite | 4 con limite de 10 |
+| AI Insights | Bloquea render | Carga async |
+| Cache de permisos | Sin cache | 5 min staleTime |
 
----
-
-## Mejoras de Rendimiento Adicionales
-
-- Usar `Promise.allSettled` para procesar batches en paralelo (con límite)
-- Implementar streaming para archivos muy grandes (+10,000 filas)
-- Agregar cola de procesamiento con estado persistente
-
+El Dashboard se mostrara inmediatamente con los datos esenciales, mientras los componentes secundarios (AI Insights) cargan de forma asincrona sin bloquear la experiencia del usuario.
