@@ -45,6 +45,8 @@ export function useResellerAdmin() {
       return data as boolean;
     },
     enabled: !!user,
+    staleTime: 5 * 60 * 1000, // 5 minutos - roles no cambian frecuentemente
+    refetchOnWindowFocus: false,
   });
 
   // Get the reseller's own organization (to inherit branding)

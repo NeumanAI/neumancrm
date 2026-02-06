@@ -82,20 +82,37 @@ export function usePipeline() {
   };
 }
 
-export function useOpportunities() {
+interface UseOpportunitiesOptions {
+  limit?: number;
+  status?: 'open' | 'won' | 'lost';
+  enabled?: boolean;
+}
+
+export function useOpportunities(options: UseOpportunitiesOptions = {}) {
+  const { limit, status, enabled = true } = options;
   const queryClient = useQueryClient();
 
   const { data: opportunities, isLoading } = useQuery({
-    queryKey: ['opportunities'],
+    queryKey: ['opportunities', { limit, status }],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('opportunities')
         .select('*, companies(id, name), contacts(id, first_name, last_name), stages(id, name, color)')
         .order('created_at', { ascending: false });
       
+      if (status) {
+        query = query.eq('status', status);
+      }
+      
+      if (limit) {
+        query = query.limit(limit);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data as Opportunity[];
     },
+    enabled,
     staleTime: 30000, // 30 seconds
     refetchOnWindowFocus: false,
   });

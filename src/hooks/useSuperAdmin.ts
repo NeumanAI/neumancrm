@@ -58,6 +58,8 @@ export function useSuperAdmin() {
       return data as boolean;
     },
     enabled: !!user,
+    staleTime: 5 * 60 * 1000, // 5 minutos - roles no cambian frecuentemente
+    refetchOnWindowFocus: false,
   });
 
   // Fetch all organizations (only works for super-admins)

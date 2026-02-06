@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { useContacts } from '@/hooks/useContacts';
 import { useCompanies } from '@/hooks/useCompanies';
 import { useOpportunities } from '@/hooks/useOpportunities';
@@ -6,12 +7,12 @@ import { StatCard } from '@/components/ui/stat-card';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Users, Building2, TrendingUp, CheckSquare, Calendar, ArrowRight } from 'lucide-react';
 import { format, isToday, isTomorrow, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { AIInsightsCard } from '@/components/dashboard/AIInsightsCard';
 import { 
   AreaChart, 
   Area, 
@@ -25,11 +26,19 @@ import {
   Cell
 } from 'recharts';
 
+// Lazy load del componente de AI para no bloquear el render inicial
+const AIInsightsCard = lazy(() => 
+  import('@/components/dashboard/AIInsightsCard').then(module => ({ 
+    default: module.AIInsightsCard 
+  }))
+);
+
 export default function Dashboard() {
-  const { contacts } = useContacts();
+  // Usar versiones limitadas de los hooks para el dashboard
+  const { contacts } = useContacts({ limit: 10 });
   const { companies } = useCompanies();
-  const { opportunities } = useOpportunities();
-  const { activities, toggleComplete } = useActivities();
+  const { opportunities } = useOpportunities({ limit: 10 });
+  const { activities, toggleComplete } = useActivities({ limit: 15, onlyPending: true });
 
   // Calculate stats
   const totalPipelineValue = opportunities
@@ -94,9 +103,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* AI Insights */}
+      {/* AI Insights - Lazy loaded */}
       <motion.div variants={item}>
-        <AIInsightsCard />
+        <Suspense fallback={<Skeleton className="h-48 w-full rounded-lg" />}>
+          <AIInsightsCard />
+        </Suspense>
       </motion.div>
 
       {/* Stats Grid */}

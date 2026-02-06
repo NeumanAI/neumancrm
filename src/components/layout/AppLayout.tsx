@@ -25,7 +25,8 @@ export function AppLayout({ children }: AppLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isLoading = authLoading || teamLoading || adminLoading || resellerLoading;
+  // Solo bloquear en auth y team - los checks de admin cargan en paralelo sin bloquear
+  const isLoading = authLoading || teamLoading;
 
   // Redirect to pending approval if organization is not approved
   useEffect(() => {
