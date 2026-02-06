@@ -3,19 +3,42 @@ import { supabase } from '@/integrations/supabase/client';
 import { Company } from '@/types/crm';
 import { toast } from 'sonner';
 
-export function useCompanies() {
+interface UseCompaniesOptions {
+  limit?: number;
+  countOnly?: boolean;
+}
+
+export function useCompanies(options: UseCompaniesOptions = {}) {
+  const { limit, countOnly = false } = options;
   const queryClient = useQueryClient();
 
   const { data: companies, isLoading } = useQuery({
-    queryKey: ['companies'],
+    queryKey: ['companies', { limit, countOnly }],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // If only count is needed, use head request
+      if (countOnly) {
+        const { count, error } = await supabase
+          .from('companies')
+          .select('*', { count: 'exact', head: true });
+        
+        if (error) throw error;
+        // Return empty array but we'll use count
+        return { data: [] as Company[], count: count || 0 };
+      }
+
+      let query = supabase
         .from('companies')
         .select('*')
         .order('created_at', { ascending: false });
       
+      if (limit) {
+        query = query.limit(limit);
+      }
+      
+      const { data, error } = await query;
+      
       if (error) throw error;
-      return data as Company[];
+      return { data: data as Company[], count: data.length };
     },
     staleTime: 30000, // 30 seconds
     refetchOnWindowFocus: false,
@@ -90,7 +113,8 @@ export function useCompanies() {
   });
 
   return {
-    companies: companies || [],
+    companies: companies?.data || [],
+    companiesCount: companies?.count || 0,
     isLoading,
     createCompany,
     updateCompany,

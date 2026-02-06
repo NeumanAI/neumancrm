@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Users, Building2, TrendingUp, CheckSquare, Calendar, ArrowRight } from 'lucide-react';
+import { forwardRef } from 'react';
 import { format, isToday, isTomorrow, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { motion } from 'framer-motion';
@@ -36,7 +37,7 @@ const AIInsightsCard = lazy(() =>
 export default function Dashboard() {
   // Usar versiones limitadas de los hooks para el dashboard
   const { contacts } = useContacts({ limit: 10 });
-  const { companies } = useCompanies();
+  const { companiesCount } = useCompanies({ countOnly: true });
   const { opportunities } = useOpportunities({ limit: 10 });
   const { activities, toggleComplete } = useActivities({ limit: 15, onlyPending: true });
 
@@ -121,7 +122,7 @@ export default function Dashboard() {
         />
         <StatCard
           title="Empresas"
-          value={companies.length}
+          value={companiesCount}
           change={5}
           changeLabel="este mes"
           icon={<Building2 className="h-6 w-6" />}

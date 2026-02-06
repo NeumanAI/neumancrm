@@ -1,4 +1,4 @@
-import { useAIInsights } from '@/hooks/useAIInsights';
+import { useAIInsights, AIInsightsError } from '@/hooks/useAIInsights';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import {
   Lightbulb,
   TrendingUp,
   RefreshCw,
-  ArrowRight
+  CloudOff
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -26,7 +26,25 @@ export function AIInsightsCard() {
     }).format(value);
   };
 
-  if (error) {
+  // Handle 404 (function not deployed) gracefully
+  const typedError = error as unknown as AIInsightsError | null;
+  const isNotFoundError = typedError?.isNotFound === true;
+  
+  if (isNotFoundError) {
+    return (
+      <Card className="border-0 shadow-card bg-gradient-to-br from-muted/50 to-muted/30">
+        <CardContent className="p-6">
+          <div className="text-center text-muted-foreground">
+            <CloudOff className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">Insights IA no disponibles por el momento</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Handle other errors
+  if (error && !isNotFoundError) {
     return (
       <Card className="border-0 shadow-card bg-gradient-to-br from-primary/5 to-primary/10">
         <CardContent className="p-6">
