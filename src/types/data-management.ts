@@ -1,7 +1,7 @@
 // Data Management Types
 
 export type EntityType = 'contacts' | 'companies' | 'opportunities' | 'activities';
-export type ImportStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+export type ImportStatus = 'pending' | 'processing' | 'completed' | 'completed_with_errors' | 'failed' | 'cancelled';
 export type ExportFormat = 'csv' | 'xlsx' | 'json';
 export type ExportStatus = 'pending' | 'processing' | 'completed' | 'failed';
 export type DuplicateStatus = 'pending' | 'merged' | 'dismissed' | 'ignored';

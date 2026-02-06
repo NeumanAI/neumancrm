@@ -19,6 +19,7 @@ export function useImportJobs() {
       if (error) throw error;
       return data as unknown as ImportJob[];
     },
+    refetchInterval: 5000, // Poll every 5 seconds to catch updates
   });
 
   const createImportJob = useMutation({
@@ -99,7 +100,10 @@ export function useImportJobs() {
     mutationFn: async (id: string) => {
       const { data, error } = await supabase
         .from('import_jobs')
-        .update({ status: 'cancelled' })
+        .update({ 
+          status: 'cancelled',
+          completed_at: new Date().toISOString(),
+        })
         .eq('id', id)
         .select()
         .single();
@@ -112,6 +116,48 @@ export function useImportJobs() {
       toast({
         title: 'Importación cancelada',
         description: 'La importación ha sido cancelada.',
+      });
+    },
+  });
+
+  const retryImportJob = useMutation({
+    mutationFn: async (id: string) => {
+      // First get the job details
+      const { data: job, error: fetchError } = await supabase
+        .from('import_jobs')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!job) throw new Error('Job not found');
+
+      // Reset the job status
+      const { error: updateError } = await supabase
+        .from('import_jobs')
+        .update({ 
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          errors: [{ row: 0, field: 'system', error: 'Job marcado como fallido para reintento' }],
+        })
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+
+      return job as unknown as ImportJob;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['import-jobs'] });
+      toast({
+        title: 'Job marcado para reintento',
+        description: 'Por favor sube el archivo nuevamente para reintentar la importación.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error al reintentar',
+        description: error.message,
+        variant: 'destructive',
       });
     },
   });
@@ -134,6 +180,7 @@ export function useImportJobs() {
     createImportJob,
     updateImportJob,
     cancelImportJob,
+    retryImportJob,
     getImportJob,
   };
 }

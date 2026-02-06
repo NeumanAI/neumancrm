@@ -19,6 +19,9 @@ import {
   Clock,
   AlertCircle,
   Loader2,
+  RefreshCw,
+  Ban,
+  AlertTriangle,
 } from 'lucide-react';
 import { useImportJobs } from '@/hooks/useImportJobs';
 import { useToast } from '@/hooks/use-toast';
@@ -27,7 +30,8 @@ import {
   EntityType, 
   ENTITY_FIELDS, 
   COLUMN_MAPPING_DICTIONARY,
-  ImportSettings 
+  ImportSettings,
+  ImportJob,
 } from '@/types/data-management';
 import ColumnMappingDialog from './ColumnMappingDialog';
 import DataPreviewTable from './DataPreviewTable';
@@ -49,8 +53,16 @@ export default function ImportTab() {
     validate_phones: false,
   });
 
-  const { importJobs, isLoading: loadingJobs, createImportJob } = useImportJobs();
+  const { importJobs, isLoading: loadingJobs, createImportJob, cancelImportJob, retryImportJob } = useImportJobs();
   const { toast } = useToast();
+
+  // Detect if a job is stuck (processing for more than 5 minutes)
+  const isJobStuck = useCallback((job: ImportJob) => {
+    if (job.status !== 'processing') return false;
+    const startTime = job.started_at ? new Date(job.started_at).getTime() : 0;
+    const now = Date.now();
+    return (now - startTime) > 5 * 60 * 1000; // 5 minutes
+  }, []);
 
   const autoMapColumns = useCallback((fileHeaders: string[]) => {
     const mapping: Record<string, string> = {};
@@ -178,8 +190,6 @@ export default function ImportTab() {
       });
 
       // Process import via edge function
-      const { data: { user } } = await supabase.auth.getUser();
-      
       const response = await supabase.functions.invoke('process-import', {
         body: {
           job_id: job.id,
@@ -193,8 +203,8 @@ export default function ImportTab() {
       if (response.error) throw response.error;
 
       toast({
-        title: 'Importación iniciada',
-        description: `Procesando ${fullData.length} registros...`,
+        title: 'Importación completada',
+        description: `${response.data?.successCount || 0} registros importados exitosamente.`,
       });
 
       // Reset form
@@ -214,16 +224,51 @@ export default function ImportTab() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
+  const handleCancelJob = async (jobId: string) => {
+    try {
+      await cancelImportJob.mutateAsync(jobId);
+    } catch (error: any) {
+      toast({
+        title: 'Error al cancelar',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleRetryJob = async (job: ImportJob) => {
+    try {
+      await retryImportJob.mutateAsync(job.id);
+      toast({
+        title: 'Reintentando importación',
+        description: 'La importación se ha reiniciado.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error al reintentar',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const getStatusBadge = (job: ImportJob) => {
+    const stuck = isJobStuck(job);
+    
+    switch (job.status) {
       case 'completed':
         return <Badge variant="default" className="bg-green-500"><CheckCircle2 className="h-3 w-3 mr-1" />Completado</Badge>;
+      case 'completed_with_errors':
+        return <Badge variant="secondary" className="bg-amber-500 text-white"><AlertTriangle className="h-3 w-3 mr-1" />Con errores</Badge>;
       case 'failed':
         return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Fallido</Badge>;
       case 'processing':
+        if (stuck) {
+          return <Badge variant="destructive"><AlertCircle className="h-3 w-3 mr-1" />Atascado</Badge>;
+        }
         return <Badge variant="secondary"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Procesando</Badge>;
       case 'cancelled':
-        return <Badge variant="outline"><AlertCircle className="h-3 w-3 mr-1" />Cancelado</Badge>;
+        return <Badge variant="outline"><Ban className="h-3 w-3 mr-1" />Cancelado</Badge>;
       default:
         return <Badge variant="outline"><Clock className="h-3 w-3 mr-1" />Pendiente</Badge>;
     }
@@ -432,25 +477,60 @@ export default function ImportTab() {
             </p>
           ) : (
             <div className="space-y-3">
-              {importJobs.map((job) => (
-                <div key={job.id} className="flex items-center justify-between p-4 rounded-lg border">
-                  <div className="flex items-center gap-3">
-                    <FileSpreadsheet className="h-8 w-8 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">{job.filename}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {job.successful_rows}/{job.total_rows} registros · {formatDistanceToNow(new Date(job.created_at), { addSuffix: true, locale: es })}
-                      </p>
+              {importJobs.map((job) => {
+                const stuck = isJobStuck(job);
+                
+                return (
+                  <div key={job.id} className="flex items-center justify-between p-4 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      <FileSpreadsheet className="h-8 w-8 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">{job.filename}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {job.successful_rows}/{job.total_rows} registros · {formatDistanceToNow(new Date(job.created_at), { addSuffix: true, locale: es })}
+                        </p>
+                        {job.errors && job.errors.length > 0 && (
+                          <p className="text-xs text-destructive mt-1">
+                            {job.errors[0].error}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {job.status === 'processing' && !stuck && (
+                        <Progress value={job.progress} className="w-24" />
+                      )}
+                      {getStatusBadge(job)}
+                      
+                      {/* Actions for stuck or failed jobs */}
+                      {(stuck || job.status === 'failed') && (
+                        <div className="flex gap-2 ml-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => handleRetryJob(job)}
+                            disabled={retryImportJob.isPending}
+                          >
+                            <RefreshCw className="h-3 w-3 mr-1" />
+                            Reintentar
+                          </Button>
+                          {stuck && (
+                            <Button 
+                              size="sm" 
+                              variant="destructive" 
+                              onClick={() => handleCancelJob(job.id)}
+                              disabled={cancelImportJob.isPending}
+                            >
+                              <Ban className="h-3 w-3 mr-1" />
+                              Cancelar
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {job.status === 'processing' && (
-                      <Progress value={job.progress} className="w-24" />
-                    )}
-                    {getStatusBadge(job.status)}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

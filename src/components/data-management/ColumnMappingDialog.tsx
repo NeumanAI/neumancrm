@@ -9,8 +9,30 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { EntityType, ENTITY_FIELDS } from '@/types/data-management';
-import { Check, X } from 'lucide-react';
+import { Check, X, AlertTriangle } from 'lucide-react';
+
+// Valid fields per entity type - must match backend validation
+const VALID_FIELDS: Record<EntityType, string[]> = {
+  contacts: [
+    'first_name', 'last_name', 'email', 'phone', 'mobile',
+    'whatsapp_number', 'job_title', 'department', 'notes',
+    'linkedin_url', 'twitter_url', 'instagram_username', 'source'
+  ],
+  companies: [
+    'name', 'domain', 'website', 'industry', 'phone',
+    'address', 'city', 'country', 'employee_count', 'revenue', 'description',
+    'linkedin_url', 'twitter_url'
+  ],
+  opportunities: [
+    'title', 'value', 'currency', 'probability', 'status',
+    'expected_close_date', 'description'
+  ],
+  activities: [
+    'title', 'type', 'description', 'due_date', 'priority', 'completed'
+  ]
+};
 
 interface ColumnMappingDialogProps {
   open: boolean;
@@ -57,6 +79,11 @@ export default function ColumnMappingDialog({
     return Object.values(columnMapping).includes(field);
   };
 
+  // Check for invalid mappings (fields that don't exist in the target table)
+  const invalidMappings = Object.entries(columnMapping).filter(
+    ([_, targetField]) => !VALID_FIELDS[entityType].includes(targetField)
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
@@ -66,6 +93,22 @@ export default function ColumnMappingDialog({
             Asocia las columnas de tu archivo con los campos de {entityType === 'contacts' ? 'contactos' : entityType === 'companies' ? 'empresas' : 'oportunidades'}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Warning for invalid mappings */}
+        {invalidMappings.length > 0 && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Campos inválidos detectados:</strong> Los siguientes mapeos serán ignorados porque los campos no existen en la tabla {entityType}:
+              <ul className="mt-2 list-disc list-inside">
+                {invalidMappings.map(([source, target]) => (
+                  <li key={source}>{source} → {target}</li>
+                ))}
+              </ul>
+              Por favor, selecciona campos válidos o marca como "No mapear".
+            </AlertDescription>
+          </Alert>
+        )}
 
         <ScrollArea className="max-h-[60vh] pr-4">
           <div className="space-y-4">
