@@ -3,20 +3,37 @@ import { supabase } from '@/integrations/supabase/client';
 import { Activity } from '@/types/crm';
 import { toast } from 'sonner';
 
-export function useActivities() {
+interface UseActivitiesOptions {
+  limit?: number;
+  onlyPending?: boolean;
+  enabled?: boolean;
+}
+
+export function useActivities(options: UseActivitiesOptions = {}) {
+  const { limit, onlyPending, enabled = true } = options;
   const queryClient = useQueryClient();
 
   const { data: activities, isLoading } = useQuery({
-    queryKey: ['activities'],
+    queryKey: ['activities', { limit, onlyPending }],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('activities')
         .select('*, contacts(id, first_name, last_name), companies(id, name), opportunities(id, title)')
         .order('due_date', { ascending: true });
       
+      if (onlyPending) {
+        query = query.eq('completed', false);
+      }
+      
+      if (limit) {
+        query = query.limit(limit);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data as Activity[];
     },
+    enabled,
     staleTime: 30000, // 30 seconds
     refetchOnWindowFocus: false,
   });

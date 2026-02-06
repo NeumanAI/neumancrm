@@ -4,20 +4,32 @@ import { Contact } from '@/types/crm';
 import { toast } from 'sonner';
 import { Json } from '@/integrations/supabase/types';
 
-export function useContacts() {
+interface UseContactsOptions {
+  limit?: number;
+  enabled?: boolean;
+}
+
+export function useContacts(options: UseContactsOptions = {}) {
+  const { limit, enabled = true } = options;
   const queryClient = useQueryClient();
 
   const { data: contacts, isLoading } = useQuery({
-    queryKey: ['contacts'],
+    queryKey: ['contacts', { limit }],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('contacts')
         .select('*, companies(id, name, logo_url)')
         .order('created_at', { ascending: false });
       
+      if (limit) {
+        query = query.limit(limit);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data as Contact[];
     },
+    enabled,
     staleTime: 30000, // 30 seconds
     refetchOnWindowFocus: false,
   });
