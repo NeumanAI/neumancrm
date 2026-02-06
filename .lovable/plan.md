@@ -1,171 +1,111 @@
 
-# Plan: Optimización del Rendimiento del Dashboard
-
-## Diagnóstico del Problema
-
-El Dashboard está mostrando un spinner indefinido debido a una combinación de factores:
-
-| Problema | Impacto | Ubicación |
-|----------|---------|-----------|
-| Cadena de carga bloqueante | **Crítico** - El AppLayout espera 4 hooks antes de renderizar | `AppLayout.tsx` |
-| Llamadas RPC secuenciales | **Alto** - `is_super_admin` y `is_reseller_admin` bloquean render | `useSuperAdmin.ts`, `useResellerAdmin.ts` |
-| Edge Function timeout | **Medio** - `generate-insights` falla repetidamente | `AIInsightsCard.tsx` |
-| Queries sin límite | **Medio** - Consultas traen todos los registros | Hooks de datos |
-
-## Solución Propuesta
-
-### 1. Desbloquear el render del AppLayout
-
-Cambiar la lógica de carga para que solo `authLoading` y `teamLoading` sean bloqueantes. Los checks de admin pueden ejecutarse en paralelo sin bloquear.
-
-```text
-// ANTES (bloqueante)
-const isLoading = authLoading || teamLoading || adminLoading || resellerLoading;
-
-// DESPUÉS (solo bloquea lo esencial)
-const isLoading = authLoading || teamLoading;
-```
-
-### 2. Limitar queries del Dashboard
-
-Agregar límites a las consultas que se usan en el Dashboard:
-- Contactos: solo últimos 10 para "Actividad Reciente"
-- Oportunidades: solo abiertas, máximo 10
-- Actividades: solo pendientes de hoy, máximo 10
-
-### 3. Lazy load del AIInsightsCard
-
-Envolver el componente AIInsightsCard en Suspense o cargar de forma diferida para que no bloquee el render inicial.
-
-### 4. Agregar staleTime a queries de permisos
-
-Los hooks de admin deben cachear sus resultados por más tiempo ya que los roles no cambian frecuentemente.
+## Objetivo
+Eliminar el “cargando” infinito del Dashboard (pantalla blanca con loader) y garantizar que el layout + dashboard siempre rendericen rápido, aun si alguna consulta falla (auth, equipo, insights IA, etc.).
 
 ---
 
-## Archivos a Modificar
-
-| Archivo | Cambios |
-|---------|---------|
-| `src/components/layout/AppLayout.tsx` | Remover admin/reseller loading del bloqueo principal |
-| `src/pages/Dashboard.tsx` | Lazy load del AIInsightsCard, limitar datos mostrados |
-| `src/hooks/useSuperAdmin.ts` | Agregar staleTime de 5 minutos |
-| `src/hooks/useResellerAdmin.ts` | Agregar staleTime de 5 minutos |
-| `src/hooks/useContacts.ts` | Agregar hook separado para dashboard con límite |
-| `src/hooks/useOpportunities.ts` | Agregar opción de límite |
-| `src/hooks/useActivities.ts` | Agregar opción de límite |
+## Hallazgos (con lo que ya se ve en logs/red)
+1. **El loader que ves coincide con el loader de `AppLayout`** (pantalla centrada con `Loader2`). Eso significa que `isLoading = authLoading || teamLoading` se queda en `true` demasiado tiempo o en bucle.
+2. **`useTeam()` hoy hace una consulta de organización potencialmente problemática**:
+   - `organizations.select('*').maybeSingle()`
+   - En tu backend hay **múltiples organizaciones** (se observa respuesta con varias filas), por lo que una lectura “single/maybeSingle” puede provocar error/reintentos (y mantener `teamLoading` en true durante los retries o refetches).
+3. Se observan **peticiones repetidas** a `organizations` y `generate-insights` con **404**. Aunque lo de Insights no debería bloquear, sí añade ruido y latencia en el arranque.
+4. Falta “fail-safe”: si auth o team se quedan atorados, hoy **no hay salida** (no hay UI de error/reintento/cerrar sesión), por eso se percibe como “NO carga”.
 
 ---
 
-## Sección Tecnica
+## Estrategia de solución (en orden de impacto)
 
-### AppLayout Optimizado
+### 1) Hacer que `useTeam()` sea determinístico y rápido (fix raíz)
+**Cambiar el flujo de obtención de organización actual:**
+- En vez de leer `organizations` “a ciegas”, primero obtener la **membresía** del usuario en `team_members` y de ahí el `organization_id`.
+- Luego traer la organización por `id` con `.single()` (ahora sí, 1 fila real).
+- Luego cargar `teamMembers` filtrando por `organization_id` (evita traer basura y evita depender de RLS implícita).
 
-```typescript
-export function AppLayout({ children }: AppLayoutProps) {
-  const { user, loading: authLoading } = useAuth();
-  const { organization, isLoading: teamLoading } = useTeam();
-  const { isSuperAdmin } = useSuperAdmin(); // No usar isLoading
-  const { isResellerAdmin } = useResellerAdmin(); // No usar isLoading
-  
-  // Solo bloquear en auth y team - criticos para el flujo
-  const isLoading = authLoading || teamLoading;
-  
-  // El resto del componente...
-}
-```
+**Cambios concretos propuestos en `src/hooks/useTeam.ts`:**
+- Nuevo query `current_member`:
+  - `team_members.select('organization_id, role, ...').eq('user_id', user.id).eq('is_active', true).maybeSingle()`
+- Query de `organization`:
+  - `organizations.select('*').eq('id', organizationId).single()`
+- Query de `team_members` del equipo:
+  - `team_members.select('*').eq('organization_id', organizationId).order('created_at')`
+- Ajustes de performance/estabilidad:
+  - `staleTime: 5 * 60 * 1000` (roles/organización no cambian cada segundo)
+  - `refetchOnWindowFocus: false`
+  - `retry: 1` o `retry: false` (para no “congelar” el layout con reintentos largos)
+- Exponer también `error` y `isError` de los queries para que el layout pueda reaccionar.
 
-### Dashboard con Lazy Loading
-
-```typescript
-import { lazy, Suspense } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
-
-// Lazy load el componente de AI que es pesado
-const AIInsightsCard = lazy(() => import('@/components/dashboard/AIInsightsCard')
-  .then(module => ({ default: module.AIInsightsCard })));
-
-export default function Dashboard() {
-  // Usar versiones limitadas de los hooks
-  const { contacts, isLoading: contactsLoading } = useContacts({ limit: 10 });
-  const { opportunities, isLoading: oppsLoading } = useOpportunities({ limit: 10, status: 'open' });
-  const { activities } = useActivities({ limit: 10, onlyPending: true });
-  
-  return (
-    <motion.div>
-      {/* Lazy AI Insights */}
-      <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-        <AIInsightsCard />
-      </Suspense>
-      
-      {/* Resto del dashboard */}
-    </motion.div>
-  );
-}
-```
-
-### Hooks con staleTime extendido
-
-```typescript
-// useSuperAdmin.ts
-const { data: isSuperAdmin = false, isLoading: checkingAdmin } = useQuery({
-  queryKey: ['is_super_admin', user?.id],
-  queryFn: async () => {
-    const { data, error } = await supabase.rpc('is_super_admin');
-    if (error) return false;
-    return data as boolean;
-  },
-  enabled: !!user,
-  staleTime: 5 * 60 * 1000, // 5 minutos - roles no cambian frecuentemente
-  refetchOnWindowFocus: false,
-});
-```
-
-### Hook de Contactos con opciones
-
-```typescript
-interface UseContactsOptions {
-  limit?: number;
-  enabled?: boolean;
-}
-
-export function useContacts(options: UseContactsOptions = {}) {
-  const { limit, enabled = true } = options;
-  
-  const { data: contacts, isLoading } = useQuery({
-    queryKey: ['contacts', { limit }],
-    queryFn: async () => {
-      let query = supabase
-        .from('contacts')
-        .select('*, companies(id, name, logo_url)')
-        .order('created_at', { ascending: false });
-      
-      if (limit) {
-        query = query.limit(limit);
-      }
-      
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as Contact[];
-    },
-    enabled,
-    staleTime: 30000,
-    refetchOnWindowFocus: false,
-  });
-  
-  // ...resto del hook
-}
-```
+**Resultado esperado:** `teamLoading` deja de depender de una consulta ambigua que puede fallar por “múltiples filas”.
 
 ---
 
-## Resultado Esperado
+### 2) Evitar “loader infinito” en `AppLayout` con estados de error + timeout (hardening)
+**Objetivo:** si algo se rompe (auth/team), el usuario ve una pantalla de recuperación y no queda atrapado.
 
-| Metrica | Antes | Despues |
-|---------|-------|---------|
-| Tiempo hasta primer render | 5-10s+ (bloqueado) | <1s |
-| Queries iniciales | 6+ sin limite | 4 con limite de 10 |
-| AI Insights | Bloquea render | Carga async |
-| Cache de permisos | Sin cache | 5 min staleTime |
+**Cambios en `src/components/layout/AppLayout.tsx`:**
+- Consumir `error/isError` desde `useTeam()`.
+- Agregar un “boot timeout” (ej. 8–12 segundos) para pasar de loader a pantalla de “No pudimos cargar tu cuenta” con:
+  - Botón **Reintentar** (refetch de queries)
+  - Botón **Cerrar sesión** (signOut)
+- Mostrar error UI si `useTeam` falla (en vez de spinner eterno).
 
-El Dashboard se mostrara inmediatamente con los datos esenciales, mientras los componentes secundarios (AI Insights) cargan de forma asincrona sin bloquear la experiencia del usuario.
+**Criterio de aceptación:** nunca más un spinner “eterno”; siempre hay fallback.
+
+---
+
+### 3) Reducir carga inicial del Dashboard (ya optimizado, pero completar lo que falta)
+Ahora el Dashboard limita contactos/oportunidades/actividades, pero **companies** sigue trayéndose completo.
+
+**Cambios propuestos:**
+- `src/hooks/useCompanies.ts`:
+  - agregar `limit?: number` y/o modo `countOnly?: boolean`
+  - o crear hook específico `useCompaniesCount()` usando `select('*', { count: 'exact', head: true })` (rápido, sin payload)
+- `src/pages/Dashboard.tsx`:
+  - usar `countOnly` o `limit` para el card “Empresas”
+  - mostrar skeletons locales cuando hooks estén cargando (sin bloquear el render general).
+
+---
+
+### 4) Corregir o aislar `generate-insights` (404) para que no afecte experiencia
+Se observa `POST /functions/v1/generate-insights` con **404**; eso indica que el endpoint no está disponible en este entorno o el nombre no coincide con lo desplegado.
+
+**Cambios propuestos:**
+- `src/hooks/useAIInsights.ts`:
+  - Si el error es 404, tratarlo como “feature no disponible” y **no** reintentar automáticamente (ya hay `retry:false`, pero asegurar que no haya re-mount loop).
+- `src/components/dashboard/AIInsightsCard.tsx`:
+  - Mostrar mensaje claro tipo “Insights IA no disponibles por el momento” (ya muestra error genérico, pero conviene distinguir 404).
+
+*(En paralelo, en implementación revisaremos el backend function name/estado para restaurar Insights, pero el Dashboard no debe depender de eso.)*
+
+---
+
+## Archivos a modificar (implementación)
+1. `src/hooks/useTeam.ts`
+   - Reescritura de queries: `currentMember -> organization -> teamMembers`.
+   - Añadir opciones de cache y retry.
+   - Exponer `error` para UI.
+2. `src/components/layout/AppLayout.tsx`
+   - Manejo de error/timeout y UI de recuperación (retry/sign out).
+3. `src/hooks/useCompanies.ts`
+   - Soporte de `limit` o `countOnly` (para Dashboard).
+4. `src/pages/Dashboard.tsx`
+   - Usar conteo/limit para empresas y skeletons locales.
+5. (Opcional pero recomendado) `src/hooks/useAIInsights.ts` + `src/components/dashboard/AIInsightsCard.tsx`
+   - Manejo específico de 404 (no disponible) para reducir ruido.
+
+---
+
+## Pruebas (end-to-end) que haremos al implementar
+1. Abrir `/` (redirige a `/dashboard`) y verificar:
+   - Render de Sidebar + Header en < 1s–2s (sin spinner eterno).
+2. Simular fallo de `useTeam` (forzando error temporal) y comprobar:
+   - Aparece pantalla de recuperación con “Reintentar” y “Cerrar sesión”.
+3. Verificar que el card de “Empresas” no dispare una descarga masiva.
+4. Verificar que aunque `generate-insights` esté caído (404), el Dashboard carga igual.
+
+---
+
+## Impacto esperado
+- Eliminación del bloqueo en el arranque causado por carga/errores de “organización actual”.
+- Dashboard siempre visible con degradación elegante si algo externo falla.
+- Menor volumen de datos inicial (especialmente companies) y mejor percepción de velocidad.
