@@ -39,7 +39,6 @@ export interface Organization {
     currency: string;
     date_format: string;
   } | null;
-  // Branding fields
   logo_url: string | null;
   favicon_url: string | null;
   primary_color: string | null;
@@ -55,45 +54,91 @@ export function useTeam() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Fetch organization
-  const { data: organization, isLoading: orgLoading } = useQuery({
-    queryKey: ['organization'],
+  // Step 1: Get current user's team membership to get their organization_id
+  const { 
+    data: currentMember, 
+    isLoading: memberLoading,
+    error: memberError,
+    isError: memberIsError,
+  } = useQuery({
+    queryKey: ['current_team_member', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('team_members')
+        .select('*')
+        .eq('user_id', user!.id)
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data as TeamMember | null;
+    },
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000, // 5 minutes - membership doesn't change often
+    refetchOnWindowFocus: false,
+    retry: 1, // Only retry once to avoid long waits
+  });
+
+  const organizationId = currentMember?.organization_id;
+
+  // Step 2: Fetch organization by ID (deterministic - single row)
+  const { 
+    data: organization, 
+    isLoading: orgLoading,
+    error: orgError,
+    isError: orgIsError,
+  } = useQuery({
+    queryKey: ['organization', organizationId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('organizations')
         .select('*')
-        .maybeSingle();
+        .eq('id', organizationId!)
+        .single();
       
       if (error) throw error;
-      if (!data) return null;
       
-      // Cast settings and organization_type appropriately
       return {
         ...data,
         organization_type: (data.organization_type || 'direct') as OrganizationType,
         settings: data.settings as Organization['settings'],
       } as Organization;
     },
-    enabled: !!user,
+    enabled: !!organizationId,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
-  // Fetch team members
-  const { data: teamMembers = [], isLoading: membersLoading } = useQuery({
-    queryKey: ['team_members'],
+  // Step 3: Fetch all team members for the organization
+  const { 
+    data: teamMembers = [], 
+    isLoading: teamMembersLoading,
+    error: teamMembersError,
+  } = useQuery({
+    queryKey: ['team_members', organizationId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('team_members')
         .select('*')
+        .eq('organization_id', organizationId!)
         .order('created_at', { ascending: true });
       
       if (error) throw error;
       return data as TeamMember[];
     },
-    enabled: !!user,
+    enabled: !!organizationId,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
-  // Current member (the logged-in user)
-  const currentMember = teamMembers.find(m => m.user_id === user?.id);
+  // Combined loading state - only member + org are critical for initial render
+  const isLoading = memberLoading || (!!organizationId && orgLoading);
+  
+  // Combined error state
+  const error = memberError || orgError || teamMembersError;
+  const isError = memberIsError || orgIsError;
 
   // Permission helpers
   const isAdmin = currentMember?.role === 'admin';
@@ -103,18 +148,23 @@ export function useTeam() {
   const canEdit = isAdmin || isManager || currentMember?.role === 'sales_rep';
   const isViewer = currentMember?.role === 'viewer';
 
+  // Refetch all team-related data
+  const refetchAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['current_team_member'] });
+    queryClient.invalidateQueries({ queryKey: ['organization'] });
+    queryClient.invalidateQueries({ queryKey: ['team_members'] });
+  };
+
   // Invite member mutation
   const inviteMember = useMutation({
     mutationFn: async ({ email, role, fullName }: { email: string; role: TeamRole; fullName?: string }) => {
       if (!organization) throw new Error('No organization found');
       
-      // Check max users limit
       const activeMembers = teamMembers.filter(m => m.is_active).length;
       if (activeMembers >= organization.max_users) {
         throw new Error(`Límite de usuarios alcanzado (${organization.max_users})`);
       }
 
-      // Create invitation with pending_email - user_id will be linked when they register
       const { data, error } = await supabase
         .from('team_members')
         .insert({
@@ -122,11 +172,11 @@ export function useTeam() {
           email,
           role,
           full_name: fullName || email.split('@')[0],
-          user_id: null, // Will be linked when user registers
+          user_id: null,
           pending_email: email.toLowerCase(),
           invitation_status: 'pending',
           invited_by: user?.id,
-          is_active: false, // Will be activated when they register
+          is_active: false,
         })
         .select()
         .single();
@@ -280,7 +330,10 @@ export function useTeam() {
     organization,
     teamMembers,
     currentMember,
-    isLoading: orgLoading || membersLoading,
+    isLoading,
+    error,
+    isError,
+    refetchAll,
     
     // Permissions
     isAdmin,
