@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTeam } from '@/hooks/useTeam';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Search, Menu, LogOut, Settings } from 'lucide-react';
+import { Search, Menu, LogOut, Settings, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { GlobalProjectFilter } from '@/components/projects/GlobalProjectFilter';
@@ -22,11 +22,24 @@ interface HeaderProps {
   onMenuClick: () => void;
 }
 
+function getGreeting(user: { email?: string; user_metadata?: { full_name?: string } } | null) {
+  const hour = new Date().getHours();
+  const userName = user?.user_metadata?.full_name?.split(' ')[0] || 
+                   user?.email?.split('@')[0] || 'Usuario';
+  
+  if (hour < 12) return `Buenos días, ${userName}`;
+  if (hour < 18) return `Buenas tardes, ${userName}`;
+  return `Buenas noches, ${userName}`;
+}
+
 export function Header({ onMenuClick }: HeaderProps) {
   const { user, signOut } = useAuth();
   const { organization } = useTeam();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
+
+  const isDashboard = location.pathname === '/' || location.pathname === '/dashboard';
 
   const handleSignOut = async () => {
     await signOut();
@@ -40,70 +53,83 @@ export function Header({ onMenuClick }: HeaderProps) {
     .toUpperCase() || 'U';
 
   return (
-    <header className="h-16 border-b border-border bg-card/50 backdrop-blur sticky top-0 z-30 flex items-center justify-between px-4 md:px-6">
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="md:hidden"
-          onClick={onMenuClick}
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
+    <header className="h-auto min-h-16 border-b border-border bg-card/95 backdrop-blur sticky top-0 z-30">
+      <div className="flex items-center justify-between px-4 md:px-6 py-4">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={onMenuClick}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
 
-        {/* Search */}
-        <div className="relative hidden md:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar contactos, empresas, deals..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-80 pl-10 bg-muted/50 border-0 focus-visible:ring-1"
-          />
+          {/* Personalized Greeting on Dashboard */}
+          {isDashboard ? (
+            <div className="hidden md:block">
+              <h1 className="text-xl font-semibold">{getGreeting(user)}</h1>
+              <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                Tu asistente IA está listo para ayudarte
+              </p>
+            </div>
+          ) : (
+            /* Search on other pages */
+            <div className="relative hidden md:block">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar contactos, empresas, deals..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-80 pl-10 bg-muted/50 border-0 focus-visible:ring-1"
+              />
+            </div>
+          )}
         </div>
 
-        {/* Project Filter */}
-        <GlobalProjectFilter />
-      </div>
+        <div className="flex items-center gap-3">
+          {/* Project Filter */}
+          <GlobalProjectFilter />
 
-      <div className="flex items-center gap-3">
-        {/* Notifications */}
-        <NotificationBell />
+          {/* Notifications */}
+          <NotificationBell />
 
-        {/* User Menu */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-              <Avatar className="h-9 w-9 border-2 border-primary/20">
-                <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium">
-                  {userInitials}
-                </AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">
-                  {organization?.name || 'Mi Cuenta'}
-                </p>
-                <p className="text-xs leading-none text-muted-foreground">
-                  {user?.email}
-                </p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate('/settings')}>
-              <Settings className="mr-2 h-4 w-4" />
-              Configuración
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
-              <LogOut className="mr-2 h-4 w-4" />
-              Cerrar Sesión
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          {/* User Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                <Avatar className="h-9 w-9 border-2 border-primary/20">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium">
+                    {userInitials}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">
+                    {organization?.name || 'Mi Cuenta'}
+                  </p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {user?.email}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/settings')}>
+                <Settings className="mr-2 h-4 w-4" />
+                Configuración
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+                <LogOut className="mr-2 h-4 w-4" />
+                Cerrar Sesión
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </header>
   );

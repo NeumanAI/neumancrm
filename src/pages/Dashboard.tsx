@@ -3,14 +3,13 @@ import { useContacts } from '@/hooks/useContacts';
 import { useCompanies } from '@/hooks/useCompanies';
 import { useOpportunities } from '@/hooks/useOpportunities';
 import { useActivities } from '@/hooks/useActivities';
-import { StatCard } from '@/components/ui/stat-card';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, Building2, TrendingUp, CheckSquare, Calendar, ArrowRight } from 'lucide-react';
-import { forwardRef } from 'react';
-import { format, isToday, isTomorrow, parseISO } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DollarSign, Users, TrendingUp, Target, Calendar, ArrowRight } from 'lucide-react';
+import { format, isToday, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -22,12 +21,25 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell
+  LineChart,
+  Line
 } from 'recharts';
 
-// Lazy load del componente de AI para no bloquear el render inicial
+import { MetricCard } from '@/components/dashboard/MetricCard';
+import { AnalysisCard } from '@/components/dashboard/AnalysisCard';
+import { TrafficSourceChart } from '@/components/dashboard/TrafficSourceChart';
+import { MiniAreaChart, MiniLineChart } from '@/components/dashboard/MiniCharts';
+import {
+  revenueChartData,
+  clientsChartData,
+  conversionChartData,
+  campaignChartData,
+  growthPatternData,
+  trafficSourceData,
+  productDemandData,
+} from '@/lib/mockDashboardData';
+
+// Lazy load AI component
 const AIInsightsCard = lazy(() => 
   import('@/components/dashboard/AIInsightsCard').then(module => ({ 
     default: module.AIInsightsCard 
@@ -35,7 +47,6 @@ const AIInsightsCard = lazy(() =>
 );
 
 export default function Dashboard() {
-  // Usar versiones limitadas de los hooks para el dashboard
   const { contacts } = useContacts({ limit: 10 });
   const { companiesCount } = useCompanies({ countOnly: true });
   const { opportunities } = useOpportunities({ limit: 10 });
@@ -48,24 +59,6 @@ export default function Dashboard() {
 
   const pendingTasks = activities.filter(a => !a.completed);
   const todayTasks = pendingTasks.filter(a => a.due_date && isToday(parseISO(a.due_date)));
-
-  // Mock data for charts
-  const pipelineData = [
-    { month: 'Ago', value: 120000 },
-    { month: 'Sep', value: 180000 },
-    { month: 'Oct', value: 220000 },
-    { month: 'Nov', value: 280000 },
-    { month: 'Dic', value: 350000 },
-    { month: 'Ene', value: totalPipelineValue || 450000 },
-  ];
-
-  const stageDistribution = [
-    { name: 'Lead', value: 30, color: '#94A3B8' },
-    { name: 'Calificado', value: 25, color: '#3B82F6' },
-    { name: 'Propuesta', value: 20, color: '#F59E0B' },
-    { name: 'Negociación', value: 15, color: '#EC4899' },
-    { name: 'Ganado', value: 10, color: '#10B981' },
-  ];
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-ES', {
@@ -80,7 +73,7 @@ export default function Dashboard() {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
-      transition: { staggerChildren: 0.1 }
+      transition: { staggerChildren: 0.08 }
     }
   };
 
@@ -94,150 +87,179 @@ export default function Dashboard() {
       variants={container}
       initial="hidden"
       animate="show"
-      className="space-y-6"
+      className="p-6 md:p-8 bg-muted/30 min-h-screen space-y-8"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Title and Filters */}
+      <motion.div variants={item} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Resumen de tu actividad comercial</p>
+          <h2 className="text-2xl font-semibold">Resumen de Ventas y Negocio</h2>
+          <p className="text-muted-foreground text-sm mt-1">
+            Monitorea el rendimiento con insights en tiempo real
+          </p>
         </div>
-      </div>
+        
+        <div className="flex items-center gap-3">
+          <Select defaultValue="this-year">
+            <SelectTrigger className="w-36">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="this-week">Esta Semana</SelectItem>
+              <SelectItem value="this-month">Este Mes</SelectItem>
+              <SelectItem value="this-year">Este Año</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </motion.div>
 
-      {/* AI Insights - Lazy loaded */}
+      {/* Metric Cards Grid */}
+      <motion.div variants={item} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <MetricCard
+          title="Ingresos Totales"
+          value={formatCurrency(totalPipelineValue || 2864679)}
+          trend="up"
+          trendValue="+2.4%"
+          color="orange"
+          icon={<DollarSign className="h-5 w-5" />}
+          miniChart={<MiniAreaChart data={revenueChartData} color="orange" />}
+        />
+        <MetricCard
+          title="Clientes Activos"
+          value={contacts.length > 0 ? contacts.length.toLocaleString() : companiesCount.toLocaleString()}
+          trend="up"
+          trendValue="+3.5%"
+          color="blue"
+          icon={<Users className="h-5 w-5" />}
+          miniChart={<MiniAreaChart data={clientsChartData} color="blue" />}
+        />
+        <MetricCard
+          title="Tasa de Conversión"
+          value="2.4%"
+          trend="down"
+          trendValue="-1.3%"
+          color="purple"
+          icon={<TrendingUp className="h-5 w-5" />}
+          miniChart={<MiniLineChart data={conversionChartData} color="red" />}
+        />
+        <MetricCard
+          title="Resultado Campañas"
+          value="$5,320"
+          trend="up"
+          trendValue="+6.7%"
+          color="green"
+          icon={<Target className="h-5 w-5" />}
+          miniChart={<MiniAreaChart data={campaignChartData} color="green" />}
+        />
+      </motion.div>
+
+      {/* Analysis Charts Grid */}
+      <motion.div variants={item} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <AnalysisCard title="Patrón de Crecimiento" description="Cambios diarios de ingresos">
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={growthPatternData}>
+                <defs>
+                  <linearGradient id="colorIngresos" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(24 95% 53%)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(24 95% 53%)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(v) => formatCurrency(v)} />
+                <Tooltip 
+                  formatter={(value: number) => [formatCurrency(value), 'Valor']}
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))', 
+                    borderColor: 'hsl(var(--border))',
+                    borderRadius: '8px'
+                  }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="ingresos" 
+                  stroke="hsl(24 95% 53%)" 
+                  strokeWidth={2}
+                  fill="url(#colorIngresos)" 
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </AnalysisCard>
+
+        <AnalysisCard title="Fuentes de Tráfico" description="Canales con más engagement">
+          <div className="h-64 flex items-center">
+            <TrafficSourceChart data={trafficSourceData} />
+          </div>
+        </AnalysisCard>
+
+        <AnalysisCard title="Demanda de Producto" description="Tendencias de productos">
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={productDemandData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))', 
+                    borderColor: 'hsl(var(--border))',
+                    borderRadius: '8px'
+                  }}
+                />
+                <Line type="monotone" dataKey="producto_a" stroke="hsl(24 95% 53%)" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="producto_b" stroke="hsl(217 91% 60%)" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="producto_c" stroke="hsl(263 70% 50%)" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </AnalysisCard>
+
+        <AnalysisCard title="Rendimiento Campañas" description="Performance de marketing">
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={growthPatternData}>
+                <defs>
+                  <linearGradient id="colorCampanas" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(263 70% 50%)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(263 70% 50%)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(v) => formatCurrency(v)} />
+                <Tooltip 
+                  formatter={(value: number) => [formatCurrency(value), 'Valor']}
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))', 
+                    borderColor: 'hsl(var(--border))',
+                    borderRadius: '8px'
+                  }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="gastos" 
+                  stroke="hsl(263 70% 50%)" 
+                  strokeWidth={2}
+                  fill="url(#colorCampanas)" 
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </AnalysisCard>
+      </motion.div>
+
+      {/* AI Insights Card - Featured */}
       <motion.div variants={item}>
-        <Suspense fallback={<Skeleton className="h-48 w-full rounded-lg" />}>
+        <Suspense fallback={<Skeleton className="h-48 w-full rounded-xl" />}>
           <AIInsightsCard />
         </Suspense>
       </motion.div>
 
-      {/* Stats Grid */}
-      <motion.div variants={item} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Contactos"
-          value={contacts.length}
-          change={12}
-          changeLabel="este mes"
-          icon={<Users className="h-6 w-6" />}
-        />
-        <StatCard
-          title="Empresas"
-          value={companiesCount}
-          change={5}
-          changeLabel="este mes"
-          icon={<Building2 className="h-6 w-6" />}
-        />
-        <StatCard
-          title="Pipeline"
-          value={formatCurrency(totalPipelineValue)}
-          change={23}
-          changeLabel="vs mes pasado"
-          icon={<TrendingUp className="h-6 w-6" />}
-        />
-        <StatCard
-          title="Tareas Pendientes"
-          value={pendingTasks.length}
-          icon={<CheckSquare className="h-6 w-6" />}
-        />
-      </motion.div>
-
-      {/* Charts Row */}
-      <motion.div variants={item} className="grid gap-6 md:grid-cols-2">
-        {/* Pipeline Chart */}
-        <Card className="border-0 shadow-card">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">Pipeline (Últimos 6 meses)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={pipelineData}>
-                  <defs>
-                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <YAxis 
-                    stroke="hsl(var(--muted-foreground))" 
-                    fontSize={12}
-                    tickFormatter={(value) => formatCurrency(value)}
-                  />
-                  <Tooltip 
-                    formatter={(value: number) => [formatCurrency(value), 'Valor']}
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))', 
-                      borderColor: 'hsl(var(--border))',
-                      borderRadius: '8px'
-                    }}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="value" 
-                    stroke="hsl(var(--primary))" 
-                    strokeWidth={2}
-                    fill="url(#colorValue)" 
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Stage Distribution */}
-        <Card className="border-0 shadow-card">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">Distribución por Etapa</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={stageDistribution}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {stageDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    formatter={(value: number) => [`${value}%`, 'Porcentaje']}
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))', 
-                      borderColor: 'hsl(var(--border))',
-                      borderRadius: '8px'
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex flex-wrap justify-center gap-4 mt-4">
-              {stageDistribution.map((stage) => (
-                <div key={stage.name} className="flex items-center gap-2">
-                  <div 
-                    className="w-3 h-3 rounded-full" 
-                    style={{ backgroundColor: stage.color }} 
-                  />
-                  <span className="text-sm text-muted-foreground">{stage.name}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Bottom Section */}
-      <motion.div variants={item} className="grid gap-6 md:grid-cols-3">
+      {/* Bottom Section - Tasks and Deals */}
+      <motion.div variants={item} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Today's Tasks */}
-        <Card className="border-0 shadow-card">
+        <Card className="border-0 shadow-sm bg-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-lg font-semibold">Tareas de Hoy</CardTitle>
             <Link to="/tasks" className="text-sm text-primary hover:underline flex items-center gap-1">
@@ -286,7 +308,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Upcoming Deals */}
-        <Card className="border-0 shadow-card">
+        <Card className="border-0 shadow-sm bg-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-lg font-semibold">Deals Próximos</CardTitle>
             <Link to="/pipeline" className="text-sm text-primary hover:underline flex items-center gap-1">
@@ -330,7 +352,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Recent Activity */}
-        <Card className="border-0 shadow-card">
+        <Card className="border-0 shadow-sm bg-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-lg font-semibold">Actividad Reciente</CardTitle>
           </CardHeader>
