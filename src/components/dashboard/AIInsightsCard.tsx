@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { useChat } from '@/contexts/ChatContext';
 
 interface InsightBoxProps {
   color: 'red' | 'orange' | 'green';
@@ -25,9 +26,10 @@ interface InsightBoxProps {
   title: string;
   count: number;
   value: string;
+  onClick?: () => void;
 }
 
-function InsightBox({ color, icon: Icon, title, count, value }: InsightBoxProps) {
+function InsightBox({ color, icon: Icon, title, count, value, onClick }: InsightBoxProps) {
   const colorStyles = {
     red: 'bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800',
     orange: 'bg-orange-50 border-orange-200 dark:bg-orange-950/30 dark:border-orange-800',
@@ -41,7 +43,10 @@ function InsightBox({ color, icon: Icon, title, count, value }: InsightBoxProps)
   };
 
   return (
-    <div className={cn('p-4 rounded-xl border', colorStyles[color])}>
+    <button 
+      onClick={onClick}
+      className={cn('p-4 rounded-xl border text-left w-full transition-all hover:shadow-md', colorStyles[color])}
+    >
       <div className="flex items-center gap-3 mb-2">
         <div className={cn('p-2 rounded-lg', iconStyles[color])}>
           <Icon className="h-4 w-4" />
@@ -50,13 +55,14 @@ function InsightBox({ color, icon: Icon, title, count, value }: InsightBoxProps)
       </div>
       <p className="font-medium text-sm">{title}</p>
       <p className="text-xs text-muted-foreground mt-1">{value}</p>
-    </div>
+    </button>
   );
 }
 
 export function AIInsightsCard() {
   const { data: insights, isLoading, error, refetch, isFetching } = useAIInsights();
   const [isExpanded, setIsExpanded] = useState(false);
+  const { sendPrefilledMessage } = useChat();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-ES', {
@@ -65,6 +71,10 @@ export function AIInsightsCard() {
       notation: 'compact',
       maximumFractionDigits: 1,
     }).format(value);
+  };
+
+  const handleAskAI = (prompt: string) => {
+    sendPrefilledMessage(prompt);
   };
 
   // Handle 404 (function not deployed) gracefully
@@ -161,28 +171,31 @@ export function AIInsightsCard() {
           </div>
         ) : insights ? (
           <>
-            {/* 3-column grid with insight boxes */}
+            {/* 3-column grid with clickable insight boxes */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <InsightBox 
                 color="red" 
                 icon={AlertTriangle} 
                 title="Deals en Riesgo" 
                 count={dealsAtRiskCount} 
-                value={`${formatCurrency(dealsAtRiskValue)} en riesgo`} 
+                value={`${formatCurrency(dealsAtRiskValue)} en riesgo`}
+                onClick={() => handleAskAI('¿Cuáles son mis deals en riesgo y qué acciones recomiendas para cada uno?')}
               />
               <InsightBox 
                 color="orange" 
                 icon={Flame} 
                 title="Oportunidades Hot" 
                 count={hotOppsCount} 
-                value={`${formatCurrency(insights.pipeline_health?.total_value || 0)} potencial`} 
+                value={`${formatCurrency(insights.pipeline_health?.total_value || 0)} potencial`}
+                onClick={() => handleAskAI('Dame un análisis de las oportunidades más prometedoras del pipeline')}
               />
               <InsightBox 
                 color="green" 
                 icon={CheckCircle} 
                 title="Próximas Acciones" 
                 count={actionsCount} 
-                value="acciones recomendadas" 
+                value="acciones recomendadas"
+                onClick={() => handleAskAI('¿Cuáles son las próximas acciones recomendadas para mis contactos?')}
               />
             </div>
 
@@ -226,10 +239,10 @@ export function AIInsightsCard() {
                     </h4>
                     <div className="space-y-2">
                       {insights.deals_at_risk.slice(0, 3).map((deal) => (
-                        <Link
+                        <button
                           key={deal.id}
-                          to="/pipeline"
-                          className="flex items-center justify-between p-3 rounded-lg bg-white/60 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 transition-colors border border-white/30"
+                          onClick={() => handleAskAI(`Analiza el deal "${deal.title}" y sugiere acciones para recuperarlo`)}
+                          className="w-full flex items-center justify-between p-3 rounded-lg bg-white/60 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 transition-colors border border-white/30 text-left"
                         >
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate">{deal.title}</p>
@@ -239,9 +252,9 @@ export function AIInsightsCard() {
                           </div>
                           <div className="text-right flex-shrink-0 ml-4 flex items-center gap-2">
                             <p className="text-sm font-semibold">{formatCurrency(deal.value)}</p>
-                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                            <MessageSquare className="h-4 w-4 text-purple-500" />
                           </div>
-                        </Link>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -258,7 +271,8 @@ export function AIInsightsCard() {
                       {insights.suggestions.map((suggestion, index) => (
                         <li 
                           key={index}
-                          className="flex items-start gap-3 text-sm text-muted-foreground p-3 rounded-lg bg-white/40 dark:bg-white/5"
+                          className="flex items-start gap-3 text-sm text-muted-foreground p-3 rounded-lg bg-white/40 dark:bg-white/5 cursor-pointer hover:bg-white/60 dark:hover:bg-white/10 transition-colors"
+                          onClick={() => handleAskAI(suggestion)}
                         >
                           <Sparkles className="h-4 w-4 text-purple-500 mt-0.5 flex-shrink-0" />
                           <span>{suggestion}</span>
@@ -273,7 +287,10 @@ export function AIInsightsCard() {
             {/* CTA */}
             <div className="flex items-center justify-between pt-6 border-t border-purple-200/50 dark:border-purple-800/30 mt-6">
               <p className="text-sm text-muted-foreground">¿Quieres análisis más profundo?</p>
-              <Button className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-600/20">
+              <Button 
+                className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-600/20"
+                onClick={() => handleAskAI('Dame un análisis profundo del pipeline con recomendaciones de acción para cada deal')}
+              >
                 <MessageSquare className="h-4 w-4 mr-2" />
                 Pregúntale a la IA
               </Button>

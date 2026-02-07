@@ -8,12 +8,42 @@ import { ChatMessage } from '@/types/crm';
 import ReactMarkdown from 'react-markdown';
 import { useChat } from '@/contexts/ChatContext';
 
-const quickActions = [
-  'Crear un nuevo contacto',
-  'Ver mi pipeline',
-  '¿Cuáles son mis tareas de hoy?',
-  'Resumen de actividad',
-];
+function getContextualQuickActions(pathname: string): string[] {
+  const base = ['Dame un resumen ejecutivo'];
+
+  if (pathname === '/pipeline') {
+    return [...base, 'Analiza la salud de mis deals', '¿Cuáles deals están en riesgo?', 'Resumen del pipeline'];
+  }
+  if (pathname === '/contacts') {
+    return [...base, 'Busca contactos sin seguimiento', 'Crea un contacto nuevo', 'Contactos con WhatsApp'];
+  }
+  if (pathname === '/tasks') {
+    return [...base, '¿Qué tareas tengo para hoy?', 'Tareas vencidas', 'Completa la tarea...'];
+  }
+  if (pathname === '/companies') {
+    return [...base, 'Lista mis empresas', 'Busca empresa por industria', 'Crear empresa nueva'];
+  }
+  if (pathname === '/team') {
+    return [...base, 'Resumen del equipo', 'Progreso de cuotas', '¿Quién tiene más deals?'];
+  }
+  if (pathname === '/projects') {
+    return [...base, 'Lista proyectos activos', 'Métricas por proyecto', 'Crear nuevo proyecto'];
+  }
+  if (pathname === '/conversations') {
+    return [...base, 'Conversaciones abiertas', 'Mensajes sin leer', 'Resumen de conversación'];
+  }
+  if (pathname.startsWith('/contacts/')) {
+    return [...base, 'Analiza este contacto', 'Siguiente mejor acción', 'Historial de interacciones'];
+  }
+  if (pathname.startsWith('/companies/')) {
+    return [...base, 'Deals de esta empresa', 'Contactos asociados', 'Análisis de relación'];
+  }
+  if (pathname.startsWith('/projects/')) {
+    return [...base, 'Métricas de este proyecto', 'Contactos del proyecto', 'Pipeline del proyecto'];
+  }
+
+  return [...base, 'Buscar en todo el CRM', 'Ver mi pipeline', '¿Cuáles son mis tareas de hoy?'];
+}
 
 interface ChatMessagesProps {
   messages: ChatMessage[];
@@ -22,10 +52,11 @@ interface ChatMessagesProps {
 }
 
 export function ChatMessages({ messages, isLoading, streamingContent }: ChatMessagesProps) {
-  const { setInputValue, inputRef } = useChat();
+  const { setInputValue, inputRef, currentRoute } = useChat();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom on new messages
+  const quickActions = getContextualQuickActions(currentRoute);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamingContent]);
@@ -39,7 +70,7 @@ export function ChatMessages({ messages, isLoading, streamingContent }: ChatMess
           </div>
           <h2 className="text-xl font-semibold mb-2">¿En qué puedo ayudarte?</h2>
           <p className="text-muted-foreground mb-6">
-            Soy tu asistente de CRM con IA. Puedo ayudarte a gestionar contactos, pipeline y tareas.
+            Soy tu copiloto de CRM con IA. Puedo gestionar contactos, pipeline, tareas, conversaciones y mucho más.
           </p>
           <div className="flex flex-wrap justify-center gap-2">
             {quickActions.map((action) => (
