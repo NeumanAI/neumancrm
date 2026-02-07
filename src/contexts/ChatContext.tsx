@@ -8,6 +8,7 @@ import {
   useEffect,
 } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AIConversation, ChatMessage } from '@/types/crm';
 import { toast } from 'sonner';
@@ -21,12 +22,14 @@ async function streamChat({
   onDone,
   onError,
   accessToken,
+  currentRoute,
 }: {
   messages: { role: string; content: string }[];
   onDelta: (deltaText: string) => void;
   onDone: () => void;
   onError: (error: string) => void;
   accessToken?: string;
+  currentRoute?: string;
 }) {
   try {
     const resp = await fetch(CHAT_URL, {
@@ -35,7 +38,7 @@ async function streamChat({
         "Content-Type": "application/json",
         Authorization: accessToken ? `Bearer ${accessToken}` : `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify({ messages, currentRoute }),
     });
 
     if (!resp.ok) {
@@ -122,7 +125,7 @@ interface ChatContextType {
   setSelectedConversationId: (id: string | null) => void;
   startNewConversation: () => void;
   
-  // Messages - now using local state for reliability
+  // Messages
   displayMessages: ChatMessage[];
   
   // Input
@@ -135,6 +138,10 @@ interface ChatContextType {
   
   // Actions
   sendMessage: () => Promise<void>;
+  sendPrefilledMessage: (prompt: string) => void;
+  
+  // Route context
+  currentRoute: string;
   
   // Refs
   inputRef: React.RefObject<HTMLTextAreaElement>;
@@ -144,6 +151,7 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export function ChatProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
+  const location = useLocation();
   
   // Panel state
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -157,6 +165,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // Local messages state for reliable display during streaming
   const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  
+  // Prefilled message queue
+  const [pendingPrefill, setPendingPrefill] = useState<string | null>(null);
   
   // Refs
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -195,7 +206,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   }, [selectedConversationId]);
 
-  // Create conversation mutation with optimistic update
+  // Create conversation mutation
   const createConversation = useMutation({
     mutationFn: async (firstMessage: string) => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -219,14 +230,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       return { ...data, messages: initialMessages };
     },
     onSuccess: (data) => {
-      // Update local messages immediately
       setLocalMessages(data.messages);
       setSelectedConversationId(data.id);
       queryClient.invalidateQueries({ queryKey: ['ai_conversations'] });
     },
   });
 
-  // Update conversation mutation with optimistic updates
+  // Update conversation mutation
   const updateConversation = useMutation({
     mutationFn: async ({ id, messages }: { id: string; messages: ChatMessage[] }) => {
       const { error } = await supabase
@@ -241,13 +251,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       return { id, messages };
     },
     onMutate: async ({ id, messages }) => {
-      // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['ai_conversations'] });
-      
-      // Snapshot the previous value
       const previous = queryClient.getQueryData<AIConversation[]>(['ai_conversations']);
-      
-      // Optimistically update the cache
       queryClient.setQueryData<AIConversation[]>(['ai_conversations'], (old) =>
         old?.map(conv => 
           conv.id === id 
@@ -255,17 +260,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             : conv
         ) ?? []
       );
-      
-      // Also update local messages immediately
       setLocalMessages(messages);
-      
       return { previous };
     },
     onError: (err, variables, context) => {
-      // Rollback on error
-      if (context?.previous) {
-        queryClient.setQueryData(['ai_conversations'], context.previous);
-      }
+      if (context?.previous) queryClient.setQueryData(['ai_conversations'], context.previous);
       toast.error('Error al guardar el mensaje');
     },
     onSettled: () => {
@@ -294,16 +293,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setIsStreaming(true);
     setStreamingContent('');
     
-    // Auto-open panel when sending message
-    if (!isPanelOpen) {
-      setIsPanelOpen(true);
-    }
+    if (!isPanelOpen) setIsPanelOpen(true);
 
     try {
       let conversationId = selectedConversationId;
       let currentMessages = [...localMessages];
 
-      // Add user message to local state immediately for instant feedback
       const userMsg: ChatMessage = {
         role: 'user',
         content: userMessage,
@@ -311,25 +306,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       };
       
       if (!conversationId) {
-        // Create new conversation
-        setLocalMessages([userMsg]); // Show user message immediately
+        setLocalMessages([userMsg]);
         const newConv = await createConversation.mutateAsync(userMessage);
         conversationId = newConv.id;
         currentMessages = newConv.messages;
       } else {
-        // Add user message to existing conversation
         currentMessages = [...localMessages, userMsg];
-        setLocalMessages(currentMessages); // Show user message immediately
-        await updateConversation.mutateAsync({
-          id: conversationId,
-          messages: currentMessages,
-        });
+        setLocalMessages(currentMessages);
+        await updateConversation.mutateAsync({ id: conversationId, messages: currentMessages });
       }
 
-      // Prepare messages for AI (without timestamps)
       const aiMessages = currentMessages.map(m => ({ role: m.role, content: m.content }));
-
-      // Get current session for auth token
       const { data: { session } } = await supabase.auth.getSession();
 
       let assistantContent = '';
@@ -337,25 +324,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       await streamChat({
         messages: aiMessages,
         accessToken: session?.access_token,
+        currentRoute: location.pathname,
         onDelta: (chunk) => {
           assistantContent += chunk;
           setStreamingContent(assistantContent);
         },
         onDone: async () => {
-          // Save complete response
           const aiResponse: ChatMessage = {
             role: 'assistant',
             content: assistantContent,
             timestamp: new Date().toISOString(),
           };
-          
           const finalMessages = [...currentMessages, aiResponse];
-          
-          await updateConversation.mutateAsync({
-            id: conversationId!,
-            messages: finalMessages,
-          });
-          
+          await updateConversation.mutateAsync({ id: conversationId!, messages: finalMessages });
           setLocalMessages(finalMessages);
           setStreamingContent('');
           setIsStreaming(false);
@@ -374,9 +355,28 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setIsStreaming(false);
       setIsLoading(false);
     }
-  }, [inputValue, isLoading, isPanelOpen, selectedConversationId, localMessages, createConversation, updateConversation]);
+  }, [inputValue, isLoading, isPanelOpen, selectedConversationId, localMessages, createConversation, updateConversation, location.pathname]);
 
-  // Combine local messages with streaming content for display
+  // Send prefilled message - sets input and triggers send on next tick
+  const sendPrefilledMessage = useCallback((prompt: string) => {
+    setInputValue(prompt);
+    setIsPanelOpen(true);
+    setPendingPrefill(prompt);
+  }, []);
+
+  // Process pending prefill
+  useEffect(() => {
+    if (pendingPrefill && inputValue === pendingPrefill && !isLoading) {
+      setPendingPrefill(null);
+      // Use setTimeout to ensure state is settled
+      const timer = setTimeout(() => {
+        sendMessage();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [pendingPrefill, inputValue, isLoading, sendMessage]);
+
+  // Display messages with streaming
   const displayMessages = streamingContent 
     ? [...localMessages, { role: 'assistant' as const, content: streamingContent, timestamp: new Date().toISOString() }]
     : localMessages;
@@ -398,6 +398,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         isLoading,
         streamingContent,
         sendMessage,
+        sendPrefilledMessage,
+        currentRoute: location.pathname,
         inputRef,
       }}
     >
