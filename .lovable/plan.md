@@ -1,332 +1,276 @@
 
-# Plan: Rediseno del Dashboard AI-Native Premium
+# Plan: Darle Mas Poder a la IA en el CRM
 
-## Resumen del Objetivo
+## Diagnostico Actual
 
-Transformar el Dashboard del CRM en una experiencia premium estilo Nexo Co, donde la IA sea el protagonista absoluto de la interfaz, con:
-- Saludo personalizado segun hora del dia
-- Cards de metricas con mini-charts integrados
-- Seccion destacada de AI Insights con gradientes y diseno premium
-- Layout limpio y moderno con paleta naranja/purpura/azul
+El CRM ya tiene una base solida de IA con:
+- **Chat con 30+ tools** para CRUD de contactos, empresas, oportunidades, tareas, equipo y proyectos
+- **AI Insights** en el Dashboard (generate-insights)
+- **Daily Brief** diario con resumen del dia (generate-daily-brief)
+- **Streaming** con tool calling
 
----
+### Brechas Detectadas (lo que la IA NO puede hacer hoy)
 
-## Estructura del Nuevo Dashboard
-
-```text
-+---------------------------------------------------------------+
-|  HEADER: Saludo personalizado + Busqueda global + Avatar      |
-+---------------------------------------------------------------+
-|                                                               |
-|  TITULO: "Resumen de Ventas y Negocio"  [Filtro] [+ Widget]  |
-|                                                               |
-|  +----------+ +----------+ +----------+ +----------+         |
-|  | Ingresos | | Clientes | | Pipeline | | Campanas |         |
-|  | $2.8M    | | 5,477    | | 2.4%     | | $5,320   |         |
-|  | [chart]  | | [chart]  | | [chart]  | | [chart]  |         |
-|  +----------+ +----------+ +----------+ +----------+         |
-|                                                               |
-|  +------------------------+ +------------------------+        |
-|  | Patron de Crecimiento  | | Fuentes de Trafico     |        |
-|  | [Area Chart naranja]   | | [Progress bars]        |        |
-|  +------------------------+ +------------------------+        |
-|  +------------------------+ +------------------------+        |
-|  | Demanda de Producto    | | Rendimiento Campanas   |        |
-|  | [Line Chart]           | | [Area Chart]           |        |
-|  +------------------------+ +------------------------+        |
-|                                                               |
-|  +----------------------------------------------------------+|
-|  | AI INSIGHTS DESTACADO (gradiente purpura/azul)           ||
-|  | [Deals en Riesgo] [Oportunidades Hot] [Proximas Acciones]||
-|  | [Recomendaciones de IA con botones de accion]            ||
-|  +----------------------------------------------------------+|
-|                                                               |
-+---------------------------------------------------------------+
-```
+| Capacidad Faltante | Impacto |
+|---------------------|---------|
+| No puede completar/actualizar tareas | El usuario crea tareas por chat pero no puede marcarlas como hechas |
+| No puede eliminar entidades | Solo crea, no puede borrar contactos, empresas u oportunidades |
+| No puede listar tareas pendientes | Solo crea tareas, no puede consultarlas |
+| No puede enviar emails/WhatsApp | No hay accion directa desde el chat |
+| No hay resumen de conversaciones omnicanal | No consulta la tabla `conversations` ni `conversation_messages` |
+| No puede generar reportes/exportaciones | Solo consulta, no genera documentos |
+| No puede buscar oportunidades por filtros | Solo pipeline summary, no busqueda granular |
+| No tiene contexto de la pagina actual | No sabe donde esta el usuario en el CRM |
+| No puede actualizar empresas | Solo crea empresas, no las edita |
+| No tiene tool de diagnostico/resumen global | No hay un "dame el estado general" inteligente |
 
 ---
 
-## Archivos a Crear
+## Mejoras Propuestas (7 areas)
 
-| Archivo | Proposito |
-|---------|-----------|
-| `src/components/dashboard/MetricCard.tsx` | Card de metrica premium con mini-chart integrado |
-| `src/components/dashboard/AnalysisCard.tsx` | Card contenedor para graficos de analisis |
-| `src/components/dashboard/MiniCharts.tsx` | Componentes MiniAreaChart y MiniLineChart |
-| `src/components/dashboard/TrafficSourceChart.tsx` | Grafico de barras horizontales para fuentes de trafico |
-| `src/lib/mockDashboardData.ts` | Datos de ejemplo para testing visual |
+### 1. Nuevas Tools para el Chat (Backend)
+
+Agregar 10 nuevas herramientas al edge function `chat/index.ts`:
+
+**Gestion de Tareas:**
+- `list_tasks`: Listar tareas con filtros (estado, prioridad, fecha, tipo)
+- `complete_task`: Marcar tarea como completada o reabrir
+- `update_task`: Actualizar titulo, prioridad, fecha, descripcion
+
+**Gestion de Entidades:**
+- `update_company`: Actualizar campos de empresa (industria, telefono, web, etc.)
+- `delete_entity`: Eliminar contacto, empresa u oportunidad (con confirmacion en prompt)
+- `search_opportunities`: Buscar oportunidades con filtros (valor, etapa, empresa, fecha)
+
+**Conversaciones Omnicanal:**
+- `list_conversations`: Ver conversaciones abiertas por canal (webchat, whatsapp, email)
+- `get_conversation_summary`: Obtener resumen de una conversacion con ultimo mensaje
+
+**Inteligencia:**
+- `generate_crm_report`: Generar resumen ejecutivo del CRM (pipeline, conversion, actividad)
+- `smart_search`: Busqueda universal en contactos, empresas, oportunidades y tareas
+
+### 2. Contexto de Pagina Actual (Frontend)
+
+Pasar la ruta actual del usuario al chat para que la IA sea contextualmente inteligente:
+- Si el usuario esta en `/pipeline`, el prompt de sistema incluye "El usuario esta viendo el pipeline"
+- Si esta en `/contacts/123`, el prompt incluye datos de ese contacto
+- Esto permite respuestas como "Veo que estas mirando el deal con X, quieres que te de un analisis?"
+
+**Cambios:**
+- `ChatContext.tsx`: Capturar `useLocation()` y enviarlo como metadata al edge function
+- `chat/index.ts`: Recibir `currentRoute` y ajustar el system prompt
+
+### 3. Quick Actions Contextuales (Frontend)
+
+Reemplazar los quick actions estaticos del chat con acciones inteligentes basadas en:
+- La pagina actual
+- Los datos del CRM (tareas vencidas, deals en riesgo)
+- La hora del dia
+
+**Ejemplos de acciones dinamicas:**
+- En `/pipeline`: "Analiza la salud de mis deals", "Cuales estan en riesgo?"
+- En `/contacts`: "Busca contactos sin seguimiento", "Crea un contacto nuevo"
+- En `/tasks`: "Que tareas tengo para hoy?", "Completa la tarea de..."
+- General: "Dame un resumen ejecutivo", "Busca [algo] en todo el CRM"
+
+### 4. Acciones Rapidas desde AI Insights (Frontend)
+
+El boton "Preguntale a la IA" del AIInsightsCard debe abrir el chat con un prompt pre-cargado:
+- Click en deal en riesgo -> Abre chat con "Analiza el deal [titulo]"
+- Click en "Preguntale a la IA" -> Abre chat con "Dame un analisis profundo del pipeline"
+- Click en sugerencia -> Ejecuta la accion sugerida
+
+### 5. Modelo Mejorado y System Prompt Optimizado (Backend)
+
+- Cambiar de `google/gemini-2.5-flash` a `google/gemini-3-flash-preview` (mas rapido y capaz)
+- Optimizar el system prompt para ser mas conciso y contextual
+- Agregar seccion de "Estado actual del CRM" mas resumida para reducir tokens
+
+### 6. Tool de Busqueda Universal "Smart Search" (Backend)
+
+Una sola herramienta que busca en todas las tablas a la vez:
+- Contactos (nombre, email, empresa)
+- Empresas (nombre, industria)
+- Oportunidades (titulo, empresa)
+- Tareas (titulo)
+- Timeline (contenido)
+
+Devuelve resultados agrupados por tipo con relevancia.
+
+### 7. Notificaciones Proactivas de IA (Frontend + Backend)
+
+Sistema donde la IA notifica activamente al usuario sobre:
+- Deals que llevan 7+ dias sin actividad
+- Tareas vencidas
+- Contactos frios (30+ dias sin interaccion)
+
+Integrado con el componente `NotificationBell` existente.
 
 ---
 
 ## Archivos a Modificar
 
+### Backend (Edge Function)
 | Archivo | Cambios |
 |---------|---------|
-| `src/components/layout/Header.tsx` | Saludo personalizado con hora del dia + quick insight de IA |
-| `src/pages/Dashboard.tsx` | Layout completo nuevo con grid de metricas, graficos y AI Insights |
-| `src/components/dashboard/AIInsightsCard.tsx` | Rediseno premium con gradiente purpura, estado expandible, botones de accion |
-| `src/index.css` | Nuevas variables CSS para colores metric-orange, metric-purple, metric-blue |
+| `supabase/functions/chat/index.ts` | +10 nuevas tools, tool definitions, executors, smart search, model upgrade |
+
+### Frontend
+| Archivo | Cambios |
+|---------|---------|
+| `src/contexts/ChatContext.tsx` | Capturar ruta actual, enviar como metadata, metodo `sendPrefilledMessage` |
+| `src/components/chat/ChatMessages.tsx` | Quick actions dinamicos basados en ruta y datos |
+| `src/components/dashboard/AIInsightsCard.tsx` | Botones de accion que abren chat con prompts |
+| `src/components/chat/GlobalChatInput.tsx` | Soporte para mensajes pre-cargados |
 
 ---
 
 ## Seccion Tecnica
 
-### 1. MetricCard - Nuevo Componente
+### Nuevas Tool Definitions (ejemplo parcial)
 
 ```typescript
-// src/components/dashboard/MetricCard.tsx
-interface MetricCardProps {
-  title: string;
-  value: string;
-  subtitle?: string;
-  trend: 'up' | 'down' | 'neutral';
-  trendValue: string;
-  miniChart?: React.ReactNode;
-  color?: 'orange' | 'blue' | 'green' | 'red';
-}
+// list_tasks
+{
+  type: "function",
+  function: {
+    name: "list_tasks",
+    description: "Lista tareas y actividades del usuario con filtros avanzados.",
+    parameters: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["pending", "completed", "overdue", "today"], description: "Estado de las tareas" },
+        priority: { type: "string", enum: ["low", "medium", "high", "urgent"], description: "Filtrar por prioridad" },
+        type: { type: "string", enum: ["task", "call", "email", "meeting", "follow_up"], description: "Tipo de actividad" },
+        limit: { type: "number", description: "Maximo de resultados (default: 10)" },
+      },
+    },
+  },
+},
 
-export function MetricCard({ title, value, subtitle, trend, trendValue, miniChart, color = 'orange' }: MetricCardProps) {
-  return (
-    <Card className="p-6 hover:shadow-lg transition-shadow border-0 shadow-card">
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <p className="text-sm text-muted-foreground mb-1">{title}</p>
-          <h3 className="text-3xl font-bold">{value}</h3>
-          {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
-        </div>
-        <TrendBadge trend={trend} value={trendValue} />
-      </div>
-      {miniChart && (
-        <div className="h-16 -mx-2 mt-2">
-          {miniChart}
-        </div>
-      )}
-    </Card>
-  );
-}
+// complete_task
+{
+  type: "function",
+  function: {
+    name: "complete_task",
+    description: "Marca una tarea como completada o la reabre.",
+    parameters: {
+      type: "object",
+      properties: {
+        task_title: { type: "string", description: "Titulo de la tarea (busqueda parcial)" },
+        completed: { type: "boolean", description: "true para completar, false para reabrir" },
+      },
+      required: ["task_title"],
+    },
+  },
+},
+
+// smart_search
+{
+  type: "function",
+  function: {
+    name: "smart_search",
+    description: "Busqueda universal en todo el CRM: contactos, empresas, oportunidades y tareas.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Texto de busqueda" },
+        entity_types: { type: "array", items: { type: "string", enum: ["contacts", "companies", "opportunities", "tasks"] }, description: "Tipos a buscar (default: todos)" },
+      },
+      required: ["query"],
+    },
+  },
+},
 ```
 
-### 2. Header - Saludo Personalizado
+### Contexto de Pagina (ChatContext.tsx)
 
 ```typescript
-// Agregar a src/components/layout/Header.tsx
-const getGreeting = () => {
-  const hour = new Date().getHours();
-  const userName = user?.user_metadata?.full_name?.split(' ')[0] || 
-                   user?.email?.split('@')[0] || 'Usuario';
+// Agregar a ChatContext
+import { useLocation } from 'react-router-dom';
+
+// En ChatProvider:
+const location = useLocation();
+
+// En sendMessage, enviar ruta al backend:
+body: JSON.stringify({ 
+  messages: aiMessages,
+  currentRoute: location.pathname,
+})
+```
+
+### Quick Actions Dinamicos (ChatMessages.tsx)
+
+```typescript
+const getContextualQuickActions = (pathname: string, crmStats: any) => {
+  const baseActions = ['Dame un resumen ejecutivo'];
   
-  if (hour < 12) return `Buenos dias, ${userName}`;
-  if (hour < 18) return `Buenas tardes, ${userName}`;
-  return `Buenas noches, ${userName}`;
+  switch (true) {
+    case pathname === '/pipeline':
+      return [...baseActions, 'Analiza la salud de mis deals', 'Cuales deals estan en riesgo?', 'Muestra el resumen del pipeline'];
+    case pathname === '/contacts':
+      return [...baseActions, 'Busca contactos sin seguimiento', 'Crea un contacto nuevo', 'Contactos con WhatsApp'];
+    case pathname === '/tasks':
+      return [...baseActions, 'Que tareas tengo para hoy?', 'Tareas vencidas', 'Completa la tarea...'];
+    case pathname.startsWith('/contacts/'):
+      return [...baseActions, 'Analiza este contacto', 'Siguiente mejor accion', 'Historial de interacciones'];
+    default:
+      return [...baseActions, 'Crear un contacto', 'Ver mi pipeline', 'Tareas de hoy'];
+  }
+};
+```
+
+### AIInsightsCard con Deep-Link al Chat
+
+```typescript
+// En AIInsightsCard.tsx
+const { openPanel, setInputValue, sendMessage } = useChat();
+
+const handleAskAI = (prompt: string) => {
+  setInputValue(prompt);
+  openPanel();
+  // Auto-enviar despues de un tick
+  setTimeout(() => sendMessage(), 100);
 };
 
-// En el render del Header:
-<div className="flex items-center justify-between px-6 py-4 bg-card/95 backdrop-blur border-b">
-  <div>
-    <h1 className="text-2xl font-semibold">{getGreeting()}</h1>
-    <p className="text-sm text-muted-foreground mt-1">
-      Tu asistente IA esta listo para ayudarte
-    </p>
-  </div>
-  
-  <div className="flex-1 max-w-xl mx-8">
-    <div className="relative">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-      <Input
-        placeholder="Buscar contactos, empresas, deals... (Ctrl+K)"
-        className="pl-10 pr-4"
-      />
-    </div>
-  </div>
-  
-  {/* Avatar y notificaciones */}
-</div>
+// En el boton CTA:
+<Button onClick={() => handleAskAI('Dame un analisis profundo del pipeline con recomendaciones')}>
+  Preguntale a la IA
+</Button>
+
+// En cada deal en riesgo:
+<button onClick={() => handleAskAI(`Analiza el deal "${deal.title}" y sugiere acciones`)}>
+  {deal.title}
+</button>
 ```
-
-### 3. MiniCharts - Graficos Pequenos
-
-```typescript
-// src/components/dashboard/MiniCharts.tsx
-import { AreaChart, Area, LineChart, Line, ResponsiveContainer } from 'recharts';
-
-export function MiniAreaChart({ data, color = 'orange' }: { data: any[], color?: string }) {
-  const colorMap = {
-    orange: '#f97316',
-    blue: '#3b82f6',
-    green: '#22c55e',
-    red: '#ef4444',
-    purple: '#9333ea'
-  };
-
-  return (
-    <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data}>
-        <defs>
-          <linearGradient id={`mini-gradient-${color}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={colorMap[color]} stopOpacity={0.3}/>
-            <stop offset="95%" stopColor={colorMap[color]} stopOpacity={0}/>
-          </linearGradient>
-        </defs>
-        <Area 
-          type="monotone" 
-          dataKey="value" 
-          stroke={colorMap[color]} 
-          strokeWidth={2}
-          fill={`url(#mini-gradient-${color})`}
-        />
-      </AreaChart>
-    </ResponsiveContainer>
-  );
-}
-```
-
-### 4. AIInsightsCard - Rediseno Premium
-
-```typescript
-// Mejoras en src/components/dashboard/AIInsightsCard.tsx
-<Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 relative overflow-hidden">
-  {/* Decorativo */}
-  <div className="absolute top-0 right-0 w-64 h-64 bg-purple-300 rounded-full blur-3xl opacity-20" />
-  
-  <CardContent className="p-8 relative z-10">
-    <div className="flex items-start justify-between mb-6">
-      <div className="flex items-center gap-3">
-        <div className="p-3 bg-purple-600 rounded-xl">
-          <Sparkles className="h-6 w-6 text-white" />
-        </div>
-        <div>
-          <h3 className="text-xl font-bold">Insights Inteligentes de IA</h3>
-          <p className="text-sm text-muted-foreground">
-            Analisis automatico de tu pipeline y recomendaciones proactivas
-          </p>
-        </div>
-      </div>
-      
-      <Button variant="ghost" size="sm" onClick={() => setIsExpanded(!isExpanded)}>
-        {isExpanded ? 'Ver menos' : 'Ver mas'}
-        <ChevronDown className={cn("h-4 w-4 ml-2 transition-transform", isExpanded && "rotate-180")} />
-      </Button>
-    </div>
-
-    {/* Grid de 3 columnas con Deals en Riesgo, Oportunidades Hot, Proximas Acciones */}
-    <div className="grid grid-cols-3 gap-4">
-      <InsightBox color="red" icon={AlertTriangle} title="Deals en Riesgo" count={3} value="$77K en riesgo" />
-      <InsightBox color="orange" icon={Flame} title="Oportunidades Hot" count={5} value="$164K potencial" />
-      <InsightBox color="green" icon={CheckCircle} title="Proximas Acciones" count={8} value="acciones recomendadas" />
-    </div>
-
-    {/* Seccion expandible con recomendaciones detalladas */}
-    {isExpanded && (
-      <div className="mt-6 space-y-4">
-        {/* Lista de recomendaciones con botones de accion */}
-      </div>
-    )}
-
-    {/* CTA para chat IA */}
-    <div className="flex items-center justify-between pt-4 border-t border-purple-200 mt-6">
-      <p className="text-sm text-muted-foreground">Quieres analisis mas profundo?</p>
-      <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-        <MessageSquare className="h-4 w-4 mr-2" />
-        Preguntale a la IA
-      </Button>
-    </div>
-  </CardContent>
-</Card>
-```
-
-### 5. Dashboard.tsx - Nuevo Layout Completo
-
-```typescript
-// Estructura principal del nuevo Dashboard
-<div className="p-8 bg-muted/30 min-h-screen space-y-8">
-  {/* Titulo y filtros */}
-  <div className="flex items-center justify-between">
-    <div>
-      <h2 className="text-2xl font-semibold">Resumen de Ventas y Negocio</h2>
-      <p className="text-muted-foreground text-sm mt-1">
-        Monitorea el rendimiento con insights en tiempo real
-      </p>
-    </div>
-    
-    <div className="flex items-center gap-3">
-      <Select defaultValue="this-year">
-        <SelectTrigger className="w-40">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="this-week">Esta Semana</SelectItem>
-          <SelectItem value="this-month">Este Mes</SelectItem>
-          <SelectItem value="this-year">Este Ano</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  </div>
-
-  {/* Grid de 4 MetricCards */}
-  <div className="grid grid-cols-4 gap-6">
-    <MetricCard title="Ingresos Totales" value="$2,864,679" trend="up" trendValue="+2.4%" miniChart={<MiniAreaChart data={revenueData} color="orange" />} />
-    <MetricCard title="Clientes Activos" value="5,477" trend="up" trendValue="+3.5%" color="blue" />
-    <MetricCard title="Tasa de Conversion" value="2.4%" trend="down" trendValue="-1.3%" miniChart={<MiniLineChart data={conversionData} color="red" />} />
-    <MetricCard title="Resultado Campanas" value="$5,320" trend="up" trendValue="+6.7%" miniChart={<MiniAreaChart data={campaignData} color="orange" />} />
-  </div>
-
-  {/* Grid de 4 AnalysisCards (2x2) */}
-  <div className="grid grid-cols-2 gap-6">
-    <AnalysisCard title="Patron de Crecimiento" description="Cambios diarios de ingresos" chart={<RevenueAreaChart />} />
-    <AnalysisCard title="Fuentes de Trafico" description="Canales con mas engagement" chart={<TrafficSourceChart />} />
-    <AnalysisCard title="Demanda de Producto" description="Tendencias de productos" chart={<ProductDemandChart />} />
-    <AnalysisCard title="Rendimiento Campanas" description="Performance de marketing" chart={<CampaignPerformanceChart />} />
-  </div>
-
-  {/* AI Insights Card destacado */}
-  <AIInsightsCard />
-
-  {/* Seccion de Tareas y Deals (ya existe, mantener pero estilizar) */}
-  <div className="grid grid-cols-3 gap-6">
-    {/* Tareas de Hoy, Deals Proximos, Actividad Reciente */}
-  </div>
-</div>
-```
-
----
-
-## Paleta de Colores
-
-| Variable | Valor | Uso |
-|----------|-------|-----|
-| `--metric-orange` | `#f97316` | Ingresos, campanas, tendencias positivas |
-| `--metric-purple` | `#9333ea` | AI Insights, premium features |
-| `--metric-blue` | `#3b82f6` | Clientes, datos, informacion |
-| `--metric-green` | `#22c55e` | Exitos, acciones completadas |
-| `--metric-red` | `#ef4444` | Alertas, riesgos, tendencias negativas |
 
 ---
 
 ## Orden de Implementacion
 
-1. **Crear componentes base**: `MiniCharts.tsx`, `MetricCard.tsx`, `AnalysisCard.tsx`
-2. **Actualizar Header**: Saludo personalizado con hora del dia
-3. **Redisenar AIInsightsCard**: Gradiente premium, estado expandible, grid de 3 columnas
-4. **Reescribir Dashboard.tsx**: Nuevo layout con todas las secciones
-5. **Actualizar CSS**: Variables de colores metric-*
-6. **Testing visual**: Verificar responsividad y animaciones
-
----
-
-## Consideraciones de Performance
-
-- Mantener lazy loading del `AIInsightsCard` (ya implementado)
-- Los `MiniCharts` usan datos locales/cached, no queries adicionales
-- El nuevo layout no agrega queries, solo reorganiza los datos existentes
-- Las animaciones usan Framer Motion con `initial=false` para evitar re-renders
+1. **Backend primero**: Agregar las 10 nuevas tools al chat edge function (list_tasks, complete_task, update_task, update_company, delete_entity, search_opportunities, list_conversations, get_conversation_summary, generate_crm_report, smart_search)
+2. **Model upgrade**: Cambiar a google/gemini-3-flash-preview
+3. **Contexto de ruta**: Enviar currentRoute desde ChatContext al backend
+4. **Quick actions dinamicos**: Actualizar ChatMessages.tsx
+5. **Deep-links desde Insights**: Conectar AIInsightsCard con el chat
+6. **Metodo sendPrefilledMessage**: Agregar a ChatContext para uso global
 
 ---
 
 ## Resultado Esperado
 
-- Dashboard premium que refleja la naturaleza AI-Native del CRM
-- Saludo contextual que humaniza la experiencia
-- AI Insights como elemento central y destacado visualmente
-- Metricas con mini-charts que muestran tendencias de un vistazo
-- Paleta de colores moderna y coherente (naranja/purpura/azul)
-- Layout limpio inspirado en Nexo Co pero con identidad propia
+| Area | Antes | Despues |
+|------|-------|---------|
+| Tools disponibles | 30 | 40+ |
+| Puede completar tareas | No | Si |
+| Puede eliminar entidades | No | Si |
+| Puede consultar tareas | No | Si (con filtros) |
+| Busqueda universal | No | Si (smart_search) |
+| Contexto de pagina | No | Si (sabe donde esta el usuario) |
+| Quick actions | 4 estaticos | Dinamicos por pagina |
+| Insights -> Chat | Sin conexion | Click = pregunta pre-cargada |
+| Modelo | gemini-2.5-flash | gemini-3-flash-preview |
+| Conversaciones omnicanal | Sin acceso IA | Consulta y resume |
+
+La IA pasara de ser un asistente pasivo a un copiloto proactivo que entiende el contexto, sugiere acciones relevantes y puede ejecutar practicamente cualquier operacion del CRM.
