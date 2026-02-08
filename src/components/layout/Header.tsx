@@ -75,15 +75,22 @@ export function Header({ onMenuClick }: HeaderProps) {
               </p>
             </div>
           ) : (
-            /* Search on other pages */
-            <div className="relative hidden md:block">
+            /* Search on other pages — opens CommandBar */
+            <div
+              className="relative hidden md:block cursor-pointer"
+              onClick={() => {
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }));
+              }}
+            >
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar contactos, empresas, deals..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-80 pl-10 bg-muted/50 border-0 focus-visible:ring-1"
+                readOnly
+                className="w-80 pl-10 pr-16 bg-muted/50 border-0 focus-visible:ring-1 cursor-pointer"
               />
+              <kbd className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                ⌘K
+              </kbd>
             </div>
           )}
         </div>

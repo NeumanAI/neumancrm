@@ -1701,6 +1701,101 @@ export type Database = {
           },
         ]
       }
+      user_actions: {
+        Row: {
+          action_type: string
+          created_at: string | null
+          duration_ms: number | null
+          entity_id: string | null
+          entity_type: string | null
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          method: string | null
+          organization_id: string
+          page_url: string | null
+          previous_page_url: string | null
+          success: boolean | null
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string | null
+          duration_ms?: number | null
+          entity_id?: string | null
+          entity_type?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          organization_id: string
+          page_url?: string | null
+          previous_page_url?: string | null
+          success?: boolean | null
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string | null
+          duration_ms?: number | null
+          entity_id?: string | null
+          entity_type?: string | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          organization_id?: string
+          page_url?: string | null
+          previous_page_url?: string | null
+          success?: boolean | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_actions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_behavior_patterns: {
+        Row: {
+          confidence: number | null
+          created_at: string | null
+          frequency: number | null
+          id: string
+          last_seen_at: string | null
+          pattern_data: Json
+          pattern_type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string | null
+          frequency?: number | null
+          id?: string
+          last_seen_at?: string | null
+          pattern_data: Json
+          pattern_type: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string | null
+          frequency?: number | null
+          id?: string
+          last_seen_at?: string | null
+          pattern_data?: Json
+          pattern_type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

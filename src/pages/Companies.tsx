@@ -23,18 +23,22 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Building2, Plus, Search, Globe, Phone, Trash2, Edit, MapPin } from 'lucide-react';
+import { Building2, Plus, Search, Globe, Phone, Trash2, Edit, MapPin, Sparkles } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { ConversationalForm } from '@/components/ai/ConversationalForm';
+import { useActionTracking } from '@/hooks/useActionTracking';
 
 export default function Companies() {
   const navigate = useNavigate();
   const { companies, isLoading, createCompany, updateCompany, deleteCompany } = useCompanies();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showNLI, setShowNLI] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const { trackAction } = useActionTracking();
   const [formData, setFormData] = useState({
     name: '',
     domain: '',
@@ -126,10 +130,19 @@ export default function Companies() {
           <h1 className="text-3xl font-bold tracking-tight">Empresas</h1>
           <p className="text-muted-foreground">Gestiona tu cartera de empresas</p>
         </div>
-        <Button onClick={openCreateDialog} className="gradient-primary">
-          <Plus className="mr-2 h-4 w-4" />
-          Nueva Empresa
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={openCreateDialog} className="gradient-primary">
+            <Plus className="mr-2 h-4 w-4" />
+            Nueva Empresa
+          </Button>
+          <Button
+            onClick={() => setShowNLI(true)}
+            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            Crear con IA
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
@@ -346,6 +359,40 @@ export default function Companies() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+      {/* NLI Dialog */}
+      <Dialog open={showNLI} onOpenChange={setShowNLI}>
+        <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
+          <ConversationalForm
+            entity="company"
+            onComplete={async (data) => {
+              const startTime = Date.now();
+              try {
+                await createCompany.mutateAsync({
+                  name: data.name as string || 'Sin nombre',
+                  domain: data.domain as string || '',
+                  website: data.website as string || '',
+                  industry: data.industry as string || '',
+                  phone: data.phone as string || '',
+                  city: data.city as string || '',
+                  country: data.country as string || '',
+                  description: data.description as string || '',
+                });
+                trackAction({
+                  action_type: 'create',
+                  entity_type: 'company',
+                  method: 'nli',
+                  duration_ms: Date.now() - startTime,
+                });
+                setShowNLI(false);
+                toast.success('Empresa creada con IA');
+              } catch (error) {
+                toast.error('Error al crear empresa');
+              }
+            }}
+            onCancel={() => setShowNLI(false)}
+          />
         </DialogContent>
       </Dialog>
     </motion.div>

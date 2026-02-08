@@ -32,11 +32,13 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Users, Plus, Search, Mail, Phone, Building2, Trash2, Edit } from 'lucide-react';
+import { Users, Plus, Search, Mail, Phone, Building2, Trash2, Edit, Sparkles } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { ConversationalForm } from '@/components/ai/ConversationalForm';
+import { useActionTracking } from '@/hooks/useActionTracking';
 
 export default function Contacts() {
   const navigate = useNavigate();
@@ -44,7 +46,9 @@ export default function Contacts() {
   const { companies } = useCompanies();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showNLI, setShowNLI] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const { trackAction } = useActionTracking();
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -138,10 +142,19 @@ export default function Contacts() {
           <h1 className="text-3xl font-bold tracking-tight">Contactos</h1>
           <p className="text-muted-foreground">Gestiona tus contactos y relaciones</p>
         </div>
-        <Button onClick={openCreateDialog} className="gradient-primary">
-          <Plus className="mr-2 h-4 w-4" />
-          Nuevo Contacto
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={openCreateDialog} className="gradient-primary">
+            <Plus className="mr-2 h-4 w-4" />
+            Nuevo Contacto
+          </Button>
+          <Button
+            onClick={() => setShowNLI(true)}
+            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            Crear con IA
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
@@ -348,6 +361,38 @@ export default function Contacts() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+      {/* NLI Dialog */}
+      <Dialog open={showNLI} onOpenChange={setShowNLI}>
+        <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
+          <ConversationalForm
+            entity="contact"
+            onComplete={async (data) => {
+              const startTime = Date.now();
+              try {
+                await createContact.mutateAsync({
+                  first_name: data.first_name as string || '',
+                  last_name: data.last_name as string || '',
+                  email: data.email as string || `${Date.now()}@pending.com`,
+                  phone: data.phone as string || '',
+                  job_title: data.job_title as string || '',
+                  notes: data.notes as string || '',
+                });
+                trackAction({
+                  action_type: 'create',
+                  entity_type: 'contact',
+                  method: 'nli',
+                  duration_ms: Date.now() - startTime,
+                });
+                setShowNLI(false);
+                toast.success('Contacto creado con IA');
+              } catch (error) {
+                toast.error('Error al crear contacto');
+              }
+            }}
+            onCancel={() => setShowNLI(false)}
+          />
         </DialogContent>
       </Dialog>
     </motion.div>

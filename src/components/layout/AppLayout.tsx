@@ -11,6 +11,8 @@ import { Loader2, RefreshCw, LogOut, AlertCircle } from 'lucide-react';
 import { ChatProvider } from '@/contexts/ChatContext';
 import { GlobalChatInput } from '@/components/chat/GlobalChatInput';
 import { GlobalChatPanel } from '@/components/chat/GlobalChatPanel';
+import { CommandBar } from '@/components/ai/CommandBar';
+import { AICoWorker } from '@/components/ai/AICoWorker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -131,11 +133,13 @@ export function AppLayout({ children }: AppLayoutProps) {
         />
         <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
           <Header onMenuClick={() => setSidebarCollapsed(!sidebarCollapsed)} />
-          <main className="flex-1 overflow-auto p-6 pb-24">
+          <main className="flex-1 overflow-auto p-6 pb-24 pr-[19rem]">
             {children}
           </main>
         </div>
       </div>
+      <CommandBar />
+      <AICoWorker />
       <GlobalChatInput />
       <GlobalChatPanel />
       <DailyBriefModal />
