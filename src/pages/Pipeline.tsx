@@ -27,11 +27,13 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { EmptyState } from '@/components/ui/empty-state';
-import { TrendingUp, Plus, Building2, User, Calendar, DollarSign, Loader2 } from 'lucide-react';
+import { TrendingUp, Plus, Building2, User, Calendar, DollarSign, Loader2, Sparkles } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { ConversationalForm } from '@/components/ai/ConversationalForm';
+import { useActionTracking } from '@/hooks/useActionTracking';
 import {
   DndContext,
   DragEndEvent,
@@ -241,8 +243,10 @@ export default function Pipeline() {
   const { teamMembers } = useTeam();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showNLI, setShowNLI] = useState(false);
   const [selectedStageId, setSelectedStageId] = useState<string>('');
   const [activeId, setActiveId] = useState<string | null>(null);
+  const { trackAction } = useActionTracking();
   const [formData, setFormData] = useState({
     title: '',
     value: '',
@@ -379,10 +383,19 @@ export default function Pipeline() {
             {formatCurrency(totalValue)} total · {openOpportunities.length} oportunidades
           </p>
         </div>
-        <Button onClick={() => stages[0] && openCreateDialog(stages[0].id)} className="gradient-primary">
-          <Plus className="mr-2 h-4 w-4" />
-          Nueva Oportunidad
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => stages[0] && openCreateDialog(stages[0].id)} className="gradient-primary">
+            <Plus className="mr-2 h-4 w-4" />
+            Nueva Oportunidad
+          </Button>
+          <Button
+            onClick={() => setShowNLI(true)}
+            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            Crear con IA
+          </Button>
+        </div>
       </div>
 
       {/* Kanban Board */}
@@ -521,6 +534,38 @@ export default function Pipeline() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+      {/* NLI Dialog */}
+      <Dialog open={showNLI} onOpenChange={setShowNLI}>
+        <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
+          <ConversationalForm
+            entity="opportunity"
+            onComplete={async (data) => {
+              const startTime = Date.now();
+              try {
+                await createOpportunity.mutateAsync({
+                  title: data.title as string || 'Sin título',
+                  value: parseFloat(String(data.value)) || 0,
+                  pipeline_id: pipeline?.id,
+                  stage_id: stages[0]?.id,
+                  description: data.description as string || '',
+                  expected_close_date: data.expected_close_date as string || undefined,
+                });
+                trackAction({
+                  action_type: 'create',
+                  entity_type: 'opportunity',
+                  method: 'nli',
+                  duration_ms: Date.now() - startTime,
+                });
+                setShowNLI(false);
+                toast.success('Oportunidad creada con IA');
+              } catch (error) {
+                toast.error('Error al crear oportunidad');
+              }
+            }}
+            onCancel={() => setShowNLI(false)}
+          />
         </DialogContent>
       </Dialog>
     </motion.div>

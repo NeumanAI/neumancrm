@@ -47,3 +47,12 @@ verify_jwt = false
 
 [functions.test-manychat-connection]
 verify_jwt = false
+
+[functions.process-conversational-input]
+verify_jwt = false
+
+[functions.interpret-command]
+verify_jwt = false
+
+[functions.get-coworker-suggestions]
+verify_jwt = false
