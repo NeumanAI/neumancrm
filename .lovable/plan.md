@@ -1,172 +1,196 @@
 
 
-# Plan: AI-Native CRM Fase 1
+# Plan: AI Assistant Unificado - Panel Lateral Permanente
 
 ## Resumen
 
-Implementar 4 features AI-Native que se **suman** a la funcionalidad existente sin reemplazar nada:
-
-1. **Natural Language Interface (NLI)** - Formularios conversacionales para crear contactos/empresas/oportunidades
-2. **Command Bar (Cmd+K)** - Barra de comandos global con lenguaje natural
-3. **AI Co-Worker** - Panel lateral con sugerencias proactivas
-4. **User Behavior Learning** - Tracking de acciones del usuario
+Unificar el chat IA actual (GlobalChatInput + GlobalChatPanel) y el AI Co-Worker en un unico componente llamado **AI Assistant** que funcione como panel lateral permanente al estilo de Lovable/Claude Chrome Extension. El panel tendra dos tabs: **Chat** (con streaming, conversaciones, markdown) y **Sugerencias** (proactivas del Co-Worker).
 
 ---
 
-## Alcance y Consideraciones Clave
+## Diferencia Clave vs. el Prompt Original
 
-- Los formularios tradicionales de Contactos, Empresas y Pipeline se mantienen intactos
-- Solo se agregan botones "Crear con IA" junto a los botones existentes
-- El chat existente (40+ tools) NO se modifica ni se duplica
-- Se reutiliza la libreria `cmdk` (ya instalada) para el Command Bar
-- Se usa Lovable AI Gateway (ya configurado con LOVABLE_API_KEY)
-- Las 3 nuevas edge functions son ligeras y especializadas (NLI, Command, Co-Worker)
+El prompt subido propone un chat simplificado con `supabase.functions.invoke` que perderia:
+- Streaming token-por-token (SSE)
+- Persistencia de conversaciones (tabla `ai_conversations`)
+- Historial de conversaciones (sidebar con hoy/ayer/antiguas)
+- Markdown rendering en respuestas
+- Tool calling (40+ herramientas)
+- Contexto de ruta
 
----
-
-## Cambios en Base de Datos
-
-Se crean 2 tablas nuevas con RLS:
-
-**user_actions** - Registro de acciones del usuario para aprendizaje
-- Campos: user_id, organization_id, action_type, entity_type, entity_id, page_url, method (form/nli/command_bar), metadata, duration_ms
-- RLS: usuarios solo ven/crean sus propias acciones
-- Indices en user_id, organization_id, action_type, created_at
-
-**user_behavior_patterns** - Patrones aprendidos (para uso futuro)
-- Campos: user_id, pattern_type, pattern_data (JSONB), frequency, confidence
-- RLS: usuarios solo ven sus propios patrones
+**En su lugar**, el nuevo AIAssistant reutilizara el `ChatContext` existente que ya tiene todo esto implementado. Solo cambiara la presentacion visual.
 
 ---
 
-## Archivos Nuevos a Crear
+## Componentes a Eliminar del Layout
 
-### Edge Functions (3)
+| Componente | Razon |
+|-----------|-------|
+| `<AICoWorker />` | Se integra como tab "Sugerencias" en el nuevo panel |
+| `<GlobalChatInput />` | El input pasa dentro del panel lateral |
+| `<GlobalChatPanel />` | El Drawer se reemplaza por el panel lateral permanente |
 
-| Archivo | Funcion |
-|---------|---------|
-| `supabase/functions/process-conversational-input/index.ts` | Procesa input de lenguaje natural para NLI, extrae datos estructurados usando Gemini |
-| `supabase/functions/interpret-command/index.ts` | Interpreta comandos del Command Bar y devuelve intent + params |
-| `supabase/functions/get-coworker-suggestions/index.ts` | Genera sugerencias contextuales basadas en deals en riesgo, tareas vencidas, etc. |
-
-### Componentes React (3)
-
-| Archivo | Funcion |
-|---------|---------|
-| `src/components/ai/ConversationalForm.tsx` | Formulario conversacional paso a paso con IA |
-| `src/components/ai/CommandBar.tsx` | Barra Cmd+K con busqueda y comandos en lenguaje natural |
-| `src/components/ai/AICoWorker.tsx` | Panel lateral minimizable con sugerencias proactivas |
-
-### Hooks (1)
-
-| Archivo | Funcion |
-|---------|---------|
-| `src/hooks/useActionTracking.ts` | Hook para trackear acciones del usuario (fire-and-forget) |
+**Nota**: Los archivos de estos componentes NO se eliminan, solo se dejan de importar en AppLayout. Se podrian limpiar despues.
 
 ---
 
-## Archivos Existentes a Modificar
+## Archivo Nuevo
 
-| Archivo | Cambio |
-|---------|--------|
-| `supabase/config.toml` | Agregar 3 nuevas edge functions con verify_jwt = false |
-| `src/components/layout/AppLayout.tsx` | Agregar CommandBar y AICoWorker al layout |
-| `src/components/layout/Header.tsx` | Agregar hint de Cmd+K al input de busqueda y hacerlo clickable |
-| `src/pages/Contacts.tsx` | Agregar boton "Crear con IA" y dialog con ConversationalForm |
-| `src/pages/Companies.tsx` | Agregar boton "Crear con IA" y dialog con ConversationalForm |
-| `src/pages/Pipeline.tsx` | Agregar boton "Crear con IA" y dialog con ConversationalForm |
+### `src/components/ai/AIAssistant.tsx`
+
+Panel lateral permanente (derecha de la pantalla) con:
+
+**Header**: Gradiente purple-to-blue con icono Sparkles, titulo "AI Assistant", boton minimizar, tabs Chat/Sugerencias
+
+**Tab Chat**: 
+- Reutiliza `ChatMessages` (streaming, markdown, quick actions contextuales)
+- Sidebar de conversaciones colapsable (lista de hoy/ayer/antiguas)
+- Input con streaming usando `useChat()` del ChatContext existente
+- Boton "Nueva conversacion"
+
+**Tab Sugerencias**:
+- Logica migrada de AICoWorker (loadSuggestions via `get-coworker-suggestions`)
+- Cards con borde-izquierdo colorizado (rojo=urgente, naranja=importante, azul=sugerencia)
+- Dismiss individual, badges de impacto, boton de accion
+- Auto-refresh cada 5 minutos
+
+**Vista Minimizada**:
+- Barra delgada (w-14) con icono Sparkles, texto vertical "AI Assistant"
+- Badge de notificaciones si hay sugerencias urgentes
+
+---
+
+## Archivos a Modificar
+
+### `src/components/layout/AppLayout.tsx`
+
+- Eliminar imports de `AICoWorker`, `GlobalChatInput`, `GlobalChatPanel`
+- Agregar import de `AIAssistant`
+- Cambiar padding-right del main content: de `pr-[19rem]` a un valor dinamico o fijo que respete el panel (el panel se posiciona fixed, el main ya tiene espacio con pr-[19rem])
+- Reemplazar los 3 componentes eliminados con `<AIAssistant />`
+
+### `src/index.css`
+
+- Agregar estilos para `.writing-mode-vertical` (texto vertical del panel minimizado)
+- Agregar estilos de scrollbar customizado para el panel
 
 ---
 
 ## Seccion Tecnica
 
-### Edge Function: process-conversational-input
+### Estructura del AIAssistant
 
-- Recibe: input del usuario, tipo de entidad, datos recolectados hasta ahora
-- Usa Gemini (google/gemini-2.5-flash) para extraer datos estructurados del texto
-- Responde con: extracted_data, is_complete, next_question, confirmation_message
-- Autenticacion via header Authorization con supabase.auth.getUser()
-- No necesita LOVABLE_API_KEY explicitamente porque el gateway lo maneja
+```text
+AIAssistant (fixed right-0 top-0 bottom-0)
++-- Estado minimizado (w-14)
+|   +-- Boton expandir con badge
+|   +-- Texto vertical "AI Assistant"
+|   +-- Icono Sparkles
+|
++-- Estado expandido (w-[420px])
+    +-- Header (gradiente, tabs)
+    +-- Tab Chat
+    |   +-- Sidebar conversaciones (colapsable, w-48)
+    |   +-- Area de mensajes (ChatMessages existente)
+    |   +-- Input (Textarea + Send button)
+    +-- Tab Sugerencias
+    |   +-- Header con Refresh
+    |   +-- Lista de suggestion cards
+    |   +-- Estado vacio
+    +-- Footer (powered by AI)
+```
 
-### Edge Function: interpret-command
+### Integracion con ChatContext
 
-- Recibe: query en lenguaje natural
-- Clasifica intent: navigate, create, search, filter, execute_action
-- Devuelve: intent, params, confidence, suggested_route
-- Para busquedas tambien hace query directo a contactos/empresas/oportunidades
+El componente usara `useChat()` para:
+- `displayMessages` - mensajes a mostrar
+- `inputValue` / `setInputValue` - control del input
+- `sendMessage` - enviar mensaje con streaming
+- `isLoading` / `streamingContent` - estado de carga
+- `conversations` / `selectedConversationId` - gestion de conversaciones
+- `startNewConversation` - crear nueva conversacion
+- `currentRoute` - ruta actual para quick actions
 
-### Edge Function: get-coworker-suggestions
+### Logica de Sugerencias (migrada de AICoWorker)
 
-- Autenticado: requiere usuario logueado
-- Consulta: deals sin actividad (7+ dias), deals hot (propuesta/negociacion), tareas vencidas
-- Devuelve: array de sugerencias con tipo (urgent/important/suggestion), titulo, accion recomendada
+```typescript
+// Misma logica que AICoWorker.tsx
+const [suggestions, setSuggestions] = useState([]);
+const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
-### ConversationalForm Component
+async function loadSuggestions() {
+  const { data } = await supabase.functions.invoke('get-coworker-suggestions', {
+    body: { current_page: location.pathname }
+  });
+  setSuggestions(data?.suggestions || []);
+}
 
-- Estado conversacional: mensajes[] con roles user/assistant
-- Cada submit llama a process-conversational-input
-- Cuando is_complete=true, muestra botones Confirmar/Editar/Cancelar
-- onComplete callback recibe los datos extraidos para crear la entidad
-- Quick suggestions iniciales para guiar al usuario
+useEffect(() => {
+  loadSuggestions();
+  const interval = setInterval(loadSuggestions, 5 * 60 * 1000);
+  return () => clearInterval(interval);
+}, [location.pathname]);
+```
 
-### CommandBar Component
+### AppLayout Modificado
 
-- Se abre con Cmd+K / Ctrl+K (event listener global)
-- Usa el componente cmdk existente (CommandDialog, CommandInput, etc.)
-- Debounce de 500ms antes de llamar a interpret-command
-- Para intent=navigate: navega a la ruta sugerida
-- Para intent=search: busca en paralelo en contacts, companies, opportunities
-- Para intent=create: dispara evento custom 'ai-create-entity' para abrir ConversationalForm
-- Acciones rapidas predefinidas cuando no hay query
+```typescript
+// ANTES:
+<CommandBar />
+<AICoWorker />
+<GlobalChatInput />
+<GlobalChatPanel />
+<DailyBriefModal />
 
-### AICoWorker Component
+// DESPUES:
+<CommandBar />
+<AIAssistant />
+<DailyBriefModal />
+```
 
-- Panel lateral derecho, minimizable a solo icono
-- Carga sugerencias al montar y cada 5 minutos
-- Se actualiza cuando cambia la ruta (location.pathname)
-- Cada sugerencia tiene: icono por tipo, titulo, descripcion, boton de accion, dismiss
-- Estado minimizado persiste en sesion
-- No bloquea el layout principal
+El main content mantiene `pr-[19rem]` que ya reserva espacio para el panel lateral. Cuando el AIAssistant este minimizado, el contenido tendra espacio extra (el panel se minimiza a w-14).
 
-### useActionTracking Hook
+### Cambio de Padding Dinamico
 
-- Fire-and-forget: no bloquea la UI
-- Obtiene organization_id del team_member del usuario
-- Cachea organization_id para no repetir queries
-- Parametros: action_type, entity_type, entity_id, method, metadata, duration_ms
+Para que el contenido se ajuste cuando el panel esta minimizado vs expandido, el AIAssistant disparara un evento custom o usaremos CSS con un data attribute en el body. Alternativa mas simple: el main siempre tiene `pr-[28rem]` fijo (450px del panel) y cuando se minimiza el padding no cambia pero hay mas espacio visual de scroll.
 
-### Header Modifications
-
-- El input de busqueda muestra badge "Cmd+K" como hint
-- Click en el input dispara apertura del CommandBar via KeyboardEvent sintético
-- Solo en paginas que no son Dashboard (el Dashboard muestra saludo personalizado)
-
-### Layout Modifications
-
-- CommandBar se agrega como componente global dentro de ChatProvider
-- AICoWorker se agrega como panel flotante, posicionado fixed a la derecha
-- El main content reduce padding-right cuando Co-Worker esta expandido (via CSS)
-
-### Contacts/Companies/Pipeline Modifications
-
-- Se agrega estado showNLI para controlar dialog de ConversationalForm
-- Boton "Crear con IA" (gradiente purpura) junto al boton existente
-- Dialog wraps ConversationalForm con entity type correcto
-- onComplete llama al mismo createContact/createCompany/createOpportunity que usa el form normal
-- Se integra useActionTracking para registrar si se creo via 'nli' o 'form'
+Mejor enfoque: pasar el estado de minimizado via un callback al AppLayout que ajuste el padding del main.
 
 ---
 
 ## Orden de Implementacion
 
-1. Migracion SQL (2 tablas + RLS + indices)
-2. Crear las 3 edge functions + actualizar config.toml
-3. Crear hook useActionTracking
-4. Crear ConversationalForm
-5. Crear CommandBar
-6. Crear AICoWorker
-7. Modificar AppLayout (agregar CommandBar + AICoWorker)
-8. Modificar Header (hint Cmd+K)
-9. Modificar Contacts, Companies, Pipeline (boton "Crear con IA")
-10. Deploy y testing
+1. Crear `src/components/ai/AIAssistant.tsx` con tabs Chat + Sugerencias
+2. Modificar `src/components/layout/AppLayout.tsx` - reemplazar 3 componentes por AIAssistant
+3. Agregar estilos CSS en `src/index.css`
+4. Verificar que el ChatContext funciona correctamente con el nuevo panel
+
+---
+
+## Resultado Visual
+
+```text
+ANTES:
++--------+------------------------+--------+
+| Sidebar| Main Content           |CoWorker|
+|        |                        | Panel  |
+|        |                        |        |
+|        |========================|        |
+|        | [Chat flotante abajo]  |        |
++--------+------------------------+--------+
+
+DESPUES:
++--------+------------------+---------------+
+| Sidebar| Main Content     | AI Assistant  |
+|        |                  | [Chat|Suger.] |
+|        |                  | Mensajes...   |
+|        |                  | [Input___][>] |
++--------+------------------+---------------+
+```
+
+- Un solo punto de interaccion con la IA
+- Chat completo con streaming y conversaciones persistidas
+- Sugerencias proactivas en tab separado
+- Siempre visible, minimizable a barra delgada
+- Gradiente purple/blue coherente con el branding AI del CRM
 
