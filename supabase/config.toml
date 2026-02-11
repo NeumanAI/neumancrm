@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.get-coworker-suggestions]
 verify_jwt = false
+
+[functions.process-onboarding-step]
+verify_jwt = false
