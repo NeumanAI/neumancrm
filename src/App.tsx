@@ -30,6 +30,7 @@ import FirmaDigital from "./pages/FirmaDigital";
 import AgenticRAG from "./pages/AgenticRAG";
 import Labs from "./pages/Labs";
 import CRMDocumentation from "./pages/CRMDocumentation";
+import Onboarding from "./pages/Onboarding";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +55,9 @@ const App = () => (
             <Route path="/admin/agentic-rag" element={<AgenticRAG />} />
             <Route path="/admin/labs" element={<Labs />} />
             <Route path="/crm-documentation" element={<CRMDocumentation />} />
+            
+            {/* Onboarding - no layout */}
+            <Route path="/onboarding" element={<Onboarding />} />
             
             {/* Reseller admin panel - no layout (has its own) */}
             <Route path="/reseller-admin" element={<ResellerAdmin />} />

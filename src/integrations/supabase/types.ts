@@ -1113,6 +1113,56 @@ export type Database = {
         }
         Relationships: []
       }
+      onboarding_progress: {
+        Row: {
+          collected_data: Json
+          completed: boolean
+          completed_at: string | null
+          conversation_history: Json
+          current_step: number
+          id: string
+          last_interaction_at: string
+          organization_id: string | null
+          started_at: string
+          total_steps: number
+          user_id: string
+        }
+        Insert: {
+          collected_data?: Json
+          completed?: boolean
+          completed_at?: string | null
+          conversation_history?: Json
+          current_step?: number
+          id?: string
+          last_interaction_at?: string
+          organization_id?: string | null
+          started_at?: string
+          total_steps?: number
+          user_id: string
+        }
+        Update: {
+          collected_data?: Json
+          completed?: boolean
+          completed_at?: string | null
+          conversation_history?: Json
+          current_step?: number
+          id?: string
+          last_interaction_at?: string
+          organization_id?: string | null
+          started_at?: string
+          total_steps?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_progress_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       opportunities: {
         Row: {
           assigned_to: string | null
