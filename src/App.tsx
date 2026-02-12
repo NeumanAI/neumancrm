@@ -31,6 +31,7 @@ import AgenticRAG from "./pages/AgenticRAG";
 import Labs from "./pages/Labs";
 import CRMDocumentation from "./pages/CRMDocumentation";
 import Onboarding from "./pages/Onboarding";
+import BrandedAuth from "./pages/BrandedAuth";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,7 @@ const App = () => (
           <Routes>
             {/* Auth route - no layout */}
             <Route path="/auth" element={<Auth />} />
+            <Route path="/auth/:slug" element={<BrandedAuth />} />
             
             {/* Pending approval - no layout */}
             <Route path="/pending-approval" element={<PendingApproval />} />

@@ -19,12 +19,37 @@ const DEFAULT_BRANDING: OrganizationBranding = {
   secondary_color: '#8B5CF6',
 };
 
-export function useBranding() {
+export function useBranding(slug?: string) {
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
 
   const { data: branding, isLoading, error } = useQuery({
-    queryKey: ['branding', hostname],
+    queryKey: ['branding', slug || hostname],
     queryFn: async (): Promise<OrganizationBranding> => {
+      // If a slug is provided, look up by slug
+      if (slug) {
+        const { data, error } = await supabase
+          .rpc('get_organization_by_slug', { slug_name: slug });
+
+        if (error) {
+          console.error('Error fetching branding by slug:', error);
+          return DEFAULT_BRANDING;
+        }
+
+        if (data && data.length > 0) {
+          const org = data[0];
+          return {
+            id: org.id,
+            name: org.name,
+            logo_url: org.logo_url,
+            favicon_url: org.favicon_url,
+            primary_color: org.primary_color || DEFAULT_BRANDING.primary_color,
+            secondary_color: org.secondary_color || DEFAULT_BRANDING.secondary_color,
+          };
+        }
+
+        return DEFAULT_BRANDING;
+      }
+
       // Skip lookup for localhost or lovable preview domains without custom subdomain
       const isDefaultDomain = 
         hostname === 'localhost' || 
@@ -57,8 +82,8 @@ export function useBranding() {
 
       return DEFAULT_BRANDING;
     },
-    staleTime: Infinity, // Branding doesn't change frequently
-    gcTime: 1000 * 60 * 60, // Keep in cache for 1 hour
+    staleTime: Infinity,
+    gcTime: 1000 * 60 * 60,
   });
 
   return {

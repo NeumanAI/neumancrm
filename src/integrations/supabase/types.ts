@@ -1862,6 +1862,17 @@ export type Database = {
           secondary_color: string
         }[]
       }
+      get_organization_by_slug: {
+        Args: { slug_name: string }
+        Returns: {
+          favicon_url: string
+          id: string
+          logo_url: string
+          name: string
+          primary_color: string
+          secondary_color: string
+        }[]
+      }
       get_reseller_organization_id: { Args: never; Returns: string }
       get_user_organization_id: { Args: never; Returns: string }
       get_user_role: {

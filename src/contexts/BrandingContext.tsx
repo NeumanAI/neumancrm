@@ -37,8 +37,8 @@ function hexToHsl(hex: string): string {
   return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
 }
 
-export function BrandingProvider({ children }: { children: React.ReactNode }) {
-  const { branding, isLoading, isWhiteLabel } = useBranding();
+export function BrandingProvider({ children, slugOverride }: { children: React.ReactNode; slugOverride?: string }) {
+  const { branding, isLoading, isWhiteLabel } = useBranding(slugOverride);
 
   // Apply branding colors as CSS variables
   useEffect(() => {
