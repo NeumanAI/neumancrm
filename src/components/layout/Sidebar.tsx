@@ -91,9 +91,7 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
               className="w-10 h-10 rounded-xl object-contain flex-shrink-0"
             />
           ) : (
-            <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
+            <img src="/neuman-logo.png" alt="Neuman CRM" className="w-10 h-10 rounded-xl object-contain flex-shrink-0" />
           )}
           <AnimatePresence>
             {!collapsed && (
