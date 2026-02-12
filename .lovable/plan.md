@@ -1,40 +1,56 @@
 
-
-# Actualizar logo de Neuman CRM en toda la aplicacion
+# Acceso White-Label por Subpath (`/auth/:slug`)
 
 ## Resumen
 
-Copiar el logo subido (`Logo_Neuman_f48634.png`) al proyecto y usarlo como logo predeterminado y favicon en todas las ubicaciones donde aparece el icono generico (Sparkles).
+Agregar una ruta `/auth/:slug` que cargue el branding de la organizacion correspondiente al slug, funcionando en paralelo con la deteccion por dominio existente. Por ejemplo, `/auth/bitanai` mostrara el login con la marca de BitanAI.
 
-## Ubicaciones a actualizar
+## Como funciona
 
-1. **Favicon y titulo** (`index.html`) - Cambiar favicon y titulo a "Neuman CRM"
-2. **Sidebar** (`src/components/layout/Sidebar.tsx`) - Reemplazar icono Sparkles por el logo cuando no hay branding white-label
-3. **Login** (`src/pages/Auth.tsx`) - Logo en panel izquierdo y version movil
-4. **Onboarding** (`src/pages/Onboarding.tsx`) - Logo en header del onboarding
-5. **Branding por defecto** (`src/hooks/useBranding.ts`) - Cambiar nombre default de "CRM AI" a "Neuman CRM"
+1. El usuario accede a `/auth/bitanai`
+2. El sistema busca la organizacion con `slug = 'bitanai'`
+3. Aplica el branding (logo, colores, nombre) en la pagina de login
+4. El acceso por dominio personalizado sigue funcionando igual
 
-## Detalles tecnicos
+## Detalles Tecnicos
 
-### Archivos nuevos
-- Copiar `user-uploads://Logo_Neuman_f48634.png` a `public/neuman-logo.png` (para favicon y referencia directa)
+### 1. Nueva funcion RPC en la base de datos
+
+Crear `get_organization_by_slug(slug_name text)` que retorna los mismos campos de branding que `get_organization_by_domain`, pero buscando por el campo `slug` de la tabla `organizations`. Funcion `SECURITY DEFINER` sin requerir autenticacion (igual que la de dominio).
+
+### 2. Modificar `useBranding.ts`
+
+- Aceptar un parametro opcional `slug`
+- Si se pasa un slug, buscar branding por slug usando la nueva RPC (en lugar de por dominio)
+- Si no hay slug, mantener el flujo actual por dominio
+
+### 3. Modificar `BrandingContext.tsx`
+
+- Aceptar una prop opcional `slugOverride` en `BrandingProvider`
+- Pasar el slug al hook `useBranding`
+
+### 4. Crear componente wrapper `BrandedAuth.tsx`
+
+- Pequeno componente que lee el parametro `:slug` de la URL
+- Envuelve `Auth` con un `BrandingProvider` que pasa el slug como override
+- Si el slug no existe en la base de datos, muestra el branding por defecto (Neuman CRM)
+
+### 5. Agregar ruta en `App.tsx`
+
+- Agregar `/auth/:slug` apuntando al wrapper `BrandedAuth`
+- La ruta existente `/auth` sigue funcionando igual (branding por dominio)
+
+### Archivos a crear
+1. `src/pages/BrandedAuth.tsx` - Wrapper que lee slug y aplica branding
 
 ### Archivos a modificar
+1. Migracion SQL - Crear funcion `get_organization_by_slug`
+2. `src/hooks/useBranding.ts` - Agregar soporte para buscar por slug
+3. `src/contexts/BrandingContext.tsx` - Aceptar slug override como prop
+4. `src/App.tsx` - Agregar ruta `/auth/:slug`
 
-1. **`index.html`**
-   - Agregar `<link rel="icon" href="/neuman-logo.png" type="image/png">`
-   - Cambiar `<title>` a "Neuman CRM"
-   - Actualizar og:title
+### Resultado
 
-2. **`src/hooks/useBranding.ts`**
-   - Cambiar `name: 'CRM AI'` a `name: 'Neuman CRM'`
-
-3. **`src/components/layout/Sidebar.tsx`**
-   - En el fallback (cuando no hay `branding.logo_url`), mostrar `<img src="/neuman-logo.png">` en lugar del icono Sparkles
-
-4. **`src/pages/Auth.tsx`**
-   - Reemplazar ambos fallbacks de Sparkles (desktop y movil) por `<img src="/neuman-logo.png">`
-
-5. **`src/pages/Onboarding.tsx`**
-   - Reemplazar fallback de Sparkles por `<img src="/neuman-logo.png">`
-
+- `/auth` - Login con branding por defecto o por dominio
+- `/auth/bitanai` - Login con branding de BitanAI
+- Dominio personalizado - Sigue funcionando cuando se configure
