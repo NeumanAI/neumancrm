@@ -12,7 +12,7 @@ export interface OrganizationBranding {
 
 const DEFAULT_BRANDING: OrganizationBranding = {
   id: '',
-  name: 'CRM AI',
+  name: 'Neuman CRM',
   logo_url: null,
   favicon_url: null,
   primary_color: '#3B82F6',

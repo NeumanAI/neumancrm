@@ -54,9 +54,7 @@ export default function Onboarding() {
           {branding.logo_url ? (
             <img src={branding.logo_url} alt={branding.name} className="w-8 h-8 rounded-lg object-contain" />
           ) : (
-            <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-primary-foreground" />
-            </div>
+            <img src="/neuman-logo.png" alt="Neuman CRM" className="w-8 h-8 rounded-lg object-contain" />
           )}
           <span className="font-semibold text-foreground">{branding.name}</span>
         </div>

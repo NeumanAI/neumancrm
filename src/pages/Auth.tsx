@@ -120,9 +120,7 @@ export default function Auth() {
             {branding.logo_url ? (
               <img src={branding.logo_url} alt={branding.name} className="w-10 h-10 rounded-xl object-contain" />
             ) : (
-              <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-lg">
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
+              <img src="/neuman-logo.png" alt="Neuman CRM" className="w-10 h-10 rounded-xl object-contain shadow-lg" />
             )}
             <span className="text-xl font-bold text-white">{branding.name}</span>
           </div>
@@ -166,9 +164,7 @@ export default function Auth() {
             {branding.logo_url ? (
               <img src={branding.logo_url} alt={branding.name} className="w-12 h-12 mx-auto mb-3 rounded-xl object-contain" />
             ) : (
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl gradient-primary shadow-lg mb-3">
-                <Sparkles className="w-6 h-6 text-white" />
-              </div>
+              <img src="/neuman-logo.png" alt="Neuman CRM" className="w-12 h-12 mx-auto rounded-xl object-contain shadow-lg mb-3" />
             )}
             <h1 className="text-2xl font-bold text-foreground">{branding.name}</h1>
           </div>
