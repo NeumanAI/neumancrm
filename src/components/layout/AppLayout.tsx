@@ -46,12 +46,6 @@ export function AppLayout({ children }: AppLayoutProps) {
     }
   }, [organization, isLoading, isSuperAdmin, navigate]);
 
-  // Redirect to onboarding if not completed
-  useEffect(() => {
-    if (!isLoading && user && !user.user_metadata?.onboarding_completed && !isSuperAdmin) {
-      navigate('/onboarding', { replace: true });
-    }
-  }, [user, isLoading, isSuperAdmin, navigate]);
 
   const handleAiMinimizedChange = useCallback((minimized: boolean) => {
     setAiMinimized(minimized);
