@@ -17,6 +17,7 @@ export type Database = {
       activities: {
         Row: {
           assigned_to: string | null
+          calendar_color: string | null
           company_id: string | null
           completed: boolean | null
           completed_at: string | null
@@ -29,6 +30,7 @@ export type Database = {
           opportunity_id: string | null
           organization_id: string | null
           priority: string | null
+          show_in_calendar: boolean | null
           title: string
           type: string
           updated_at: string | null
@@ -36,6 +38,7 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
+          calendar_color?: string | null
           company_id?: string | null
           completed?: boolean | null
           completed_at?: string | null
@@ -48,6 +51,7 @@ export type Database = {
           opportunity_id?: string | null
           organization_id?: string | null
           priority?: string | null
+          show_in_calendar?: boolean | null
           title: string
           type: string
           updated_at?: string | null
@@ -55,6 +59,7 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
+          calendar_color?: string | null
           company_id?: string | null
           completed?: boolean | null
           completed_at?: string | null
@@ -67,6 +72,7 @@ export type Database = {
           opportunity_id?: string | null
           organization_id?: string | null
           priority?: string | null
+          show_in_calendar?: boolean | null
           title?: string
           type?: string
           updated_at?: string | null
@@ -294,6 +300,160 @@ export type Database = {
           secondary_color?: string | null
           updated_at?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      calendar_events: {
+        Row: {
+          all_day: boolean
+          color: string | null
+          company_id: string | null
+          contact_id: string | null
+          created_at: string
+          description: string | null
+          end_time: string
+          event_type: string
+          google_calendar_id: string | null
+          google_event_id: string | null
+          id: string
+          last_synced_at: string | null
+          location: string | null
+          meeting_url: string | null
+          opportunity_id: string | null
+          organization_id: string
+          participants: Json | null
+          recurrence_end_date: string | null
+          recurrence_rule: string | null
+          reminders: Json | null
+          start_time: string
+          synced_with_google: boolean | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          all_day?: boolean
+          color?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          description?: string | null
+          end_time: string
+          event_type?: string
+          google_calendar_id?: string | null
+          google_event_id?: string | null
+          id?: string
+          last_synced_at?: string | null
+          location?: string | null
+          meeting_url?: string | null
+          opportunity_id?: string | null
+          organization_id: string
+          participants?: Json | null
+          recurrence_end_date?: string | null
+          recurrence_rule?: string | null
+          reminders?: Json | null
+          start_time: string
+          synced_with_google?: boolean | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          all_day?: boolean
+          color?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          description?: string | null
+          end_time?: string
+          event_type?: string
+          google_calendar_id?: string | null
+          google_event_id?: string | null
+          id?: string
+          last_synced_at?: string | null
+          location?: string | null
+          meeting_url?: string | null
+          opportunity_id?: string | null
+          organization_id?: string
+          participants?: Json | null
+          recurrence_end_date?: string | null
+          recurrence_rule?: string | null
+          reminders?: Json | null
+          start_time?: string
+          synced_with_google?: boolean | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_events_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_events_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_goals: {
+        Row: {
+          color: string | null
+          created_at: string
+          current_value: number
+          end_date: string
+          goal_type: string
+          id: string
+          organization_id: string
+          show_in_calendar: boolean | null
+          start_date: string
+          target_value: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          current_value?: number
+          end_date: string
+          goal_type?: string
+          id?: string
+          organization_id: string
+          show_in_calendar?: boolean | null
+          start_date: string
+          target_value?: number
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          current_value?: number
+          end_date?: string
+          goal_type?: string
+          id?: string
+          organization_id?: string
+          show_in_calendar?: boolean | null
+          start_date?: string
+          target_value?: number
+          title?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -911,6 +1071,54 @@ export type Database = {
           status?: string | null
           total_records?: number | null
           updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      google_calendar_sync: {
+        Row: {
+          access_token: string | null
+          created_at: string
+          google_email: string | null
+          id: string
+          is_connected: boolean
+          last_sync_at: string | null
+          refresh_token: string | null
+          selected_calendars: Json | null
+          sync_direction: string
+          sync_status: string | null
+          token_expires_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token?: string | null
+          created_at?: string
+          google_email?: string | null
+          id?: string
+          is_connected?: boolean
+          last_sync_at?: string | null
+          refresh_token?: string | null
+          selected_calendars?: Json | null
+          sync_direction?: string
+          sync_status?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string | null
+          created_at?: string
+          google_email?: string | null
+          id?: string
+          is_connected?: boolean
+          last_sync_at?: string | null
+          refresh_token?: string | null
+          selected_calendars?: Json | null
+          sync_direction?: string
+          sync_status?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -1851,6 +2059,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_calendar_items: {
+        Args: { p_end_date: string; p_org_id: string; p_start_date: string }
+        Returns: {
+          all_day: boolean
+          color: string
+          end_time: string
+          id: string
+          item_type: string
+          metadata: Json
+          start_time: string
+          title: string
+        }[]
+      }
       get_organization_by_domain: {
         Args: { domain_name: string }
         Returns: {

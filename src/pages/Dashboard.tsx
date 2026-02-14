@@ -26,6 +26,7 @@ import {
 } from 'recharts';
 
 import { MetricCard } from '@/components/dashboard/MetricCard';
+import { TodayAgenda } from '@/components/calendar/TodayAgenda';
 import { AnalysisCard } from '@/components/dashboard/AnalysisCard';
 import { TrafficSourceChart } from '@/components/dashboard/TrafficSourceChart';
 import { MiniAreaChart, MiniLineChart } from '@/components/dashboard/MiniCharts';
@@ -256,8 +257,10 @@ export default function Dashboard() {
         </Suspense>
       </motion.div>
 
-      {/* Bottom Section - Tasks and Deals */}
-      <motion.div variants={item} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Bottom Section - Tasks, Agenda and Deals */}
+      <motion.div variants={item} className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Today's Agenda */}
+        <TodayAgenda />
         {/* Today's Tasks */}
         <Card className="border-0 shadow-sm bg-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
