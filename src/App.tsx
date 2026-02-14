@@ -30,6 +30,8 @@ import FirmaDigital from "./pages/FirmaDigital";
 import AgenticRAG from "./pages/AgenticRAG";
 import Labs from "./pages/Labs";
 import CRMDocumentation from "./pages/CRMDocumentation";
+import CalendarPage from "./pages/CalendarPage";
+import GoogleCalendarCallback from "./pages/GoogleCalendarCallback";
 
 import BrandedAuth from "./pages/BrandedAuth";
 
@@ -76,6 +78,8 @@ const App = () => (
             <Route path="/conversations" element={<AppLayout><Conversations /></AppLayout>} />
             <Route path="/projects" element={<AppLayout><Projects /></AppLayout>} />
             <Route path="/projects/:projectId" element={<AppLayout><ProjectDetail /></AppLayout>} />
+            <Route path="/calendar" element={<AppLayout><CalendarPage /></AppLayout>} />
+            <Route path="/auth/google-calendar-callback" element={<GoogleCalendarCallback />} />
             
             {/* Redirect root to dashboard */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />

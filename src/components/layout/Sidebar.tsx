@@ -19,6 +19,7 @@ import {
   PenTool,
   Bot,
   FlaskConical,
+  CalendarDays,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -41,6 +42,7 @@ const navItems = [
   { to: '/pipeline', icon: TrendingUp, label: 'Pipeline' },
   { to: '/projects', icon: FolderOpen, label: 'Proyectos' },
   { to: '/tasks', icon: CheckSquare, label: 'Tareas' },
+  { to: '/calendar', icon: CalendarDays, label: 'Calendario' },
   { to: '/data-management', icon: Database, label: 'Datos' },
   { to: '/team', icon: UsersRound, label: 'Equipo' },
   { to: '/settings', icon: Settings, label: 'Configuración' },
