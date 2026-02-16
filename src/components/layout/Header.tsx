@@ -22,6 +22,22 @@ interface HeaderProps {
   onMenuClick: () => void;
 }
 
+const PAGE_NAMES: Record<string, string> = {
+  '/dashboard': 'Dashboard',
+  '/': 'Dashboard',
+  '/contacts': 'Contactos',
+  '/companies': 'Empresas',
+  '/pipeline': 'Pipeline',
+  '/projects': 'Proyectos',
+  '/tasks': 'Tareas',
+  '/calendar': 'Calendario',
+  '/conversations': 'Conversaciones',
+  '/data-management': 'Datos',
+  '/team': 'Equipo',
+  '/settings': 'Configuración',
+  '/admin': 'Administración',
+};
+
 function getGreeting(user: { email?: string; user_metadata?: { full_name?: string } } | null) {
   const hour = new Date().getHours();
   const userName = user?.user_metadata?.full_name?.split(' ')[0] || 
@@ -32,12 +48,15 @@ function getGreeting(user: { email?: string; user_metadata?: { full_name?: strin
   return `Buenas noches, ${userName}`;
 }
 
+function getPageName(pathname: string): string {
+  return PAGE_NAMES[pathname] || pathname.split('/').filter(Boolean).pop()?.replace(/-/g, ' ') || 'CRM';
+}
+
 export function Header({ onMenuClick }: HeaderProps) {
   const { user, signOut } = useAuth();
   const { organization } = useTeam();
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchQuery, setSearchQuery] = useState('');
 
   const isDashboard = location.pathname === '/' || location.pathname === '/dashboard';
 
@@ -53,19 +72,24 @@ export function Header({ onMenuClick }: HeaderProps) {
     .toUpperCase() || 'U';
 
   return (
-    <header className="h-auto min-h-16 border-b border-border bg-card/95 backdrop-blur sticky top-0 z-30">
-      <div className="flex items-center justify-between px-4 md:px-6 py-4">
-        <div className="flex items-center gap-4">
+    <header className="h-auto min-h-14 md:min-h-16 border-b border-border bg-card/95 backdrop-blur sticky top-0 z-30">
+      <div className="flex items-center justify-between px-3 md:px-6 py-3 md:py-4">
+        <div className="flex items-center gap-3 md:gap-4">
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden"
+            className="md:hidden h-9 w-9"
             onClick={onMenuClick}
           >
             <Menu className="h-5 w-5" />
           </Button>
 
-          {/* Personalized Greeting on Dashboard */}
+          {/* Mobile: show page name */}
+          <h1 className="text-base font-semibold md:hidden capitalize">
+            {getPageName(location.pathname)}
+          </h1>
+
+          {/* Desktop: Greeting or Search */}
           {isDashboard ? (
             <div className="hidden md:block">
               <h1 className="text-xl font-semibold">{getGreeting(user)}</h1>
@@ -75,7 +99,6 @@ export function Header({ onMenuClick }: HeaderProps) {
               </p>
             </div>
           ) : (
-            /* Search on other pages — opens CommandBar */
             <div
               className="relative hidden md:block cursor-pointer"
               onClick={() => {
@@ -95,47 +118,50 @@ export function Header({ onMenuClick }: HeaderProps) {
           )}
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Project Filter */}
-          <GlobalProjectFilter />
+        <div className="flex items-center gap-2 md:gap-3">
+          {/* Project Filter - hidden on mobile */}
+          <div className="hidden md:block">
+            <GlobalProjectFilter />
+          </div>
 
-          {/* Notifications */}
           <NotificationBell />
 
-          {/* User Menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                <Avatar className="h-9 w-9 border-2 border-primary/20">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium">
-                    {userInitials}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">
-                    {organization?.name || 'Mi Cuenta'}
-                  </p>
-                  <p className="text-xs leading-none text-muted-foreground">
-                    {user?.email}
-                  </p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/settings')}>
-                <Settings className="mr-2 h-4 w-4" />
-                Configuración
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
-                <LogOut className="mr-2 h-4 w-4" />
-                Cerrar Sesión
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* User Menu - hidden on mobile (profile is in sidebar) */}
+          <div className="hidden md:block">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                  <Avatar className="h-9 w-9 border-2 border-primary/20">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium">
+                      {userInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">
+                      {organization?.name || 'Mi Cuenta'}
+                    </p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {user?.email}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/settings')}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Configuración
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Cerrar Sesión
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
     </header>

@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTeam } from '@/hooks/useTeam';
 import { useSuperAdmin } from '@/hooks/useSuperAdmin';
 import { useResellerAdmin } from '@/hooks/useResellerAdmin';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { DailyBriefModal } from './DailyBriefModal';
@@ -13,6 +14,7 @@ import { CommandBar } from '@/components/ai/CommandBar';
 import { AIAssistant } from '@/components/ai/AIAssistant';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -25,7 +27,9 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { organization, isLoading: teamLoading, isError: teamError, refetchAll } = useTeam();
   const { isSuperAdmin } = useSuperAdmin();
   const { isResellerAdmin } = useResellerAdmin();
+  const isMobile = useIsMobile();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [bootTimedOut, setBootTimedOut] = useState(false);
   const [aiMinimized, setAiMinimized] = useState(() => sessionStorage.getItem('ai-assistant-minimized') === 'true');
   const navigate = useNavigate();
@@ -45,7 +49,6 @@ export function AppLayout({ children }: AppLayoutProps) {
       navigate('/pending-approval', { replace: true });
     }
   }, [organization, isLoading, isSuperAdmin, navigate]);
-
 
   const handleAiMinimizedChange = useCallback((minimized: boolean) => {
     setAiMinimized(minimized);
@@ -108,17 +111,20 @@ export function AppLayout({ children }: AppLayoutProps) {
   return (
     <ChatProvider>
       <div className="min-h-screen flex w-full bg-background">
+        {/* Desktop sidebar - always rendered; Mobile sidebar - conditionally rendered via isMobileOpen */}
         <Sidebar
           collapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
           isSuperAdmin={isSuperAdmin}
           isResellerAdmin={isResellerAdmin}
+          isMobileOpen={mobileMenuOpen}
+          onMobileClose={() => setMobileMenuOpen(false)}
         />
         <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
-          <Header onMenuClick={() => setSidebarCollapsed(!sidebarCollapsed)} />
+          <Header onMenuClick={() => setMobileMenuOpen(true)} />
           <main className={cn(
-            "flex-1 overflow-auto p-6 transition-[padding] duration-200",
-            aiMinimized ? 'md:pr-20' : 'md:pr-[27rem]'
+            "flex-1 overflow-auto p-4 md:p-6 transition-[padding] duration-200",
+            !isMobile && (aiMinimized ? 'md:pr-20' : 'md:pr-[27rem]')
           )}>
             {children}
           </main>
@@ -129,8 +135,4 @@ export function AppLayout({ children }: AppLayoutProps) {
       <DailyBriefModal />
     </ChatProvider>
   );
-}
-
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(' ');
 }

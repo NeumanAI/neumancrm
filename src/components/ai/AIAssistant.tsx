@@ -2,7 +2,7 @@ import { useState, useEffect, KeyboardEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Sparkles, ChevronLeft, ChevronRight, PanelRightClose, PanelRightOpen,
+  Sparkles, ChevronLeft, PanelRightClose, PanelRightOpen,
   Send, Loader2, Plus, RefreshCw, AlertTriangle, Flame, Lightbulb,
   X, CheckCircle, MessageSquare, History,
 } from 'lucide-react';
@@ -10,13 +10,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { useChat } from '@/contexts/ChatContext';
 import { ChatMessages } from '@/components/chat/ChatMessages';
 import { supabase } from '@/integrations/supabase/client';
 import { AIConversation } from '@/types/crm';
 import { parseISO, isToday, isYesterday } from 'date-fns';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // ─── Suggestion types ───
 interface Suggestion {
@@ -49,7 +50,6 @@ function ConversationSidebar({
 
   return (
     <>
-      {/* Toggle */}
       <Button
         variant="ghost"
         size="icon"
@@ -141,11 +141,15 @@ interface AIAssistantProps {
 }
 
 export function AIAssistant({ onMinimizedChange }: AIAssistantProps) {
-  const [isMinimized, setIsMinimized] = useState(() => sessionStorage.getItem('ai-assistant-minimized') === 'true');
+  const isMobile = useIsMobile();
+  const [isMinimized, setIsMinimized] = useState<boolean>(() => {
+    // Default to minimized
+    const stored = sessionStorage.getItem('ai-assistant-minimized');
+    return stored === null ? true : stored === 'true';
+  });
   const [activeTab, setActiveTab] = useState<string>('chat');
   const [showConversations, setShowConversations] = useState(false);
 
-  // Suggestions state (migrated from AICoWorker)
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -153,7 +157,6 @@ export function AIAssistant({ onMinimizedChange }: AIAssistantProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Chat context
   const {
     displayMessages,
     inputValue,
@@ -216,31 +219,47 @@ export function AIAssistant({ onMinimizedChange }: AIAssistantProps) {
   // ─── Minimized state ───
   if (isMinimized) {
     return (
-      <div className="fixed right-0 top-0 bottom-0 w-14 z-30 hidden md:flex flex-col items-center bg-card border-l border-border">
+      <>
+        {/* Desktop: vertical strip */}
+        <div className="fixed right-0 top-0 bottom-0 w-14 z-30 hidden md:flex flex-col items-center bg-card border-l border-border">
+          <button
+            onClick={() => setIsMinimized(false)}
+            className="mt-4 flex flex-col items-center gap-3 group"
+          >
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+              <Sparkles className="h-4.5 w-4.5 text-white" />
+            </div>
+            {urgentCount > 0 && (
+              <Badge variant="destructive" className="text-[10px] px-1.5 min-w-[20px] h-5">
+                {urgentCount}
+              </Badge>
+            )}
+          </button>
+          <span className="writing-mode-vertical text-[11px] font-medium text-muted-foreground mt-4 select-none">
+            AI Assistant
+          </span>
+          <div className="flex-1" />
+          <button
+            onClick={() => setIsMinimized(false)}
+            className="mb-4 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <PanelRightOpen className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Mobile: FAB */}
         <button
           onClick={() => setIsMinimized(false)}
-          className="mt-4 flex flex-col items-center gap-3 group"
+          className="fixed bottom-6 right-6 z-40 md:hidden h-14 w-14 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center shadow-2xl active:scale-95 transition-transform"
         >
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-            <Sparkles className="h-4.5 w-4.5 text-white" />
-          </div>
+          <Sparkles className="h-6 w-6 text-white" />
           {urgentCount > 0 && (
-            <Badge variant="destructive" className="text-[10px] px-1.5 min-w-[20px] h-5">
+            <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-white text-[10px] flex items-center justify-center font-bold">
               {urgentCount}
-            </Badge>
+            </span>
           )}
         </button>
-        <span className="writing-mode-vertical text-[11px] font-medium text-muted-foreground mt-4 select-none">
-          AI Assistant
-        </span>
-        <div className="flex-1" />
-        <button
-          onClick={() => setIsMinimized(false)}
-          className="mb-4 text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <PanelRightOpen className="h-4 w-4" />
-        </button>
-      </div>
+      </>
     );
   }
 
@@ -253,106 +272,114 @@ export function AIAssistant({ onMinimizedChange }: AIAssistantProps) {
         onClick={() => setIsMinimized(true)}
       />
 
-      {/* Panel - Full screen on mobile, sidebar on desktop */}
+      {/* Panel */}
       <div className={cn(
         "fixed z-50 flex flex-col bg-card border-l border-border shadow-xl",
-        // Mobile: full screen
         "inset-0 md:inset-auto",
-        // Desktop: right sidebar
         "md:right-0 md:top-0 md:bottom-0 md:w-[420px] md:z-30"
       )}>
-      {/* Header */}
-      <div className="flex-shrink-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
-              <Sparkles className="h-4 w-4" />
+        {/* Header */}
+        <div className="flex-shrink-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold leading-tight">AI Assistant</h2>
+                <p className="text-[10px] text-white/70">Tu copiloto inteligente</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-sm font-semibold leading-tight">AI Assistant</h2>
-              <p className="text-[10px] text-white/70">Tu copiloto inteligente</p>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-white/80 hover:text-white hover:bg-white/10"
+                onClick={startNewConversation}
+                title="Nueva conversación"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+              {/* Mobile: X button, Desktop: minimize */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-white/80 hover:text-white hover:bg-white/10 md:hidden"
+                onClick={() => setIsMinimized(true)}
+                title="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-white/80 hover:text-white hover:bg-white/10 hidden md:flex"
+                onClick={() => setIsMinimized(true)}
+                title="Minimizar"
+              >
+                <PanelRightClose className="h-3.5 w-3.5" />
+              </Button>
             </div>
           </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-white/80 hover:text-white hover:bg-white/10"
-              onClick={startNewConversation}
-              title="Nueva conversación"
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-white/80 hover:text-white hover:bg-white/10"
-              onClick={() => setIsMinimized(true)}
-              title="Minimizar"
-            >
-              <PanelRightClose className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+
+          {/* Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="px-3 pb-1">
+            <TabsList className="w-full bg-white/10 border-0 h-8">
+              <TabsTrigger
+                value="chat"
+                className="flex-1 text-xs text-white/70 data-[state=active]:bg-white/20 data-[state=active]:text-white data-[state=active]:shadow-none h-6"
+              >
+                Chat
+              </TabsTrigger>
+              <TabsTrigger
+                value="suggestions"
+                className="flex-1 text-xs text-white/70 data-[state=active]:bg-white/20 data-[state=active]:text-white data-[state=active]:shadow-none h-6"
+              >
+                Sugerencias
+                {urgentCount > 0 && (
+                  <Badge variant="destructive" className="ml-1.5 text-[9px] px-1 h-4 min-w-[16px]">
+                    {urgentCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="px-3 pb-1">
-          <TabsList className="w-full bg-white/10 border-0 h-8">
-            <TabsTrigger
-              value="chat"
-              className="flex-1 text-xs text-white/70 data-[state=active]:bg-white/20 data-[state=active]:text-white data-[state=active]:shadow-none h-6"
-            >
-              Chat
-            </TabsTrigger>
-            <TabsTrigger
-              value="suggestions"
-              className="flex-1 text-xs text-white/70 data-[state=active]:bg-white/20 data-[state=active]:text-white data-[state=active]:shadow-none h-6"
-            >
-              Sugerencias
-              {urgentCount > 0 && (
-                <Badge variant="destructive" className="ml-1.5 text-[9px] px-1 h-4 min-w-[16px]">
-                  {urgentCount}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
+        {/* Tab content */}
+        <div className="flex-1 min-h-0 flex flex-col">
+          {activeTab === 'chat' ? (
+            <ChatTab
+              showConversations={showConversations}
+              onToggleConversations={() => setShowConversations(!showConversations)}
+              displayMessages={displayMessages}
+              isLoading={isLoading}
+              streamingContent={streamingContent}
+              inputValue={inputValue}
+              setInputValue={setInputValue}
+              sendMessage={sendMessage}
+              handleKeyDown={handleKeyDown}
+              inputRef={inputRef}
+            />
+          ) : (
+            <SuggestionsTab
+              suggestions={suggestions}
+              isLoading={isLoadingSuggestions}
+              lastUpdated={lastUpdated}
+              onRefresh={loadSuggestions}
+              onAction={handleAction}
+              onDismiss={dismissSuggestion}
+            />
+          )}
+        </div>
 
-      {/* Tab content */}
-      <div className="flex-1 min-h-0 flex flex-col">
-        {activeTab === 'chat' ? (
-          <ChatTab
-            showConversations={showConversations}
-            onToggleConversations={() => setShowConversations(!showConversations)}
-            displayMessages={displayMessages}
-            isLoading={isLoading}
-            streamingContent={streamingContent}
-            inputValue={inputValue}
-            setInputValue={setInputValue}
-            sendMessage={sendMessage}
-            handleKeyDown={handleKeyDown}
-            inputRef={inputRef}
-          />
-        ) : (
-          <SuggestionsTab
-            suggestions={suggestions}
-            isLoading={isLoadingSuggestions}
-            lastUpdated={lastUpdated}
-            onRefresh={loadSuggestions}
-            onAction={handleAction}
-            onDismiss={dismissSuggestion}
-          />
-        )}
+        {/* Footer */}
+        <div className="flex-shrink-0 px-3 py-1.5 border-t border-border">
+          <p className="text-[10px] text-muted-foreground text-center">
+            Powered by AI • Contexto: {location.pathname}
+          </p>
+        </div>
       </div>
-
-      {/* Footer */}
-      <div className="flex-shrink-0 px-3 py-1.5 border-t border-border">
-        <p className="text-[10px] text-muted-foreground text-center">
-          Powered by AI • Contexto: {location.pathname}
-        </p>
-      </div>
-    </div>
     </>
   );
 }
@@ -383,10 +410,8 @@ function ChatTab({
 }) {
   return (
     <div className="flex-1 flex min-h-0 relative">
-      {/* Conversation sidebar */}
       <ConversationSidebar isOpen={showConversations} onToggle={onToggleConversations} />
 
-      {/* Messages area */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
         <ScrollArea className="flex-1">
           <div className="p-4">
@@ -398,7 +423,6 @@ function ChatTab({
           </div>
         </ScrollArea>
 
-        {/* Input */}
         <div className="flex-shrink-0 border-t border-border p-3">
           <div className="flex items-end gap-2">
             <div className="flex-1 relative">
@@ -471,7 +495,6 @@ function SuggestionsTab({
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      {/* Suggestions header */}
       <div className="flex-shrink-0 flex items-center justify-between px-4 py-2 border-b border-border">
         <p className="text-xs text-muted-foreground">
           {lastUpdated
@@ -498,43 +521,41 @@ function SuggestionsTab({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, x: 50 }}
                 className={cn(
-                  'rounded-lg border border-l-4 p-3 space-y-2 bg-background',
+                  'p-3 rounded-lg border-l-4 bg-card border border-border shadow-sm',
                   getBorderColor(s.type),
                 )}
               >
-                <div className="flex items-start gap-2">
-                  {getIcon(s.type)}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium leading-tight">{s.title}</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">{s.description}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2 flex-1">
+                    {getIcon(s.type)}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{s.title}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{s.description}</p>
+                    </div>
                   </div>
                   <button
                     onClick={() => onDismiss(s.id)}
-                    className="text-muted-foreground hover:text-foreground flex-shrink-0"
+                    className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
                   >
-                    <X className="h-3 w-3" />
+                    <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
-                <div className="flex items-center justify-between">
-                  <Badge variant="outline" className="text-[10px] h-5">
-                    {s.impact === 'high' ? 'Alto impacto' : s.impact === 'medium' ? 'Medio' : 'Bajo'}
-                  </Badge>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="h-6 text-[11px] px-2"
-                    onClick={() => onAction(s)}
-                  >
+                <div className="mt-2 flex items-center justify-between">
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onAction(s)}>
                     {s.action}
                   </Button>
+                  <div className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-[10px] text-muted-foreground">{Math.round(s.confidence * 100)}%</span>
+                  </div>
                 </div>
               </motion.div>
             ))
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <CheckCircle className="h-8 w-8 mb-2 text-green-500" />
-              <p className="text-sm font-medium">¡Todo al día!</p>
-              <p className="text-xs">No hay acciones urgentes</p>
+              <Sparkles className="h-8 w-8 mb-3 text-primary/30" />
+              <p className="text-sm font-medium">Todo en orden</p>
+              <p className="text-xs mt-1">No hay sugerencias por ahora</p>
             </div>
           )}
         </div>
