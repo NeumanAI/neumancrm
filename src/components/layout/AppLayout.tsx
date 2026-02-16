@@ -118,7 +118,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           <Header onMenuClick={() => setSidebarCollapsed(!sidebarCollapsed)} />
           <main className={cn(
             "flex-1 overflow-auto p-6 transition-[padding] duration-200",
-            aiMinimized ? 'pr-20' : 'pr-[27rem]'
+            aiMinimized ? 'md:pr-20' : 'md:pr-[27rem]'
           )}>
             {children}
           </main>
