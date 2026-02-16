@@ -88,7 +88,7 @@ export default function Dashboard() {
       variants={container}
       initial="hidden"
       animate="show"
-      className="p-6 md:p-8 bg-muted/30 min-h-screen space-y-8"
+      className="bg-muted/30 min-h-screen space-y-6 md:space-y-8"
     >
       {/* Title and Filters */}
       <motion.div variants={item} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

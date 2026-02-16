@@ -9,7 +9,6 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
   Database,
   UsersRound,
   MessageSquare,
@@ -22,6 +21,7 @@ import {
   CalendarDays,
   User,
   LogOut,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,12 +40,15 @@ import { useBrandingContext } from '@/contexts/BrandingContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useTeam } from '@/hooks/useTeam';
 import { toast } from 'sonner';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
   isSuperAdmin?: boolean;
   isResellerAdmin?: boolean;
+  isMobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 const navItems = [
@@ -76,15 +79,15 @@ const resellerNavItems = [
   { to: '/reseller-admin', icon: Store, label: 'Mis Clientes', isReseller: true },
 ];
 
-export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerAdmin = false }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerAdmin = false, isMobileOpen = false, onMobileClose }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const unreadCount = useUnreadConversationsCount();
   const { branding } = useBrandingContext();
   const { user, signOut } = useAuth();
   const { organization } = useTeam();
   
-  // Build nav items based on roles
   let allNavItems = [...navItems];
   if (isResellerAdmin) {
     allNavItems = [...allNavItems, ...resellerNavItems];
@@ -99,17 +102,32 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
     navigate('/auth');
   };
 
+  const handleNavClick = () => {
+    if (isMobile && onMobileClose) {
+      onMobileClose();
+    }
+  };
+
   const userInitials = user?.email
     ?.split('@')[0]
     .slice(0, 2)
     .toUpperCase() || 'U';
 
-  return (
+  // On mobile, don't render anything if not open
+  if (isMobile && !isMobileOpen) return null;
+
+  // On mobile, always show expanded (not collapsed)
+  const isCollapsed = isMobile ? false : collapsed;
+
+  const sidebarContent = (
     <motion.aside
       initial={false}
-      animate={{ width: collapsed ? 80 : 260 }}
+      animate={{ width: isCollapsed ? 80 : 260 }}
       transition={{ duration: 0.2, ease: 'easeInOut' }}
-      className="h-screen sticky top-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col z-40"
+      className={cn(
+        "h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col z-50",
+        isMobile ? "fixed top-0 left-0 w-[260px]" : "sticky top-0"
+      )}
     >
       {/* Logo */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border flex-shrink-0">
@@ -124,7 +142,7 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
             <img src="/neuman-logo.png" alt="Neuman CRM" className="w-10 h-10 rounded-xl object-contain flex-shrink-0" />
           )}
           <AnimatePresence>
-            {!collapsed && (
+            {!isCollapsed && (
               <motion.span
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -136,29 +154,40 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
             )}
           </AnimatePresence>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onToggle}
-          className="text-sidebar-foreground hover:bg-sidebar-accent h-8 w-8"
-        >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-        </Button>
+        {isMobile ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onMobileClose}
+            className="text-sidebar-foreground hover:bg-sidebar-accent h-8 w-8"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggle}
+            className="text-sidebar-foreground hover:bg-sidebar-accent h-8 w-8"
+          >
+            {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </Button>
+        )}
       </div>
 
-      {/* Navigation - Scrollable */}
+      {/* Navigation */}
       <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto min-h-0">
         {allNavItems.map((item) => {
           const isActive = location.pathname === item.to;
           const showBadge = 'showBadge' in item && item.showBadge && unreadCount > 0;
           const isAdminItem = 'isAdmin' in item && item.isAdmin;
-          const isResellerItem = 'isReseller' in item && item.isReseller;
           const isPlatformAIItem = 'isPlatformAI' in item && item.isPlatformAI;
           
           return (
             <NavLink
               key={item.to}
               to={item.to}
+              onClick={handleNavClick}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
                 'hover:bg-sidebar-accent',
@@ -170,12 +199,12 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
             >
               <div className="relative">
                 <item.icon className={cn("h-5 w-5 flex-shrink-0", isAdminItem && "text-primary", isPlatformAIItem && "text-violet-500")} />
-                {showBadge && collapsed && (
+                {showBadge && isCollapsed && (
                   <span className="absolute -top-1 -right-1 h-2 w-2 bg-destructive rounded-full" />
                 )}
               </div>
               <AnimatePresence>
-                {!collapsed && (
+                {!isCollapsed && (
                   <motion.div
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -199,9 +228,9 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
         })}
       </nav>
 
-      {/* User Profile Section - ALWAYS VISIBLE at bottom */}
+      {/* User Profile Section */}
       <div className="flex-shrink-0 border-t border-sidebar-border p-3 bg-sidebar">
-        {collapsed ? (
+        {isCollapsed ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="w-full flex justify-center">
@@ -257,11 +286,11 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate('/settings')}>
+                <DropdownMenuItem onClick={() => { navigate('/settings'); handleNavClick(); }}>
                   <User className="mr-2 h-4 w-4" />
                   Perfil
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/settings')}>
+                <DropdownMenuItem onClick={() => { navigate('/settings'); handleNavClick(); }}>
                   <Settings className="mr-2 h-4 w-4" />
                   Configuración
                 </DropdownMenuItem>
@@ -281,4 +310,20 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
       </div>
     </motion.aside>
   );
+
+  // Mobile: render with backdrop overlay
+  if (isMobile) {
+    return (
+      <>
+        {/* Backdrop */}
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+          onClick={onMobileClose}
+        />
+        {sidebarContent}
+      </>
+    );
+  }
+
+  return sidebarContent;
 }
