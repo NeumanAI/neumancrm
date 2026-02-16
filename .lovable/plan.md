@@ -1,143 +1,95 @@
 
-# Calendario Integrado con Google Calendar
+# Correcciones de UX Mobile para el CRM
 
-## Resumen
+## Problemas Identificados
 
-Implementar un modulo completo de calendario que unifique eventos de agenda comercial, tareas con fecha de vencimiento y metas con fechas limite, con integracion bidireccional con Google Calendar, vistas mensuales, y widget "Agenda Hoy" en el Dashboard.
+1. **Sidebar siempre visible en mobile**: La barra lateral de 260px se muestra permanentemente en pantallas pequenas, empujando el contenido fuera de la pantalla. No hay mecanismo para ocultarla en mobile.
 
-## Adaptaciones al Proyecto Existente
+2. **AI Assistant se abre automaticamente a pantalla completa**: Al cargar cualquier pagina, el asistente ocupa el 100% de la pantalla en mobile, bloqueando todo el contenido. No hay forma facil de acceder al CRM sin primero minimizarlo.
 
-El prompt original tiene varias referencias que no coinciden con el esquema actual y deben adaptarse:
+3. **Daily Brief Modal se superpone con AI Assistant**: Ambos se abren simultaneamente, creando capas confusas.
 
-- **No existe tabla `tasks`**: el CRM usa `activities` para tareas. Se agregaran campos `show_in_calendar` y `calendar_color` a `activities` en lugar de `tasks`.
-- **No existe tabla `deals`**: se usa `opportunities`. Las referencias a `deal_id` se cambiaran a `opportunity_id` y el trigger de progreso de metas se adaptara para usar `opportunities.status = 'won'`.
-- **CHECK constraints**: se reemplazaran por validation triggers segun las guias del proyecto.
-- **Foreign keys a `auth.users`**: se usara `UUID NOT NULL` sin FK directo a `auth.users` (patron existente del proyecto).
+4. **Dashboard sin padding adaptativo**: El contenido del dashboard tiene `p-6 md:p-8` duplicando el padding del main que ya tiene `p-6`, resultando en padding excesivo.
 
-## Detalles Tecnicos
+5. **Header elements ocultos en mobile**: El saludo y la barra de busqueda estan ocultos (`hidden md:block`), dejando solo el boton hamburguesa y los iconos de la derecha, sin contexto.
 
-### 1. Migracion SQL
+6. **Tablas y grids no responsivos**: Las tablas de contactos y el pipeline de columnas horizontales no se adaptan a pantallas pequenas.
 
-Crear 3 tablas nuevas y modificar 1 existente:
+---
 
-**Tabla `calendar_events`**
-- Eventos de agenda comercial (reuniones, llamadas, demos, seguimientos, cierres)
-- Campos de integracion con Google Calendar (`google_event_id`, `synced_with_google`, etc.)
-- Relaciones con `contacts`, `companies`, `opportunities`
-- Participantes como JSONB, ubicacion, URL de reunion
-- Recordatorios y recurrencia
-- RLS: usuarios ven sus eventos y los de su organizacion
+## Plan de Implementacion
 
-**Tabla `calendar_goals`**
-- Metas con target/progreso (cuota de ventas, llamadas, deals cerrados, etc.)
-- Campo `progress_percentage` calculado automaticamente (GENERATED ALWAYS AS)
-- Fechas de inicio/fin, colores, display en calendario
-- RLS: usuarios ven sus metas y las del equipo
+### 1. Sidebar como drawer en mobile
 
-**Tabla `google_calendar_sync`**
-- Configuracion OAuth por usuario (tokens, email, calendarios seleccionados)
-- Direccion de sync (bidireccional, solo a Google, solo desde Google)
-- Estado de sincronizacion
-- RLS: solo el usuario ve su propia config
+**Archivo**: `src/components/layout/Sidebar.tsx`
 
-**Modificar tabla `activities`**
-- Agregar `show_in_calendar BOOLEAN DEFAULT true`
-- Agregar `calendar_color TEXT DEFAULT '#f59e0b'`
+- En mobile (< 768px), la sidebar se convierte en un drawer/overlay que se abre desde la izquierda
+- Agregar prop `isMobileOpen` y `onClose` 
+- Cuando esta cerrada en mobile, no renderiza nada (o queda oculta con `translate-x`)
+- Al hacer click en un NavLink en mobile, cerrar automaticamente la sidebar
+- Agregar overlay/backdrop oscuro detras de la sidebar en mobile
 
-**Funcion `get_calendar_items`**
-- Vista unificada que combina eventos, actividades y metas para un rango de fechas
-- Adaptada para usar `activities` en lugar de `tasks` y `opportunity_id` en lugar de `deal_id`
+**Archivo**: `src/components/layout/AppLayout.tsx`
 
-**Trigger `update_goal_progress`**
-- Se dispara al cambiar `opportunities.status` a `'won'` para actualizar metas de revenue automaticamente
+- Manejar estado `mobileMenuOpen` separado de `sidebarCollapsed`
+- Pasar al Header el callback para abrir el menu mobile
+- Pasar a Sidebar los nuevos props de mobile
 
-### 2. Edge Function: `google-calendar-sync`
+### 2. AI Assistant no abre automaticamente en mobile
 
-Crear `supabase/functions/google-calendar-sync/index.ts`:
-- Acciones: `connect`, `disconnect`, `sync_to_google`, `sync_from_google`, `full_sync`
-- OAuth flow completo con refresh de tokens
-- Formateo bidireccional de eventos (CRM <-> Google Calendar)
-- Requiere secrets: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+**Archivo**: `src/components/ai/AIAssistant.tsx`
 
-### 3. Pagina principal: `src/pages/CalendarPage.tsx`
+- En mobile, el asistente inicia minimizado por defecto
+- En lugar de la barra lateral minimizada (que ya esta oculta con `hidden md:flex`), mostrar un FAB (boton flotante) en la esquina inferior derecha
+- El FAB abre el asistente a pantalla completa
+- Agregar boton X visible para cerrar en mobile
 
-- Vista mensual con grid de 7 columnas
-- Navegacion por mes (anterior/siguiente/hoy)
-- Filtros toggle por tipo (eventos, tareas, metas)
-- Boton de sync con Google Calendar
-- Click en evento abre detalle
-- Boton para crear nuevo evento
-- Boton de configuracion de Google Calendar
+### 3. Daily Brief Modal adaptado
 
-### 4. Componentes de calendario
+**Archivo**: `src/components/layout/DailyBriefModal.tsx`
 
-**`src/components/calendar/CreateEventDialog.tsx`**
-- Formulario completo: titulo, tipo, fechas/horas, todo el dia, descripcion, ubicacion, URL de reunion, color
-- Obtiene `organization_id` del team member actual
+- Agregar clase `max-h-[90vh]` y `mx-4` para que no desborde en mobile
+- Asegurar que no se abra simultaneamente con el AI Assistant en mobile
 
-**`src/components/calendar/EventDetailDialog.tsx`**
-- Muestra detalle segun tipo (evento/tarea/meta)
-- Info contextual: participantes, ubicacion, link de reunion, progreso de meta
-- Acciones: editar, eliminar
-- Indicador de sync con Google
+### 4. Header mejorado para mobile
 
-**`src/components/calendar/GoogleCalendarSettings.tsx`**
-- Estado de conexion con Google
-- Boton conectar/desconectar
-- Direccion de sincronizacion (CRM->Google, Google->CRM, bidireccional)
-- Opciones: sync eventos personales, solo CRM related, auto-sync
+**Archivo**: `src/components/layout/Header.tsx`
 
-**`src/components/calendar/TodayAgenda.tsx`**
-- Widget para el Dashboard
-- Muestra eventos, tareas y metas del dia actual
-- Link a la pagina completa del calendario
+- Mostrar nombre de pagina actual en mobile (en lugar del saludo completo)
+- Mantener hamburguesa, notificaciones y avatar compactos
+- Ocultar `GlobalProjectFilter` en mobile (moverlo al sidebar o a un dropdown)
 
-### 5. Pagina callback OAuth: `src/pages/GoogleCalendarCallback.tsx`
+### 5. Dashboard responsivo
 
-- Procesa el codigo de autorizacion de Google
-- Invoca la edge function con accion `connect`
-- Redirige al calendario con feedback
+**Archivo**: `src/pages/Dashboard.tsx`
 
-### 6. Modificaciones a archivos existentes
+- Eliminar padding duplicado (`p-6 md:p-8` -> `space-y-6 md:space-y-8`) ya que el main ya tiene `p-6`
+- El grid inferior de 4 columnas (`lg:grid-cols-4`) ya baja a 1 columna en mobile, lo cual esta bien
+- Verificar que las graficas tengan altura minima apropiada
 
-**`src/App.tsx`**
-- Agregar ruta `/calendar` con `AppLayout`
-- Agregar ruta `/auth/google-calendar-callback` sin layout
+### 6. Boton flotante de AI en mobile
 
-**`src/components/layout/Sidebar.tsx`**
-- Agregar item de navegacion "Calendario" con icono `Calendar` entre Tareas y Datos
+**Archivo**: `src/components/ai/AIAssistant.tsx`
 
-**`src/pages/Dashboard.tsx`**
-- Agregar widget `TodayAgenda` en el grid del dashboard
+- Cuando esta minimizado en mobile, mostrar un FAB circular con el icono de Sparkles
+- Posicion: `fixed bottom-6 right-6`
+- Badge de notificaciones urgentes sobre el FAB
+- Al tap, abre el panel a pantalla completa
 
-### 7. Secrets necesarios
+---
 
-Se solicitaran al usuario antes de implementar la integracion con Google:
-- `GOOGLE_CLIENT_ID` - para OAuth y edge function
-- `GOOGLE_CLIENT_SECRET` - para edge function
+## Archivos a Modificar
 
-La funcionalidad local del calendario (crear eventos, ver calendario, filtros) funcionara sin Google Calendar. La integracion con Google es opcional y se activa cuando el usuario configura las credenciales.
+1. `src/components/layout/Sidebar.tsx` - Drawer mobile con overlay
+2. `src/components/layout/AppLayout.tsx` - Estado mobile separado, sidebar condicional
+3. `src/components/ai/AIAssistant.tsx` - FAB mobile, no auto-abrir en mobile
+4. `src/components/layout/Header.tsx` - Ajustes de visibilidad mobile
+5. `src/pages/Dashboard.tsx` - Padding duplicado
+6. `src/components/layout/DailyBriefModal.tsx` - Sizing mobile
 
-## Archivos a crear (6)
+## Orden de Ejecucion
 
-1. `src/pages/CalendarPage.tsx`
-2. `src/pages/GoogleCalendarCallback.tsx`
-3. `src/components/calendar/CreateEventDialog.tsx`
-4. `src/components/calendar/EventDetailDialog.tsx`
-5. `src/components/calendar/GoogleCalendarSettings.tsx`
-6. `src/components/calendar/TodayAgenda.tsx`
-7. `supabase/functions/google-calendar-sync/index.ts`
-
-## Archivos a modificar (3)
-
-1. `src/App.tsx` - rutas
-2. `src/components/layout/Sidebar.tsx` - navegacion
-3. `src/pages/Dashboard.tsx` - widget agenda
-
-## Orden de ejecucion
-
-1. Migracion SQL (tablas, funcion, trigger)
-2. Edge function de sync
-3. Componentes de calendario
-4. Pagina principal y callback
-5. Rutas, navegacion y widget en dashboard
+1. Sidebar como drawer mobile + AppLayout
+2. AI Assistant FAB + comportamiento mobile
+3. Header y Dashboard ajustes
+4. Daily Brief Modal
