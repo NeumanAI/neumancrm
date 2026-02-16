@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -20,12 +20,26 @@ import {
   Bot,
   FlaskConical,
   CalendarDays,
+  User,
+  LogOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUnreadConversationsCount } from '@/hooks/useConversations';
 import { useBrandingContext } from '@/contexts/BrandingContext';
+import { useAuth } from '@/hooks/useAuth';
+import { useTeam } from '@/hooks/useTeam';
+import { toast } from 'sonner';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -64,8 +78,11 @@ const resellerNavItems = [
 
 export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerAdmin = false }: SidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const unreadCount = useUnreadConversationsCount();
   const { branding } = useBrandingContext();
+  const { user, signOut } = useAuth();
+  const { organization } = useTeam();
   
   // Build nav items based on roles
   let allNavItems = [...navItems];
@@ -76,6 +93,17 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
     allNavItems = [...allNavItems, ...adminNavItems, ...platformAINavItems];
   }
 
+  const handleSignOut = async () => {
+    await signOut();
+    toast.success('¡Hasta pronto!');
+    navigate('/auth');
+  };
+
+  const userInitials = user?.email
+    ?.split('@')[0]
+    .slice(0, 2)
+    .toUpperCase() || 'U';
+
   return (
     <motion.aside
       initial={false}
@@ -84,7 +112,7 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
       className="h-screen sticky top-0 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col z-40"
     >
       {/* Logo */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
+      <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border flex-shrink-0">
         <div className="flex items-center gap-3">
           {branding.logo_url ? (
             <img 
@@ -118,7 +146,8 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
         </Button>
       </div>
 
-      <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+      {/* Navigation - Scrollable */}
+      <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto min-h-0">
         {allNavItems.map((item) => {
           const isActive = location.pathname === item.to;
           const showBadge = 'showBadge' in item && item.showBadge && unreadCount > 0;
@@ -170,20 +199,85 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="p-4 border-t border-sidebar-border">
-        <AnimatePresence>
-          {!collapsed && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="text-xs text-sidebar-foreground/50 text-center"
-            >
-              {branding.name} v1.0
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* User Profile Section - ALWAYS VISIBLE at bottom */}
+      <div className="flex-shrink-0 border-t border-sidebar-border p-3 bg-sidebar">
+        {collapsed ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="w-full flex justify-center">
+                <Avatar className="h-9 w-9 border-2 border-sidebar-primary/30">
+                  <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-sm font-medium">
+                    {userInitials}
+                  </AvatarFallback>
+                </Avatar>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="right" align="end" className="w-56">
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium">{organization?.name || 'Mi Cuenta'}</p>
+                  <p className="text-xs text-muted-foreground">{user?.email}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/settings')}>
+                <Settings className="mr-2 h-4 w-4" />
+                Configuración
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+                <LogOut className="mr-2 h-4 w-4" />
+                Cerrar Sesión
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <div className="space-y-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-sidebar-accent transition-colors">
+                  <Avatar className="h-9 w-9 border-2 border-sidebar-primary/30">
+                    <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-sm font-medium">
+                      {userInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 text-left overflow-hidden">
+                    <p className="text-sm font-medium text-sidebar-foreground truncate">
+                      {user?.user_metadata?.full_name || user?.email?.split('@')[0]}
+                    </p>
+                    <p className="text-xs text-sidebar-foreground/50 truncate">{user?.email}</p>
+                  </div>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="right" align="end" className="w-56">
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium">{organization?.name || 'Mi Cuenta'}</p>
+                    <p className="text-xs text-muted-foreground">{user?.email}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/settings')}>
+                  <User className="mr-2 h-4 w-4" />
+                  Perfil
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/settings')}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Configuración
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Cerrar Sesión
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <div className="text-center">
+              <p className="text-[10px] text-sidebar-foreground/40">{branding.name} v1.0</p>
+            </div>
+          </div>
+        )}
       </div>
     </motion.aside>
   );

@@ -216,7 +216,7 @@ export function AIAssistant({ onMinimizedChange }: AIAssistantProps) {
   // ─── Minimized state ───
   if (isMinimized) {
     return (
-      <div className="fixed right-0 top-0 bottom-0 w-14 z-30 flex flex-col items-center bg-card border-l border-border">
+      <div className="fixed right-0 top-0 bottom-0 w-14 z-30 hidden md:flex flex-col items-center bg-card border-l border-border">
         <button
           onClick={() => setIsMinimized(false)}
           className="mt-4 flex flex-col items-center gap-3 group"
@@ -246,7 +246,21 @@ export function AIAssistant({ onMinimizedChange }: AIAssistantProps) {
 
   // ─── Expanded state ───
   return (
-    <div className="fixed right-0 top-0 bottom-0 w-[420px] z-30 flex flex-col bg-card border-l border-border shadow-xl">
+    <>
+      {/* Mobile overlay */}
+      <div
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+        onClick={() => setIsMinimized(true)}
+      />
+
+      {/* Panel - Full screen on mobile, sidebar on desktop */}
+      <div className={cn(
+        "fixed z-50 flex flex-col bg-card border-l border-border shadow-xl",
+        // Mobile: full screen
+        "inset-0 md:inset-auto",
+        // Desktop: right sidebar
+        "md:right-0 md:top-0 md:bottom-0 md:w-[420px] md:z-30"
+      )}>
       {/* Header */}
       <div className="flex-shrink-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white">
         <div className="flex items-center justify-between px-4 py-3">
@@ -339,6 +353,7 @@ export function AIAssistant({ onMinimizedChange }: AIAssistantProps) {
         </p>
       </div>
     </div>
+    </>
   );
 }
 
