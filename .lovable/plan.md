@@ -1,95 +1,50 @@
 
-# Correcciones de UX Mobile para el CRM
+# Eliminar BITAN CORP y limpiar BitanCorp
 
-## Problemas Identificados
+## Resumen
 
-1. **Sidebar siempre visible en mobile**: La barra lateral de 260px se muestra permanentemente en pantallas pequenas, empujando el contenido fuera de la pantalla. No hay mecanismo para ocultarla en mobile.
+Ambas organizaciones estan vacias de datos de negocio (0 contactos, 0 empresas, 0 oportunidades, etc.), por lo que la eliminacion es segura y sencilla.
 
-2. **AI Assistant se abre automaticamente a pantalla completa**: Al cargar cualquier pagina, el asistente ocupa el 100% de la pantalla en mobile, bloqueando todo el contenido. No hay forma facil de acceder al CRM sin primero minimizarlo.
+## Datos verificados
 
-3. **Daily Brief Modal se superpone con AI Assistant**: Ambos se abren simultaneamente, creando capas confusas.
+| Organizacion | ID | Tipo | Miembros | Datos CRM |
+|---|---|---|---|---|
+| BITAN CORP (independiente) | `e214cf46-ff50-4c81-a664-4897f0c89a61` | direct, sin padre | 1 (comercial@bitancorp.com) | 0 en todas las tablas |
+| BitanCorp (sub-cliente BitanAI) | `6e6d3ae0-07f9-4ecd-8486-caab0812136e` | direct, padre: BitanAI | 0 | 0 en todas las tablas |
 
-4. **Dashboard sin padding adaptativo**: El contenido del dashboard tiene `p-6 md:p-8` duplicando el padding del main que ya tiene `p-6`, resultando en padding excesivo.
+No hay registros dependientes en ninguna tabla (domains, onboarding, activity_feed, comments, calendar_goals).
 
-5. **Header elements ocultos en mobile**: El saludo y la barra de busqueda estan ocultos (`hidden md:block`), dejando solo el boton hamburguesa y los iconos de la derecha, sin contexto.
+## Acciones a ejecutar
 
-6. **Tablas y grids no responsivos**: Las tablas de contactos y el pipeline de columnas horizontales no se adaptan a pantallas pequenas.
+### Paso 1: Eliminar team member de BITAN CORP
 
----
+Eliminar el unico miembro (`comercial@bitancorp.com`) de la organizacion independiente BITAN CORP. El usuario seguira existiendo en `auth.users` y podra acceder a cualquier otra organizacion donde tenga membresía.
 
-## Plan de Implementacion
+### Paso 2: Eliminar la organizacion BITAN CORP
 
-### 1. Sidebar como drawer en mobile
+Eliminar el registro de la tabla `organizations` con ID `e214cf46-ff50-4c81-a664-4897f0c89a61`.
 
-**Archivo**: `src/components/layout/Sidebar.tsx`
+### Paso 3: Eliminar la organizacion BitanCorp (sub-cliente)
 
-- En mobile (< 768px), la sidebar se convierte en un drawer/overlay que se abre desde la izquierda
-- Agregar prop `isMobileOpen` y `onClose` 
-- Cuando esta cerrada en mobile, no renderiza nada (o queda oculta con `translate-x`)
-- Al hacer click en un NavLink en mobile, cerrar automaticamente la sidebar
-- Agregar overlay/backdrop oscuro detras de la sidebar en mobile
+Eliminar el registro de la tabla `organizations` con ID `6e6d3ae0-07f9-4ecd-8486-caab0812136e`. No tiene miembros ni datos asociados.
 
-**Archivo**: `src/components/layout/AppLayout.tsx`
+## Nota importante
 
-- Manejar estado `mobileMenuOpen` separado de `sidebarCollapsed`
-- Pasar al Header el callback para abrir el menu mobile
-- Pasar a Sidebar los nuevos props de mobile
+El usuario `comercial@bitancorp.com` NO sera eliminado del sistema. Su cuenta de autenticacion permanece intacta. Si necesita acceso al CRM bajo BitanAI, se debera crear una nueva membresía en la organizacion correcta.
 
-### 2. AI Assistant no abre automaticamente en mobile
+## Seccion tecnica
 
-**Archivo**: `src/components/ai/AIAssistant.tsx`
+Se ejecutaran 3 operaciones SQL en orden:
 
-- En mobile, el asistente inicia minimizado por defecto
-- En lugar de la barra lateral minimizada (que ya esta oculta con `hidden md:flex`), mostrar un FAB (boton flotante) en la esquina inferior derecha
-- El FAB abre el asistente a pantalla completa
-- Agregar boton X visible para cerrar en mobile
+```text
+1. DELETE FROM team_members 
+   WHERE organization_id = 'e214cf46-ff50-4c81-a664-4897f0c89a61'
 
-### 3. Daily Brief Modal adaptado
+2. DELETE FROM organizations 
+   WHERE id = 'e214cf46-ff50-4c81-a664-4897f0c89a61'
 
-**Archivo**: `src/components/layout/DailyBriefModal.tsx`
+3. DELETE FROM organizations 
+   WHERE id = '6e6d3ae0-07f9-4ecd-8486-caab0812136e'
+```
 
-- Agregar clase `max-h-[90vh]` y `mx-4` para que no desborde en mobile
-- Asegurar que no se abra simultaneamente con el AI Assistant en mobile
-
-### 4. Header mejorado para mobile
-
-**Archivo**: `src/components/layout/Header.tsx`
-
-- Mostrar nombre de pagina actual en mobile (en lugar del saludo completo)
-- Mantener hamburguesa, notificaciones y avatar compactos
-- Ocultar `GlobalProjectFilter` en mobile (moverlo al sidebar o a un dropdown)
-
-### 5. Dashboard responsivo
-
-**Archivo**: `src/pages/Dashboard.tsx`
-
-- Eliminar padding duplicado (`p-6 md:p-8` -> `space-y-6 md:space-y-8`) ya que el main ya tiene `p-6`
-- El grid inferior de 4 columnas (`lg:grid-cols-4`) ya baja a 1 columna en mobile, lo cual esta bien
-- Verificar que las graficas tengan altura minima apropiada
-
-### 6. Boton flotante de AI en mobile
-
-**Archivo**: `src/components/ai/AIAssistant.tsx`
-
-- Cuando esta minimizado en mobile, mostrar un FAB circular con el icono de Sparkles
-- Posicion: `fixed bottom-6 right-6`
-- Badge de notificaciones urgentes sobre el FAB
-- Al tap, abre el panel a pantalla completa
-
----
-
-## Archivos a Modificar
-
-1. `src/components/layout/Sidebar.tsx` - Drawer mobile con overlay
-2. `src/components/layout/AppLayout.tsx` - Estado mobile separado, sidebar condicional
-3. `src/components/ai/AIAssistant.tsx` - FAB mobile, no auto-abrir en mobile
-4. `src/components/layout/Header.tsx` - Ajustes de visibilidad mobile
-5. `src/pages/Dashboard.tsx` - Padding duplicado
-6. `src/components/layout/DailyBriefModal.tsx` - Sizing mobile
-
-## Orden de Ejecucion
-
-1. Sidebar como drawer mobile + AppLayout
-2. AI Assistant FAB + comportamiento mobile
-3. Header y Dashboard ajustes
-4. Daily Brief Modal
+No se requieren migraciones de esquema ni cambios de codigo. Son solo operaciones de datos.
