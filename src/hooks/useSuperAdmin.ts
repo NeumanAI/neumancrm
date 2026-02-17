@@ -327,6 +327,73 @@ export function useSuperAdmin() {
     },
   });
 
+  // Assign admin to organization mutation
+  const assignAdmin = useMutation({
+    mutationFn: async (data: { organizationId: string; email: string; fullName?: string }) => {
+      // Check if user already exists in auth by looking for existing team_members with that email
+      const { data: existingMember } = await supabase
+        .from('team_members')
+        .select('id')
+        .eq('email', data.email.toLowerCase())
+        .eq('organization_id', data.organizationId)
+        .maybeSingle();
+
+      if (existingMember) {
+        throw new Error('Este email ya está asignado a esta organización');
+      }
+
+      // Check if user has an auth account by looking at all team_members with a user_id
+      const { data: existingUser } = await supabase
+        .from('team_members')
+        .select('user_id')
+        .eq('email', data.email.toLowerCase())
+        .not('user_id', 'is', null)
+        .limit(1)
+        .maybeSingle();
+
+      const { data: result, error } = await supabase
+        .from('team_members')
+        .insert({
+          organization_id: data.organizationId,
+          email: data.email.toLowerCase(),
+          full_name: data.fullName || data.email.split('@')[0],
+          role: 'admin',
+          user_id: existingUser?.user_id || null,
+          pending_email: existingUser?.user_id ? null : data.email.toLowerCase(),
+          invitation_status: existingUser?.user_id ? 'active' : 'pending',
+          is_active: !!existingUser?.user_id,
+          invited_by: user?.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Also clear pending_admin_email on the org if it matches
+      await supabase
+        .from('organizations')
+        .update({ pending_admin_email: null })
+        .eq('id', data.organizationId)
+        .eq('pending_admin_email', data.email.toLowerCase());
+
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all_organizations'] });
+      toast({
+        title: 'Administrador asignado',
+        description: 'El administrador ha sido vinculado a la organización.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error al asignar admin',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Delete domain mutation
   const deleteDomain = useMutation({
     mutationFn: async (domainId: string) => {
@@ -386,5 +453,6 @@ export function useSuperAdmin() {
     refetchDomains,
     addDomain,
     deleteDomain,
+    assignAdmin,
   };
 }
