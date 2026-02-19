@@ -10,11 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { Settings as SettingsIcon, Palette, User, Shield, Bell, Globe } from 'lucide-react';
+import { Settings as SettingsIcon, Palette, User, Shield, Bell, Globe, CreditCard } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { IntegrationsTab } from '@/components/settings/IntegrationsTab';
 import { NotificationPreferences } from '@/components/notifications/NotificationPreferences';
+import { BillingTab } from '@/components/billing';
 
 export default function Settings() {
   const { user, signOut } = useAuth();
@@ -134,6 +135,10 @@ export default function Settings() {
           <TabsTrigger value="notifications" className="gap-2">
             <Bell className="h-4 w-4" />
             Notificaciones
+          </TabsTrigger>
+          <TabsTrigger value="billing" className="gap-2">
+            <CreditCard className="h-4 w-4" />
+            Plan & Consumo
           </TabsTrigger>
         </TabsList>
 
@@ -324,6 +329,11 @@ export default function Settings() {
         {/* Notifications Tab */}
         <TabsContent value="notifications">
           <NotificationPreferences />
+        </TabsContent>
+
+        {/* Billing Tab */}
+        <TabsContent value="billing">
+          <BillingTab />
         </TabsContent>
       </Tabs>
     </motion.div>

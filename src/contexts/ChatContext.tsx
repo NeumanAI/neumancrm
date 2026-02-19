@@ -43,7 +43,12 @@ async function streamChat({
 
     if (!resp.ok) {
       const errorData = await resp.json().catch(() => ({ error: "Error de conexión" }));
-      onError(errorData.error || `Error ${resp.status}`);
+      if (resp.status === 429) {
+        // AI limit reached — descriptive toast
+        onError(errorData.error || "Has alcanzado el límite de conversaciones IA este mes.");
+      } else {
+        onError(errorData.error || `Error ${resp.status}`);
+      }
       return;
     }
 

@@ -23,11 +23,13 @@ import {
   X,
   ArrowLeft,
   Plus,
-  Store
+  Store,
+  DollarSign
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CreateSubClientDialog } from '@/components/reseller/CreateSubClientDialog';
+import { ResellerPricingPanel } from '@/components/reseller/ResellerPricingPanel';
 
 function SubClientRow({ 
   subClient, 
@@ -322,6 +324,10 @@ export default function ResellerAdmin() {
                     </Badge>
                   )}
                 </TabsTrigger>
+                <TabsTrigger value="planes" className="gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Planes de clientes
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="all">
@@ -355,6 +361,10 @@ export default function ResellerAdmin() {
                   isRevoking={revokeSubClient.isPending}
                   emptyMessage="No tienes clientes pendientes"
                 />
+              </TabsContent>
+
+              <TabsContent value="planes">
+                <ResellerPricingPanel />
               </TabsContent>
             </Tabs>
           </CardContent>

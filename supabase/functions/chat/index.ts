@@ -3117,6 +3117,51 @@ serve(async (req) => {
     const userId = await getUserIdFromToken(supabase, authHeader);
     if (!userId) return new Response(JSON.stringify({ error: "Usuario no autenticado" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
+    // ===== AI USAGE LIMIT CHECK =====
+    try {
+      // Get organization ID for this user
+      const { data: teamData } = await supabase
+        .from('team_members')
+        .select('organization_id')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .single();
+
+      if (teamData?.organization_id) {
+        const orgId = teamData.organization_id;
+
+        // Use service role client for usage functions (bypass RLS)
+        const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+        const serviceClient = createClient(SUPABASE_URL!, SUPABASE_SERVICE_KEY!, {});
+
+        const { data: usageData } = await serviceClient
+          .rpc('get_current_usage', { p_org_id: orgId });
+
+        const usage = usageData?.[0];
+        if (usage && !usage.can_use_ai) {
+          const isNoPlan = usage.ai_conversations_limit === 0;
+          const message = isNoPlan
+            ? "Tu plan no incluye asistente IA. Contacta a tu administrador para cambiar de plan."
+            : `Has alcanzado el límite de ${usage.ai_conversations_limit} conversaciones IA este mes. El límite se reinicia el próximo período.`;
+          return new Response(
+            JSON.stringify({ error: message, code: "AI_LIMIT_REACHED" }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Increment usage asynchronously (non-blocking)
+        if (usage?.can_use_ai) {
+          serviceClient.rpc('increment_ai_usage', { p_org_id: orgId, p_user_id: userId })
+            .then(() => {})
+            .catch((e: Error) => console.warn("increment_ai_usage error:", e.message));
+        }
+      }
+    } catch (limitErr) {
+      // Non-critical: if usage check fails, allow the request to proceed
+      console.warn("Usage limit check failed (non-blocking):", limitErr);
+    }
+    // ===== END AI USAGE LIMIT CHECK =====
+
     console.log("Chat request - user:", userId, "route:", currentRoute, "tools:", tools.length);
     const crmContext = await fetchCRMContext(supabase, userId);
     const systemPrompt = buildSystemPrompt(crmContext, currentRoute);
