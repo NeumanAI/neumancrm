@@ -34,7 +34,8 @@ import {
   Globe,
   Palette,
   ChevronDown,
-  UserPlus
+  UserPlus,
+  DollarSign
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -43,6 +44,7 @@ import { EditOrganizationDialog } from '@/components/admin/EditOrganizationDialo
 import { CreateOrganizationDialog } from '@/components/admin/CreateOrganizationDialog';
 import { AssignAdminDialog } from '@/components/admin/AssignAdminDialog';
 import { DomainsTab } from '@/components/admin/DomainsTab';
+import { PricingAdminPanel } from '@/components/admin/PricingAdminPanel';
 
 function OrganizationTypeBadge({ type }: { type: OrganizationType }) {
   if (type === 'whitelabel') {
@@ -432,6 +434,10 @@ export default function Admin() {
                     </Badge>
                   )}
                 </TabsTrigger>
+                <TabsTrigger value="pricing" className="gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Pricing & Billing
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="all">
@@ -513,6 +519,10 @@ export default function Admin() {
                   onDeleteDomain={(id) => deleteDomain.mutate(id)}
                   isDeleting={deleteDomain.isPending}
                 />
+              </TabsContent>
+
+              <TabsContent value="pricing">
+                <PricingAdminPanel />
               </TabsContent>
             </Tabs>
           </CardContent>
