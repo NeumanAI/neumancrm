@@ -1,78 +1,86 @@
 
-# Problema: El Dashboard Muestra Datos Ficticios en Todas las Cuentas
+# Sistema de Pricing & Control de Consumos — NeumanCRM
 
-## Diagnóstico
+## Qué se va a construir
 
-El problema tiene dos causas concretas en `src/pages/Dashboard.tsx` y `src/lib/mockDashboardData.ts`:
+Un sistema completo de planes y facturación manual (sin Stripe) que permite al super admin activar planes para organizaciones, a los resellers fijar precios libres a sus sub-clientes, y a cada organización ver su consumo real de IA en tiempo real.
 
-**1. Fallback falso en "Ingresos Totales":**
-```ts
-value={formatCurrency(totalPipelineValue || 2864679)}
+## Alcance total
+
+### Base de datos (1 migración)
+5 tablas nuevas + 3 funciones SQL + datos iniciales de 6 planes + RLS:
+
+- **`plan_catalog`** — Catálogo maestro de planes (editable por super admin). 6 planes preconfigurados: CRM Base, Agente Starter, Agente Professional, Essential, Growth (destacado), Complete.
+- **`organization_subscriptions`** — Una suscripción activa por organización. Estados: `trial`, `active`, `suspended`, `cancelled`, `expired`.
+- **`organization_pricing`** — Precios y límites custom por organización (para white-label markup libre).
+- **`usage_records`** — Snapshot mensual de consumo (IA, usuarios, contactos, storage).
+- **`usage_events`** — Log granular append-only de cada evento.
+
+**Funciones SQL:**
+- `get_effective_plan_limits(org_id)` → devuelve límites reales (custom si existe, catálogo si no)
+- `get_current_usage(org_id)` → consumo real del mes en curso + flag `can_use_ai`
+- `increment_ai_usage(org_id)` → verifica y registra cada uso de IA, retorna `false` si el límite fue alcanzado
+
+### Archivos nuevos (6)
+
+| Archivo | Descripción |
+|---|---|
+| `src/hooks/usePricing.ts` | Hook maestro: tipos, lecturas, mutaciones |
+| `src/components/billing/BillingTab.tsx` | Tab "Plan & Consumo" en Settings |
+| `src/components/billing/index.ts` | Barrel export |
+| `src/components/admin/PricingAdminPanel.tsx` | Panel super admin: suscripciones + catálogo |
+| `src/components/reseller/ResellerPricingPanel.tsx` | Panel reseller: activar planes + precio libre |
+| `supabase/migrations/[timestamp]_pricing_system.sql` | Migración completa |
+
+### Archivos modificados (5)
+
+| Archivo | Cambio |
+|---|---|
+| `src/pages/Admin.tsx` | +tab "Pricing & Billing" (import `DollarSign` + `PricingAdminPanel`) |
+| `src/pages/Settings.tsx` | +tab "Plan & Consumo" (import `CreditCard` + `BillingTab`) |
+| `src/pages/ResellerAdmin.tsx` | +tab "Planes de clientes" (import `DollarSign` + `ResellerPricingPanel`) |
+| `supabase/functions/chat/index.ts` | Verificación de límites antes de llamar a la IA (lines 3120-3121) |
+| `src/contexts/ChatContext.tsx` | Manejo del error 429 con toast descriptivo |
+
+## Flujo de control de IA
+
+Cada vez que un usuario envía un mensaje al asistente IA:
+
+1. La edge function obtiene el `organization_id` del `user_id`
+2. Llama a `get_current_usage(org_id)` → obtiene `can_use_ai`
+3. Si `can_use_ai = false` → retorna HTTP 429 con mensaje claro
+4. Si puede usar → llama a `increment_ai_usage(org_id)` de forma no bloqueante (async)
+5. El frontend detecta 429 y muestra toast de error en lugar de crashear
+
+## Planes iniciales (precios en USD)
+
+| Plan | Tipo | Precio/mes | Usuarios | Conv. IA/mes |
+|---|---|---|---|---|
+| CRM Base | Individual | $79 | 5 | 0 (sin IA) |
+| Agente Starter | Individual | $79 | 1 | 1,000 |
+| Agente Professional | Individual | $199 | 1 | 5,000 |
+| Essential | Bundle | $134 | 5 | 1,000 |
+| **Growth** | **Bundle** | **$228** | **10** | **5,000** |
+| Complete | Bundle | $286 | 20 | 5,000 |
+
+## Puntos clave del diseño
+
+- **Sin Stripe**: toda activación es manual por super admin o reseller
+- **Markup libre para resellers**: `organization_pricing` permite cualquier precio sobre el catálogo
+- **El CRM nunca se bloquea**: solo el chat de IA se limita; contactos, pipeline, tareas siempre disponibles
+- **Refresco automático**: `useCurrentUsage` se auto-actualiza cada 60 segundos
+- **Precios custom**: si existe `organization_pricing` para la org, sobreescribe el catálogo completamente
+- **Accounts sin suscripción**: la función SQL devuelve defaults de prueba (3 usuarios, 100 conv. IA, 14 días trial) sin crashear
+
+## Ubicación de los cambios en Admin.tsx
+
+El tab "Pricing & Billing" se agrega después del tab "Dominios" existente en la `<TabsList>`, y su `<TabsContent>` después del último `<TabsContent>` existente.
+
+## Ubicación del corte en chat/index.ts
+
+En la línea 3120-3121 del archivo actual:
+```typescript
+console.log("Chat request - user:", userId, ...);
+const crmContext = await fetchCRMContext(supabase, userId); // ← ENTRE estas dos líneas
 ```
-El `|| 2864679` hace que cuando no hay oportunidades, se muestre "246.4 MUS$" inventado.
-
-**2. Métricas 100% hardcodeadas:**
-- `value="2.4%"` (Tasa de Conversión) — siempre fijo
-- `value="$5,320"` (Resultado Campañas) — siempre fijo
-- `trendValue="+2.4%"`, `"+3.5%"`, etc. — todos inventados
-
-**3. Los 4 gráficos de análisis usan exclusivamente datos del archivo mock:**
-- "Patrón de Crecimiento" → `growthPatternData` (valores inventados)
-- "Fuentes de Tráfico" → `trafficSourceData` (inventado)
-- "Demanda de Producto" → `productDemandData` (inventado)
-- "Rendimiento Campañas" → `growthPatternData` (inventado)
-
-**4. Los mini-gráficos de las tarjetas de métricas también usan datos mock:**
-- `revenueChartData`, `clientsChartData`, `conversionChartData`, `campaignChartData`
-
-## Solución
-
-### Tarjetas de Métricas (4 cambios directos)
-
-Calcular todo desde los datos reales ya disponibles en los hooks existentes:
-
-| Tarjeta | Antes | Después |
-|---|---|---|
-| Ingresos Totales | `totalPipelineValue \|\| 2864679` | `totalPipelineValue` (muestra $0 si no hay datos) |
-| Clientes Activos | `contacts.length \|\| companiesCount` | `contacts.length + companiesCount` (total real) |
-| Tasa de Conversión | `"2.4%"` hardcoded | Oportunidades ganadas / total × 100 (de datos reales) |
-| Resultado Campañas | `"$5,320"` hardcoded | Valor total de oportunidades ganadas este mes |
-
-Los mini-gráficos de las tarjetas se generarán desde datos reales: se construirán arrays de `{value}` a partir de las oportunidades agrupadas por mes.
-
-### Gráficos de Análisis (reemplazo por datos reales o estado vacío)
-
-Los 4 gráficos se reemplazan por visualizaciones construidas desde los datos reales de oportunidades:
-
-- **"Pipeline por Etapa"** (reemplaza "Patrón de Crecimiento"): barras con el valor total de oportunidades en cada etapa del pipeline. Datos reales inmediatos.
-- **"Fuentes de Contactos"** (reemplaza "Fuentes de Tráfico"): distribución de contactos por campo `source` (manual, whatsapp, import, etc.) — dato real de la tabla `contacts`.
-- **"Oportunidades por Mes"** (reemplaza "Demanda de Producto"): cantidad de oportunidades creadas en los últimos 4 meses, calculado desde `opportunities.created_at`. Si no hay datos, muestra estado vacío elegante.
-- **"Pipeline Activo vs Ganado"** (reemplaza "Rendimiento Campañas"): comparativa de valor de oportunidades abiertas vs ganadas. Datos reales.
-
-Cuando no hay datos, cada gráfico muestra un estado vacío con ícono y mensaje descriptivo en lugar de datos falsos.
-
-### Hooks: ampliar `useOpportunities`
-
-El hook ya devuelve todas las oportunidades. Se aprovechan para:
-- Agrupar por `stage_id` → valor por etapa
-- Agrupar por `created_at` mes → tendencia temporal
-- Calcular `won` vs `open`
-
-El hook `useContacts` ya devuelve el campo `source` de cada contacto, suficiente para el gráfico de fuentes.
-
-## Archivos a Modificar
-
-1. **`src/pages/Dashboard.tsx`**: Reemplazar todos los valores mock y hardcoded con cálculos reales. Reemplazar los 4 gráficos.
-2. **`src/lib/mockDashboardData.ts`**: Eliminar todas las exportaciones que ya no se usen (o conservar solo las que sean claramente "demo").
-3. **`src/hooks/useOpportunities.ts`** (opcional): Agregar un hook `useOpportunitiesAll` sin límite para los cálculos de gráficos si el límite actual de 10 afecta la precisión.
-
-## Comportamiento con Cuentas Vacías
-
-Una cuenta sin datos verá:
-- Ingresos Totales: **$0**
-- Clientes Activos: **0**
-- Tasa de Conversión: **0%**
-- Resultado Campañas: **$0**
-- Gráficos con estado vacío: "Sin datos disponibles. Comienza agregando oportunidades."
-
-No más datos falsos en ninguna cuenta.
+El bloque de verificación de límites se inserta exactamente ahí.
