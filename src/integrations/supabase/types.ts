@@ -1524,6 +1524,120 @@ export type Database = {
           },
         ]
       }
+      organization_pricing: {
+        Row: {
+          created_at: string
+          custom_max_ai_conversations: number | null
+          custom_max_contacts: number | null
+          custom_max_users: number | null
+          custom_price_usd: number | null
+          id: string
+          notes: string | null
+          organization_id: string
+          plan_id: string | null
+          set_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          custom_max_ai_conversations?: number | null
+          custom_max_contacts?: number | null
+          custom_max_users?: number | null
+          custom_price_usd?: number | null
+          id?: string
+          notes?: string | null
+          organization_id: string
+          plan_id?: string | null
+          set_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          custom_max_ai_conversations?: number | null
+          custom_max_contacts?: number | null
+          custom_max_users?: number | null
+          custom_price_usd?: number | null
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          plan_id?: string | null
+          set_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_pricing_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_pricing_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plan_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_subscriptions: {
+        Row: {
+          activated_by: string | null
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string
+          id: string
+          notes: string | null
+          organization_id: string
+          plan_id: string
+          status: string
+          trial_ends_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          activated_by?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string
+          id?: string
+          notes?: string | null
+          organization_id: string
+          plan_id: string
+          status?: string
+          trial_ends_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          activated_by?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          plan_id?: string
+          status?: string
+          trial_ends_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_subscriptions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plan_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           approved_at: string | null
@@ -1625,6 +1739,60 @@ export type Database = {
           name?: string
           updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      plan_catalog: {
+        Row: {
+          created_at: string
+          description: string | null
+          features: Json
+          id: string
+          is_active: boolean
+          is_featured: boolean
+          max_ai_conversations: number
+          max_contacts: number
+          max_users: number
+          name: string
+          plan_type: string
+          price_usd: number
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          features?: Json
+          id?: string
+          is_active?: boolean
+          is_featured?: boolean
+          max_ai_conversations?: number
+          max_contacts?: number
+          max_users?: number
+          name: string
+          plan_type?: string
+          price_usd?: number
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          features?: Json
+          id?: string
+          is_active?: boolean
+          is_featured?: boolean
+          max_ai_conversations?: number
+          max_contacts?: number
+          max_users?: number
+          name?: string
+          plan_type?: string
+          price_usd?: number
+          slug?: string
+          sort_order?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1959,6 +2127,85 @@ export type Database = {
           },
         ]
       }
+      usage_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          organization_id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          organization_id: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          organization_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      usage_records: {
+        Row: {
+          ai_conversations_used: number
+          contacts_count: number
+          created_at: string
+          id: string
+          organization_id: string
+          period_month: number
+          period_year: number
+          updated_at: string
+          users_count: number
+        }
+        Insert: {
+          ai_conversations_used?: number
+          contacts_count?: number
+          created_at?: string
+          id?: string
+          organization_id: string
+          period_month: number
+          period_year: number
+          updated_at?: string
+          users_count?: number
+        }
+        Update: {
+          ai_conversations_used?: number
+          contacts_count?: number
+          created_at?: string
+          id?: string
+          organization_id?: string
+          period_month?: number
+          period_year?: number
+          updated_at?: string
+          users_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_records_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_actions: {
         Row: {
           action_type: string
@@ -2072,6 +2319,33 @@ export type Database = {
           title: string
         }[]
       }
+      get_current_usage: {
+        Args: { p_org_id: string }
+        Returns: {
+          ai_conversations_limit: number
+          ai_conversations_used: number
+          can_use_ai: boolean
+          contacts_count: number
+          contacts_limit: number
+          plan_name: string
+          plan_slug: string
+          subscription_status: string
+          users_count: number
+          users_limit: number
+        }[]
+      }
+      get_effective_plan_limits: {
+        Args: { p_org_id: string }
+        Returns: {
+          max_ai_conversations: number
+          max_contacts: number
+          max_users: number
+          plan_name: string
+          plan_slug: string
+          price_usd: number
+          subscription_status: string
+        }[]
+      }
       get_organization_by_domain: {
         Args: { domain_name: string }
         Returns: {
@@ -2099,6 +2373,10 @@ export type Database = {
       get_user_role: {
         Args: never
         Returns: Database["public"]["Enums"]["team_role"]
+      }
+      increment_ai_usage: {
+        Args: { p_org_id: string; p_user_id?: string }
+        Returns: boolean
       }
       is_reseller_admin: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
