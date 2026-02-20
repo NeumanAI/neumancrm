@@ -3,30 +3,40 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
-interface Message {
+export interface OnboardingMessage {
   role: 'user' | 'assistant';
   content: string;
 }
 
-interface OnboardingState {
+export interface SetupStep {
+  label: string;
+  done: boolean;
+}
+
+export interface OnboardingState {
   currentStep: number;
   completed: boolean;
   suggestions: string[];
   collectedData: Record<string, string>;
+  setupSteps: SetupStep[];
+  firstGoal: string | null;
+  phase: 'chat' | 'setup' | 'action' | 'done';
 }
 
 export function useOnboarding() {
   const { user } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<OnboardingMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [state, setState] = useState<OnboardingState>({
     currentStep: 0,
     completed: false,
     suggestions: [],
     collectedData: {},
+    setupSteps: [],
+    firstGoal: null,
+    phase: 'chat',
   });
 
-  // Initialize onboarding - get first AI message
   const initialize = useCallback(async () => {
     if (!user) return;
     setIsLoading(true);
@@ -37,30 +47,29 @@ export function useOnboarding() {
       if (error) throw error;
       if (data?.message) {
         setMessages([{ role: 'assistant', content: data.message }]);
-        setState({
+        setState(s => ({
+          ...s,
           currentStep: data.current_step ?? 0,
-          completed: data.completed ?? false,
           suggestions: data.suggestions ?? [],
           collectedData: data.collected_data ?? {},
-        });
+        }));
       }
     } catch (e) {
       console.error('Onboarding init error:', e);
-      // Fallback message
-      setMessages([{ role: 'assistant', content: '¡Hola! 👋 Soy tu asistente de configuración. ¿Cómo te gustaría que te llame?' }]);
-      setState(s => ({ ...s, suggestions: [] }));
+      setMessages([{
+        role: 'assistant',
+        content: '👋 ¡Hola! Soy tu asistente de NeumanCRM. Voy a ayudarte a configurar todo en minutos. ¿Cuál es tu nombre?',
+      }]);
     } finally {
       setIsLoading(false);
     }
   }, [user]);
 
-  useEffect(() => {
-    initialize();
-  }, [initialize]);
+  useEffect(() => { initialize(); }, [initialize]);
 
   const sendMessage = useCallback(async (input: string) => {
     if (!user || isLoading) return;
-    
+
     setMessages(prev => [...prev, { role: 'user', content: input }]);
     setIsLoading(true);
 
@@ -73,13 +82,28 @@ export function useOnboarding() {
 
       if (data?.message) {
         setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
-        setState({
-          currentStep: data.current_step ?? state.currentStep + 1,
-          completed: data.completed ?? false,
-          suggestions: data.suggestions ?? [],
-          collectedData: data.collected_data ?? {},
-        });
       }
+
+      const isCompleted = data?.completed ?? false;
+      const nextStep = data?.current_step ?? state.currentStep + 1;
+
+      setState(s => ({
+        ...s,
+        currentStep: nextStep,
+        completed: isCompleted,
+        suggestions: data?.suggestions ?? [],
+        collectedData: data?.collected_data ?? s.collectedData,
+        setupSteps: data?.setup_steps ?? [],
+        firstGoal: data?.first_goal ?? null,
+        phase: isCompleted ? 'setup' : 'chat',
+      }));
+
+      if (isCompleted) {
+        setTimeout(() => {
+          setState(s => ({ ...s, phase: 'action' }));
+        }, 3500);
+      }
+
     } catch (e: any) {
       console.error('Onboarding error:', e);
       toast.error('Error al procesar tu respuesta. Intenta de nuevo.');
@@ -88,5 +112,9 @@ export function useOnboarding() {
     }
   }, [user, isLoading, state.currentStep]);
 
-  return { messages, isLoading, state, sendMessage };
+  const finishOnboarding = useCallback(() => {
+    setState(s => ({ ...s, phase: 'done' }));
+  }, []);
+
+  return { messages, isLoading, state, sendMessage, finishOnboarding };
 }

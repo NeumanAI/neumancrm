@@ -1324,42 +1324,69 @@ export type Database = {
       onboarding_progress: {
         Row: {
           collected_data: Json
+          company_name: string | null
           completed: boolean
           completed_at: string | null
           conversation_history: Json
+          country: string | null
+          country_code: string | null
           current_step: number
+          first_goal: string | null
           id: string
+          industry: string | null
           last_interaction_at: string
           organization_id: string | null
+          preferred_name: string | null
+          registered_at: string | null
           started_at: string
+          team_size: string | null
           total_steps: number
           user_id: string
+          whatsapp: string | null
         }
         Insert: {
           collected_data?: Json
+          company_name?: string | null
           completed?: boolean
           completed_at?: string | null
           conversation_history?: Json
+          country?: string | null
+          country_code?: string | null
           current_step?: number
+          first_goal?: string | null
           id?: string
+          industry?: string | null
           last_interaction_at?: string
           organization_id?: string | null
+          preferred_name?: string | null
+          registered_at?: string | null
           started_at?: string
+          team_size?: string | null
           total_steps?: number
           user_id: string
+          whatsapp?: string | null
         }
         Update: {
           collected_data?: Json
+          company_name?: string | null
           completed?: boolean
           completed_at?: string | null
           conversation_history?: Json
+          country?: string | null
+          country_code?: string | null
           current_step?: number
+          first_goal?: string | null
           id?: string
+          industry?: string | null
           last_interaction_at?: string
           organization_id?: string | null
+          preferred_name?: string | null
+          registered_at?: string | null
           started_at?: string
+          team_size?: string | null
           total_steps?: number
           user_id?: string
+          whatsapp?: string | null
         }
         Relationships: [
           {
@@ -1642,10 +1669,14 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          country: string | null
+          country_code: string | null
           created_at: string
           custom_domain: string | null
           favicon_url: string | null
+          first_goal: string | null
           id: string
+          industry: string | null
           is_approved: boolean
           logo_url: string | null
           max_users: number
@@ -1658,15 +1689,20 @@ export type Database = {
           secondary_color: string | null
           settings: Json | null
           slug: string | null
+          team_size: string | null
           updated_at: string
         }
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          country?: string | null
+          country_code?: string | null
           created_at?: string
           custom_domain?: string | null
           favicon_url?: string | null
+          first_goal?: string | null
           id?: string
+          industry?: string | null
           is_approved?: boolean
           logo_url?: string | null
           max_users?: number
@@ -1679,15 +1715,20 @@ export type Database = {
           secondary_color?: string | null
           settings?: Json | null
           slug?: string | null
+          team_size?: string | null
           updated_at?: string
         }
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          country?: string | null
+          country_code?: string | null
           created_at?: string
           custom_domain?: string | null
           favicon_url?: string | null
+          first_goal?: string | null
           id?: string
+          industry?: string | null
           is_approved?: boolean
           logo_url?: string | null
           max_users?: number
@@ -1700,6 +1741,7 @@ export type Database = {
           secondary_color?: string | null
           settings?: Json | null
           slug?: string | null
+          team_size?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1988,6 +2030,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           deals_closed_value: number | null
+          display_name: string | null
           email: string
           full_name: string | null
           id: string
@@ -2002,11 +2045,13 @@ export type Database = {
           role: Database["public"]["Enums"]["team_role"]
           updated_at: string
           user_id: string | null
+          whatsapp: string | null
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
           deals_closed_value?: number | null
+          display_name?: string | null
           email: string
           full_name?: string | null
           id?: string
@@ -2021,11 +2066,13 @@ export type Database = {
           role?: Database["public"]["Enums"]["team_role"]
           updated_at?: string
           user_id?: string | null
+          whatsapp?: string | null
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
           deals_closed_value?: number | null
+          display_name?: string | null
           email?: string
           full_name?: string | null
           id?: string
@@ -2040,6 +2087,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["team_role"]
           updated_at?: string
           user_id?: string | null
+          whatsapp?: string | null
         }
         Relationships: [
           {
@@ -2306,6 +2354,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_admin_registrations: {
+        Args: never
+        Returns: {
+          company_name: string
+          completed: boolean
+          completed_at: string
+          country: string
+          email: string
+          first_goal: string
+          industry: string
+          organization_id: string
+          organization_name: string
+          preferred_name: string
+          registered_at: string
+          started_at: string
+          team_size: string
+          user_id: string
+          whatsapp: string
+        }[]
+      }
       get_calendar_items: {
         Args: { p_end_date: string; p_org_id: string; p_start_date: string }
         Returns: {

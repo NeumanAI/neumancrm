@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSuperAdmin, OrganizationWithAdmin, OrganizationType } from '@/hooks/useSuperAdmin';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
   Table, 
   TableBody, 
@@ -35,7 +39,9 @@ import {
   Palette,
   ChevronDown,
   UserPlus,
-  DollarSign
+  DollarSign,
+  Search,
+  ClipboardList
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -438,6 +444,10 @@ export default function Admin() {
                   <DollarSign className="h-4 w-4" />
                   Pricing & Billing
                 </TabsTrigger>
+                <TabsTrigger value="registrations" className="gap-2">
+                  <ClipboardList className="h-4 w-4" />
+                  Registros
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="all">
@@ -524,6 +534,10 @@ export default function Admin() {
               <TabsContent value="pricing">
                 <PricingAdminPanel />
               </TabsContent>
+
+              <TabsContent value="registrations">
+                <RegistrationsPanel />
+              </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
@@ -565,6 +579,147 @@ export default function Admin() {
         }}
         isAssigning={assignAdmin.isPending}
       />
+    </div>
+  );
+}
+
+// ── Hook para registros de onboarding ──────────────────────────
+function useAdminRegistrations() {
+  return useQuery({
+    queryKey: ['admin_registrations'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_admin_registrations');
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 60 * 1000,
+  });
+}
+
+// ── Panel de registros ─────────────────────────────────────────
+function RegistrationsPanel() {
+  const { data: registrations = [], isLoading } = useAdminRegistrations();
+  const [search, setSearch] = useState('');
+
+  const filtered = registrations.filter((r: any) =>
+    !search ||
+    r.preferred_name?.toLowerCase().includes(search.toLowerCase()) ||
+    r.email?.toLowerCase().includes(search.toLowerCase()) ||
+    r.company_name?.toLowerCase().includes(search.toLowerCase()) ||
+    r.country?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h3 className="font-semibold text-lg">Nuevos registros</h3>
+          <p className="text-sm text-muted-foreground">
+            Usuarios que se han registrado en NeumanCRM
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-sm">
+            {registrations.length} registros
+          </Badge>
+          <Badge variant="outline" className="text-sm text-green-600 border-green-200">
+            {registrations.filter((r: any) => r.completed).length} completados
+          </Badge>
+        </div>
+      </div>
+
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar por nombre, email, empresa..."
+          className="pl-9"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-2">
+          {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-16 w-full" />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          <ClipboardList className="h-10 w-10 mx-auto mb-3 opacity-20" />
+          <p>No hay registros aún</p>
+        </div>
+      ) : (
+        <div className="rounded-xl border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/40">
+                <TableHead>Usuario</TableHead>
+                <TableHead>WhatsApp</TableHead>
+                <TableHead>País</TableHead>
+                <TableHead>Empresa</TableHead>
+                <TableHead>Industria</TableHead>
+                <TableHead>Primera meta</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Fecha</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((r: any) => (
+                <TableRow key={r.user_id} className="hover:bg-muted/20">
+                  <TableCell>
+                    <div>
+                      <p className="font-medium text-sm">{r.preferred_name ?? '—'}</p>
+                      <p className="text-xs text-muted-foreground">{r.email}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {r.whatsapp ? (
+                      <a
+                        href={`https://wa.me/${r.whatsapp.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-green-600 hover:underline"
+                      >
+                        {r.whatsapp}
+                      </a>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm">{r.country ?? '—'}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm font-medium">{r.company_name ?? '—'}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-xs text-muted-foreground">{r.industry ?? '—'}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-xs text-muted-foreground">{r.first_goal ?? '—'}</span>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="outline"
+                      className={r.completed
+                        ? 'text-xs text-green-700 bg-green-50 border-green-200 dark:bg-green-900/30 dark:text-green-300'
+                        : 'text-xs text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300'}
+                    >
+                      {r.completed ? '✅ Completo' : '⏳ En progreso'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-xs text-muted-foreground">
+                      {r.registered_at
+                        ? format(new Date(r.registered_at), "d MMM yyyy, HH:mm", { locale: es })
+                        : '—'}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }
