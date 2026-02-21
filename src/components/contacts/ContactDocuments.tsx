@@ -3,29 +3,14 @@ import { Plus, FileText, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useContactDocuments, ContactDocument } from '@/hooks/useContactDocuments';
 import { DocumentItem } from './DocumentItem';
 import { DocumentUploader } from './DocumentUploader';
+import { DocumentTypeSelect } from '@/components/documents/DocumentTypeSelect';
 
 interface ContactDocumentsProps {
   contactId: string;
 }
-
-const documentTypeFilters = [
-  { value: 'all', label: 'Todos' },
-  { value: 'contract', label: 'Contratos' },
-  { value: 'proposal', label: 'Propuestas' },
-  { value: 'agreement', label: 'Acuerdos' },
-  { value: 'invoice', label: 'Facturas' },
-  { value: 'other', label: 'Otros' },
-];
 
 export function ContactDocuments({ contactId }: ContactDocumentsProps) {
   const [uploaderOpen, setUploaderOpen] = useState(false);
@@ -46,7 +31,7 @@ export function ContactDocuments({ contactId }: ContactDocumentsProps) {
 
   const handleUpload = async (params: {
     file: File;
-    documentType: ContactDocument['document_type'];
+    documentType: string;
     description?: string;
   }) => {
     await uploadDocument.mutateAsync({
@@ -87,18 +72,7 @@ export function ContactDocuments({ contactId }: ContactDocumentsProps) {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-muted-foreground" />
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {documentTypeFilters.map((filter) => (
-                <SelectItem key={filter.value} value={filter.value}>
-                  {filter.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <DocumentTypeSelect value={typeFilter} onValueChange={setTypeFilter} includeAll className="w-40" />
         </div>
 
         <Button onClick={() => setUploaderOpen(true)}>

@@ -6,13 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -20,37 +13,32 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ContactDocument } from '@/hooks/useContactDocuments';
+import { DocumentTypeSelect } from '@/components/documents/DocumentTypeSelect';
 
 interface DocumentUploaderProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpload: (params: {
     file: File;
-    documentType: ContactDocument['document_type'];
+    documentType: string;
     description?: string;
   }) => void;
   isUploading: boolean;
 }
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
 const ACCEPTED_TYPES = {
   'application/pdf': ['.pdf'],
   'application/msword': ['.doc'],
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
   'application/vnd.ms-excel': ['.xls'],
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+  'application/vnd.ms-powerpoint': ['.ppt'],
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
   'image/jpeg': ['.jpg', '.jpeg'],
   'image/png': ['.png'],
+  'image/webp': ['.webp'],
 };
-
-const documentTypes = [
-  { value: 'contract', label: 'Contrato' },
-  { value: 'proposal', label: 'Propuesta' },
-  { value: 'agreement', label: 'Acuerdo' },
-  { value: 'invoice', label: 'Factura' },
-  { value: 'other', label: 'Otro' },
-];
 
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -62,7 +50,7 @@ function formatFileSize(bytes: number): string {
 
 export function DocumentUploader({ open, onOpenChange, onUpload, isUploading }: DocumentUploaderProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [documentType, setDocumentType] = useState<ContactDocument['document_type']>('other');
+  const [documentType, setDocumentType] = useState('other');
   const [description, setDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -72,7 +60,7 @@ export function DocumentUploader({ open, onOpenChange, onUpload, isUploading }: 
     if (rejectedFiles.length > 0) {
       const rejection = rejectedFiles[0];
       if (rejection.errors[0]?.code === 'file-too-large') {
-        setError('El archivo es demasiado grande. Máximo 10 MB.');
+        setError('El archivo es demasiado grande. Máximo 25 MB.');
       } else if (rejection.errors[0]?.code === 'file-invalid-type') {
         setError('Tipo de archivo no permitido. Use PDF, Word, Excel o imágenes.');
       }
@@ -148,7 +136,7 @@ export function DocumentUploader({ open, onOpenChange, onUpload, isUploading }: 
                     Arrastra un archivo o haz click para seleccionar
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    PDF, Word, Excel o imágenes. Máximo 10 MB.
+                    PDF, Word, Excel, PowerPoint o imágenes. Máximo 25 MB.
                   </p>
                 </>
               )}
@@ -179,22 +167,11 @@ export function DocumentUploader({ open, onOpenChange, onUpload, isUploading }: 
 
           <div className="space-y-2">
             <Label htmlFor="document-type">Tipo de documento</Label>
-            <Select 
-              value={documentType} 
-              onValueChange={(v) => setDocumentType(v as ContactDocument['document_type'])}
+            <DocumentTypeSelect
+              value={documentType}
+              onValueChange={setDocumentType}
               disabled={isUploading}
-            >
-              <SelectTrigger id="document-type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {documentTypes.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
           </div>
 
           <div className="space-y-2">

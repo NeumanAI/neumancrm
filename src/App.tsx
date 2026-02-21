@@ -32,6 +32,8 @@ import Labs from "./pages/Labs";
 import CRMDocumentation from "./pages/CRMDocumentation";
 import CalendarPage from "./pages/CalendarPage";
 import GoogleCalendarCallback from "./pages/GoogleCalendarCallback";
+import Documents from "./pages/Documents";
+import SharedDocument from "./pages/SharedDocument";
 
 import BrandedAuth from "./pages/BrandedAuth";
 
@@ -79,6 +81,8 @@ const App = () => (
             <Route path="/projects" element={<AppLayout><Projects /></AppLayout>} />
             <Route path="/projects/:projectId" element={<AppLayout><ProjectDetail /></AppLayout>} />
             <Route path="/calendar" element={<AppLayout><CalendarPage /></AppLayout>} />
+            <Route path="/documents" element={<AppLayout><Documents /></AppLayout>} />
+            <Route path="/shared/:token" element={<SharedDocument />} />
             <Route path="/auth/google-calendar-callback" element={<GoogleCalendarCallback />} />
             
             {/* Redirect root to dashboard */}
