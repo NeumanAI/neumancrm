@@ -1345,6 +1345,92 @@ const tools = [
       },
     },
   },
+
+  // ===================================================================
+  // ===== FASE 7: DOCUMENTOS (6 nuevos) =====
+  // ===================================================================
+  {
+    type: "function",
+    function: {
+      name: "search_documents",
+      description: "Busca documentos en todo el CRM por nombre, tipo o tags. Busca en repositorio central, documentos de contactos y de empresas.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Texto de búsqueda (nombre de archivo)" },
+          document_type: { type: "string", description: "Tipo de documento (contract, proposal, quote, invoice, presentation, nda, agreement, other)" },
+          limit: { type: "number", description: "Máximo de resultados (default: 20)" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_recent_documents",
+      description: "Lista los documentos más recientes del repositorio central de la organización.",
+      parameters: {
+        type: "object",
+        properties: {
+          document_type: { type: "string", description: "Filtrar por tipo" },
+          limit: { type: "number", description: "Máximo de resultados (default: 10)" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_document_stats",
+      description: "Obtiene estadísticas de documentos: total, por tipo, almacenamiento usado, compartidos.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_contact_documents",
+      description: "Lista documentos asociados a un contacto específico.",
+      parameters: {
+        type: "object",
+        properties: {
+          contact_email: { type: "string", description: "Email del contacto" },
+          contact_name: { type: "string", description: "Nombre del contacto (alternativa)" },
+          limit: { type: "number", description: "Máximo (default: 10)" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_company_documents",
+      description: "Lista documentos asociados a una empresa específica.",
+      parameters: {
+        type: "object",
+        properties: {
+          company_name: { type: "string", description: "Nombre de la empresa" },
+          limit: { type: "number", description: "Máximo (default: 10)" },
+        },
+        required: ["company_name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "share_document",
+      description: "Genera un link de descarga pública para compartir un documento con clientes. Busca por nombre de archivo.",
+      parameters: {
+        type: "object",
+        properties: {
+          file_name: { type: "string", description: "Nombre del archivo a compartir" },
+          expires_in_days: { type: "number", description: "Días de vigencia del link (opcional, sin límite por defecto)" },
+        },
+        required: ["file_name"],
+      },
+    },
+  },
 ];
 
 // ===== TYPES =====
@@ -1438,7 +1524,7 @@ const buildSystemPrompt = (crmContext: {
 ${teamSection}
 ${routeContext ? `## 📍 Contexto: ${routeContext}\n` : ''}
 
-## Capacidades (74 herramientas):
+## Capacidades (80 herramientas):
 ### CRUD: contactos, empresas, oportunidades, tareas
 ### Pipeline: summary, deal health, stages, forecasting
 ### 📅 Calendario: crear/listar/actualizar/eliminar eventos, agenda hoy/semana, huecos libres, metas, time blocking
@@ -1447,6 +1533,7 @@ ${routeContext ? `## 📍 Contexto: ${routeContext}\n` : ''}
 ### 📧 Email: drafts, respuestas, WhatsApp, programar, historial, sentimiento
 ### 📈 Datos: búsqueda avanzada, duplicados, bulk update, export, calidad de datos
 ### 👥 Colaboración: menciones, tareas de equipo, handoff deals, aprobaciones de manager
+### 📂 Documentos: buscar docs, listar recientes, stats, docs de contacto/empresa, compartir con link público
 ### Proyectos, Omnicanal, Inteligencia
 
 ## Directrices:
@@ -2909,6 +2996,188 @@ async function requestManagerApproval(supabase: any, userId: string, args: any) 
   return { success: true, message: `✅ Solicitud de aprobación enviada a ${managers.length} manager(s):\n${managers.map((m: any) => `- ${m.full_name || m.email}`).join('\n')}` };
 }
 
+// ===================================================================
+// ===== FASE 7: DOCUMENTOS =====
+// ===================================================================
+
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+const docTypeLabels: Record<string, string> = {
+  contract: '📄 Contrato', proposal: '📝 Propuesta', quote: '💰 Cotización',
+  invoice: '🧾 Factura', presentation: '📊 Presentación', nda: '🔒 NDA',
+  agreement: '🤝 Acuerdo', other: '📎 Otro',
+};
+
+async function searchDocuments(supabase: any, userId: string, args: any) {
+  const orgId = await getOrgId(supabase, userId);
+  if (!orgId) return { success: false, message: '❌ No perteneces a ninguna organización' };
+  const query = args.query || '';
+  const docType = args.document_type;
+  const limit = args.limit || 20;
+
+  const buildQuery = (table: string, extraSelect = '') => {
+    let q = supabase.from(table).select(`id, file_name, file_size, document_type, created_at, is_shared, description, tags${extraSelect}`);
+    if (table === 'org_documents') q = q.eq('organization_id', orgId);
+    else q = q.eq('organization_id', orgId);
+    if (query) q = q.or(`file_name.ilike.%${query}%,description.ilike.%${query}%`);
+    if (docType) q = q.eq('document_type', docType);
+    return q.order('created_at', { ascending: false }).limit(limit);
+  };
+
+  const [orgDocs, contactDocs, companyDocs] = await Promise.all([
+    buildQuery('org_documents'),
+    buildQuery('contact_documents', ', contact_id'),
+    buildQuery('company_documents', ', company_id'),
+  ]);
+
+  const all = [
+    ...(orgDocs.data || []).map((d: any) => ({ ...d, source: '🏢 Repositorio' })),
+    ...(contactDocs.data || []).map((d: any) => ({ ...d, source: '👤 Contacto' })),
+    ...(companyDocs.data || []).map((d: any) => ({ ...d, source: '🏭 Empresa' })),
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, limit);
+
+  if (!all.length) return { success: true, message: `No se encontraron documentos${query ? ` para "${query}"` : ''}.`, data: [] };
+
+  let message = `## 📂 Documentos encontrados (${all.length})\n\n`;
+  message += all.map((d: any) => {
+    const label = docTypeLabels[d.document_type] || `📎 ${d.document_type}`;
+    return `${label} **${d.file_name}** (${formatFileSize(d.file_size)}) ${d.source}${d.is_shared ? ' 🔗' : ''}\n   ${getTimeAgo(new Date(d.created_at))}`;
+  }).join('\n\n');
+  return { success: true, message, data: all };
+}
+
+async function listRecentDocuments(supabase: any, userId: string, args: any) {
+  const orgId = await getOrgId(supabase, userId);
+  if (!orgId) return { success: false, message: '❌ No perteneces a ninguna organización' };
+  let query = supabase.from('org_documents').select('id, file_name, file_size, document_type, created_at, is_shared, description, tags').eq('organization_id', orgId).order('created_at', { ascending: false });
+  if (args.document_type) query = query.eq('document_type', args.document_type);
+  const { data, error } = await query.limit(args.limit || 10);
+  if (error) return { success: false, message: `❌ Error: ${error.message}` };
+  if (!data?.length) return { success: true, message: 'No hay documentos en el repositorio.', data: [] };
+  let message = `## 📂 Documentos Recientes (${data.length})\n\n`;
+  message += data.map((d: any) => {
+    const label = docTypeLabels[d.document_type] || `📎 ${d.document_type}`;
+    return `${label} **${d.file_name}** (${formatFileSize(d.file_size)})${d.is_shared ? ' 🔗' : ''}\n   ${getTimeAgo(new Date(d.created_at))}${d.tags?.length ? ` | Tags: ${d.tags.join(', ')}` : ''}`;
+  }).join('\n\n');
+  return { success: true, message, data };
+}
+
+async function getDocumentStats(supabase: any, userId: string) {
+  const orgId = await getOrgId(supabase, userId);
+  if (!orgId) return { success: false, message: '❌ No perteneces a ninguna organización' };
+
+  const [orgDocs, contactDocs, companyDocs] = await Promise.all([
+    supabase.from('org_documents').select('id, file_size, document_type, is_shared').eq('organization_id', orgId),
+    supabase.from('contact_documents').select('id, file_size, document_type').eq('organization_id', orgId),
+    supabase.from('company_documents').select('id, file_size, document_type').eq('organization_id', orgId),
+  ]);
+
+  const allDocs = [...(orgDocs.data || []), ...(contactDocs.data || []), ...(companyDocs.data || [])];
+  const totalSize = allDocs.reduce((s, d: any) => s + (d.file_size || 0), 0);
+  const shared = (orgDocs.data || []).filter((d: any) => d.is_shared).length;
+
+  const byType: Record<string, number> = {};
+  allDocs.forEach((d: any) => { byType[d.document_type] = (byType[d.document_type] || 0) + 1; });
+
+  let message = `## 📊 Estadísticas de Documentos\n\n`;
+  message += `| Métrica | Valor |\n|---|---|\n`;
+  message += `| Total documentos | ${allDocs.length} |\n`;
+  message += `| Repositorio central | ${orgDocs.data?.length || 0} |\n`;
+  message += `| En contactos | ${contactDocs.data?.length || 0} |\n`;
+  message += `| En empresas | ${companyDocs.data?.length || 0} |\n`;
+  message += `| Compartidos | ${shared} |\n`;
+  message += `| Almacenamiento | ${formatFileSize(totalSize)} |\n\n`;
+  message += `### Por tipo:\n`;
+  message += Object.entries(byType).sort((a, b) => b[1] - a[1]).map(([type, count]) => {
+    const label = docTypeLabels[type] || `📎 ${type}`;
+    return `${label}: ${count}`;
+  }).join('\n');
+
+  return { success: true, message, data: { total: allDocs.length, byType, totalSize, shared } };
+}
+
+async function listContactDocumentsTool(supabase: any, userId: string, args: any) {
+  const orgId = await getOrgId(supabase, userId);
+  if (!orgId) return { success: false, message: '❌ No perteneces a ninguna organización' };
+
+  let contactQuery = supabase.from('contacts').select('id, first_name, last_name, email').eq('organization_id', orgId);
+  if (args.contact_email) contactQuery = contactQuery.eq('email', args.contact_email);
+  else if (args.contact_name) contactQuery = contactQuery.or(`first_name.ilike.%${args.contact_name}%,last_name.ilike.%${args.contact_name}%`);
+  else return { success: false, message: '❌ Proporciona email o nombre del contacto' };
+
+  const { data: contact } = await contactQuery.limit(1).maybeSingle();
+  if (!contact) return { success: false, message: '❌ Contacto no encontrado' };
+
+  const { data: docs } = await supabase.from('contact_documents').select('id, file_name, file_size, document_type, created_at, is_shared, description').eq('contact_id', contact.id).order('created_at', { ascending: false }).limit(args.limit || 10);
+
+  const name = `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || contact.email;
+  if (!docs?.length) return { success: true, message: `Sin documentos para ${name}.`, data: [] };
+
+  let message = `## 📂 Documentos de ${name} (${docs.length})\n\n`;
+  message += docs.map((d: any) => {
+    const label = docTypeLabels[d.document_type] || `📎 ${d.document_type}`;
+    return `${label} **${d.file_name}** (${formatFileSize(d.file_size)})${d.is_shared ? ' 🔗' : ''}\n   ${getTimeAgo(new Date(d.created_at))}`;
+  }).join('\n\n');
+  return { success: true, message, data: docs };
+}
+
+async function listCompanyDocumentsTool(supabase: any, userId: string, args: any) {
+  const orgId = await getOrgId(supabase, userId);
+  if (!orgId) return { success: false, message: '❌ No perteneces a ninguna organización' };
+
+  const { data: company } = await supabase.from('companies').select('id, name').eq('organization_id', orgId).ilike('name', `%${args.company_name}%`).limit(1).maybeSingle();
+  if (!company) return { success: false, message: `❌ Empresa "${args.company_name}" no encontrada` };
+
+  const { data: docs } = await supabase.from('company_documents').select('id, file_name, file_size, document_type, created_at, is_shared, description').eq('company_id', company.id).order('created_at', { ascending: false }).limit(args.limit || 10);
+
+  if (!docs?.length) return { success: true, message: `Sin documentos para ${company.name}.`, data: [] };
+
+  let message = `## 📂 Documentos de ${company.name} (${docs.length})\n\n`;
+  message += docs.map((d: any) => {
+    const label = docTypeLabels[d.document_type] || `📎 ${d.document_type}`;
+    return `${label} **${d.file_name}** (${formatFileSize(d.file_size)})${d.is_shared ? ' 🔗' : ''}\n   ${getTimeAgo(new Date(d.created_at))}`;
+  }).join('\n\n');
+  return { success: true, message, data: docs };
+}
+
+async function shareDocumentTool(supabase: any, userId: string, args: any) {
+  const orgId = await getOrgId(supabase, userId);
+  if (!orgId) return { success: false, message: '❌ No perteneces a ninguna organización' };
+
+  const { data: doc } = await supabase.from('org_documents').select('id, file_name, is_shared, share_token').eq('organization_id', orgId).ilike('file_name', `%${args.file_name}%`).limit(1).maybeSingle();
+  if (!doc) return { success: false, message: `❌ Documento "${args.file_name}" no encontrado en el repositorio` };
+
+  if (doc.is_shared && doc.share_token) {
+    return { success: true, message: `🔗 Este documento ya tiene un link activo.\nToken: \`${doc.share_token}\`\nComparte la URL: **/shared/${doc.share_token}**` };
+  }
+
+  const shareToken = crypto.randomUUID();
+  const expiresAt = args.expires_in_days
+    ? new Date(Date.now() + args.expires_in_days * 24 * 60 * 60 * 1000).toISOString()
+    : null;
+
+  const { error } = await supabase.from('org_documents').update({
+    is_shared: true,
+    share_token: shareToken,
+    share_expires_at: expiresAt,
+    share_views: 0,
+  }).eq('id', doc.id);
+
+  if (error) return { success: false, message: `❌ Error: ${error.message}` };
+
+  let message = `✅ Link generado para **${doc.file_name}**\n\n🔗 Token: \`${shareToken}\`\nURL: **/shared/${shareToken}**`;
+  if (args.expires_in_days) message += `\n⏰ Expira en ${args.expires_in_days} días`;
+  else message += `\n♾️ Sin fecha de expiración`;
+
+  return { success: true, message, data: { shareToken, fileName: doc.file_name } };
+}
+
 // ===== MAIN TOOL EXECUTOR =====
 async function executeTool(supabase: any, userId: string, toolName: string, args: any): Promise<{ success: boolean; message: string; data?: any }> {
   console.log(`Executing tool: ${toolName}`, args);
@@ -3079,6 +3348,14 @@ async function executeTool(supabase: any, userId: string, toolName: string, args
       case "create_team_task": return await createTeamTask(supabase, userId, args);
       case "handoff_deal": return await handoffDeal(supabase, userId, args);
       case "request_manager_approval": return await requestManagerApproval(supabase, userId, args);
+
+      // ===== NEW: DOCUMENTOS =====
+      case "search_documents": return await searchDocuments(supabase, userId, args);
+      case "list_recent_documents": return await listRecentDocuments(supabase, userId, args);
+      case "get_document_stats": return await getDocumentStats(supabase, userId);
+      case "list_contact_documents": return await listContactDocumentsTool(supabase, userId, args);
+      case "list_company_documents": return await listCompanyDocumentsTool(supabase, userId, args);
+      case "share_document": return await shareDocumentTool(supabase, userId, args);
 
       default:
         return { success: false, message: `❌ Función desconocida: ${toolName}` };
