@@ -1,86 +1,102 @@
 
-# Sistema de Pricing & Control de Consumos — NeumanCRM
 
-## Qué se va a construir
+# Eliminar Aprobación Manual + Agregar Bloqueo por Spam
 
-Un sistema completo de planes y facturación manual (sin Stripe) que permite al super admin activar planes para organizaciones, a los resellers fijar precios libres a sus sub-clientes, y a cada organización ver su consumo real de IA en tiempo real.
+## Resumen
 
-## Alcance total
+Cambiar el flujo de registro para que los usuarios accedan inmediatamente al CRM después del onboarding, sin esperar aprobación manual. Se agrega un sistema de bloqueo por spam/abuso que el admin puede activar cuando lo necesite.
 
-### Base de datos (1 migración)
-5 tablas nuevas + 3 funciones SQL + datos iniciales de 6 planes + RLS:
+**Flujo actual:** Registro -> /pending-approval -> Admin aprueba -> /dashboard
+**Flujo nuevo:** Registro -> /onboarding -> /dashboard (inmediato). Admin puede bloquear cuentas abusivas -> /blocked
 
-- **`plan_catalog`** — Catálogo maestro de planes (editable por super admin). 6 planes preconfigurados: CRM Base, Agente Starter, Agente Professional, Essential, Growth (destacado), Complete.
-- **`organization_subscriptions`** — Una suscripción activa por organización. Estados: `trial`, `active`, `suspended`, `cancelled`, `expired`.
-- **`organization_pricing`** — Precios y límites custom por organización (para white-label markup libre).
-- **`usage_records`** — Snapshot mensual de consumo (IA, usuarios, contactos, storage).
-- **`usage_events`** — Log granular append-only de cada evento.
+---
 
-**Funciones SQL:**
-- `get_effective_plan_limits(org_id)` → devuelve límites reales (custom si existe, catálogo si no)
-- `get_current_usage(org_id)` → consumo real del mes en curso + flag `can_use_ai`
-- `increment_ai_usage(org_id)` → verifica y registra cada uso de IA, retorna `false` si el límite fue alcanzado
+## Cambios planificados
 
-### Archivos nuevos (6)
+### 1. Migración de base de datos
+- Aprobar automáticamente todas las organizaciones pendientes existentes
+- Agregar columnas `is_blocked`, `blocked_at`, `blocked_by`, `blocked_reason` a la tabla `organizations`
+- Crear trigger `auto_approve_organization()` que setea `is_approved = true` automáticamente en cada INSERT
 
-| Archivo | Descripción |
+### 2. Crear `src/pages/Blocked.tsx`
+- Página para cuentas suspendidas con icono ShieldX, mensaje claro y enlace a soporte
+- Botón de cerrar sesión
+
+### 3. Modificar `src/App.tsx`
+- Reemplazar import de `PendingApproval` por `Blocked`
+- Ruta `/blocked` nueva
+- `/pending-approval` redirige a `/blocked` (compatibilidad)
+
+### 4. Modificar `src/components/layout/AppLayout.tsx`
+- Cambiar guard de `!organization.is_approved` a `organization.is_blocked`
+- Redirigir a `/blocked` en lugar de `/pending-approval`
+
+### 5. Modificar `src/hooks/useTeam.ts`
+- Agregar `is_blocked` y `blocked_reason` al tipo `Organization`
+
+### 6. Modificar `src/hooks/useSuperAdmin.ts`
+- Agregar `is_blocked` al tipo `OrganizationWithAdmin`
+- Agregar mutaciones `blockOrganization` y `unblockOrganization`
+- Actualizar filtros: `blockedOrganizations`, `activeOrganizations`
+- Mantener `pendingOrganizations` como array vacio y `approvedOrganizations` como alias de `activeOrganizations` para no romper codigo existente
+
+### 7. Modificar `src/pages/Admin.tsx`
+- Reemplazar badges "Aprobada/Pendiente" por "Activa/Bloqueada"
+- Reemplazar botones "Aprobar/Revocar" por "Bloquear/Desbloquear"
+- Actualizar card de "Pendientes" por "Bloqueadas"
+- Eliminar tab "Pendientes" (ya no aplica)
+
+### 8. Modificar `src/hooks/useResellerAdmin.ts`
+- Sub-clientes creados por resellers siempre con `is_approved: true`
+
+---
+
+## Detalles tecnicos
+
+### Migración SQL
+```sql
+-- Auto-aprobar existentes
+UPDATE public.organizations SET is_approved = true, approved_at = now() WHERE is_approved = false;
+
+-- Nuevas columnas
+ALTER TABLE public.organizations
+  ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS blocked_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS blocked_by UUID,
+  ADD COLUMN IF NOT EXISTS blocked_reason TEXT;
+
+-- Trigger auto-aprobar
+CREATE OR REPLACE FUNCTION public.auto_approve_organization()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  NEW.is_approved := true;
+  NEW.approved_at := now();
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER auto_approve_org_on_insert
+  BEFORE INSERT ON public.organizations
+  FOR EACH ROW EXECUTE FUNCTION auto_approve_organization();
+```
+
+### Archivos nuevos
+| Archivo | Descripcion |
 |---|---|
-| `src/hooks/usePricing.ts` | Hook maestro: tipos, lecturas, mutaciones |
-| `src/components/billing/BillingTab.tsx` | Tab "Plan & Consumo" en Settings |
-| `src/components/billing/index.ts` | Barrel export |
-| `src/components/admin/PricingAdminPanel.tsx` | Panel super admin: suscripciones + catálogo |
-| `src/components/reseller/ResellerPricingPanel.tsx` | Panel reseller: activar planes + precio libre |
-| `supabase/migrations/[timestamp]_pricing_system.sql` | Migración completa |
+| `src/pages/Blocked.tsx` | Pagina para cuentas bloqueadas |
 
-### Archivos modificados (5)
-
+### Archivos modificados
 | Archivo | Cambio |
 |---|---|
-| `src/pages/Admin.tsx` | +tab "Pricing & Billing" (import `DollarSign` + `PricingAdminPanel`) |
-| `src/pages/Settings.tsx` | +tab "Plan & Consumo" (import `CreditCard` + `BillingTab`) |
-| `src/pages/ResellerAdmin.tsx` | +tab "Planes de clientes" (import `DollarSign` + `ResellerPricingPanel`) |
-| `supabase/functions/chat/index.ts` | Verificación de límites antes de llamar a la IA (lines 3120-3121) |
-| `src/contexts/ChatContext.tsx` | Manejo del error 429 con toast descriptivo |
+| `src/App.tsx` | Rutas /blocked, redirect /pending-approval |
+| `src/components/layout/AppLayout.tsx` | Guard is_blocked en lugar de is_approved |
+| `src/hooks/useTeam.ts` | Tipo Organization con is_blocked |
+| `src/hooks/useSuperAdmin.ts` | Mutaciones block/unblock, filtros nuevos |
+| `src/hooks/useResellerAdmin.ts` | Auto-aprobar sub-clientes |
+| `src/pages/Admin.tsx` | UI Bloquear/Desbloquear |
 
-## Flujo de control de IA
+### Archivo eliminable
+| Archivo | Accion |
+|---|---|
+| `src/pages/PendingApproval.tsx` | Ya no se usa (la ruta redirige a /blocked) |
 
-Cada vez que un usuario envía un mensaje al asistente IA:
-
-1. La edge function obtiene el `organization_id` del `user_id`
-2. Llama a `get_current_usage(org_id)` → obtiene `can_use_ai`
-3. Si `can_use_ai = false` → retorna HTTP 429 con mensaje claro
-4. Si puede usar → llama a `increment_ai_usage(org_id)` de forma no bloqueante (async)
-5. El frontend detecta 429 y muestra toast de error en lugar de crashear
-
-## Planes iniciales (precios en USD)
-
-| Plan | Tipo | Precio/mes | Usuarios | Conv. IA/mes |
-|---|---|---|---|---|
-| CRM Base | Individual | $79 | 5 | 0 (sin IA) |
-| Agente Starter | Individual | $79 | 1 | 1,000 |
-| Agente Professional | Individual | $199 | 1 | 5,000 |
-| Essential | Bundle | $134 | 5 | 1,000 |
-| **Growth** | **Bundle** | **$228** | **10** | **5,000** |
-| Complete | Bundle | $286 | 20 | 5,000 |
-
-## Puntos clave del diseño
-
-- **Sin Stripe**: toda activación es manual por super admin o reseller
-- **Markup libre para resellers**: `organization_pricing` permite cualquier precio sobre el catálogo
-- **El CRM nunca se bloquea**: solo el chat de IA se limita; contactos, pipeline, tareas siempre disponibles
-- **Refresco automático**: `useCurrentUsage` se auto-actualiza cada 60 segundos
-- **Precios custom**: si existe `organization_pricing` para la org, sobreescribe el catálogo completamente
-- **Accounts sin suscripción**: la función SQL devuelve defaults de prueba (3 usuarios, 100 conv. IA, 14 días trial) sin crashear
-
-## Ubicación de los cambios en Admin.tsx
-
-El tab "Pricing & Billing" se agrega después del tab "Dominios" existente en la `<TabsList>`, y su `<TabsContent>` después del último `<TabsContent>` existente.
-
-## Ubicación del corte en chat/index.ts
-
-En la línea 3120-3121 del archivo actual:
-```typescript
-console.log("Chat request - user:", userId, ...);
-const crmContext = await fetchCRMContext(supabase, userId); // ← ENTRE estas dos líneas
-```
-El bloque de verificación de límites se inserta exactamente ahí.
