@@ -1,51 +1,77 @@
 
 
-# Limpiar Datos Demo del Dashboard
+# Modulo de Gestion Documental Completo
 
-## Problema
+## Resumen
 
-La base de datos contiene datos de demostración (proyecto inmobiliario "Harena") que fueron sembrados para pruebas. Estos datos inflan las cifras del dashboard con valores irreales como **246.4 MUS$ en pipeline** y **18 contactos ficticios**. El código del dashboard ya usa datos reales -- el problema es exclusivamente los registros demo en la base de datos.
+Implementar un sistema completo de gestion documental para NeumanCRM, expandiendo la base existente (documentos de contactos y empresas) con un repositorio central de organizacion, categorias personalizables, links compartidos para clientes, y busqueda con IA.
 
-## Datos identificados como DEMO (a eliminar)
+## Alcance
 
-Los registros demo siguen un patron de UUID reconocible:
+### Nuevos archivos a crear (13)
 
-| Tabla | Registros demo | Patron UUID |
-|---|---|---|
-| contacts | 16 de 18 | `b2000001-0000-0000-*` |
-| companies | 8 de 8 | `a1000001-0000-0000-*` |
-| opportunities | 10 de 10 | `c3000001-0000-0000-*` |
-| activities | ~12 de 14 | Referencia a contactos/empresas demo |
-| timeline_entries | 6 de 6 | Referencia a contactos/empresas demo |
+| Archivo | Descripcion |
+|---|---|
+| Migracion SQL | Expandir tablas existentes, crear `org_documents`, `document_categories`, funcion publica `get_shared_document`, bucket `org-documents` |
+| `src/types/documents.ts` | Tipos compartidos, constantes de categorias base, helpers de formato |
+| `src/hooks/useOrgDocuments.ts` | CRUD repositorio general, compartir links, estadisticas |
+| `src/hooks/useDocumentCategories.ts` | CRUD categorias personalizadas, tipos combinados (base + custom) |
+| `src/components/documents/CategoryBadge.tsx` | Badge unificado que muestra categorias base y custom con colores |
+| `src/components/documents/DocumentTypeSelect.tsx` | Select reutilizable con categorias base + personalizadas |
+| `src/components/documents/ShareDocumentDialog.tsx` | Dialog para generar/revocar links de descarga para clientes |
+| `src/components/documents/DocumentCard.tsx` | Tarjeta de documento con acciones (descargar, compartir, eliminar) |
+| `src/components/documents/UploadDocumentDialog.tsx` | Dialog de subida con tags, tipo expandido, 25MB |
+| `src/components/documents/ManageCategoriesDialog.tsx` | Panel CRUD categorias con preview, colores e iconos |
+| `src/components/documents/AIDocumentSearch.tsx` | Busqueda en lenguaje natural usando la edge function chat |
+| `src/pages/Documents.tsx` | Pagina `/documents` con repositorio, stats y busqueda IA |
+| `src/pages/SharedDocument.tsx` | Pagina publica `/shared/:token` para clientes sin auth |
 
-## Datos REALES (se conservan)
+### Archivos existentes a modificar (8)
 
-- Contactos: "Pepito Perez" (jogedu@gmail.com), "Alberto Perez", "Jorge UTP"
-- Actividades creadas manualmente por el usuario real
-- Pipelines y stages del usuario
+| Archivo | Cambio |
+|---|---|
+| `src/hooks/useContactDocuments.ts` | `document_type` de union a `string`, agregar campos de sharing |
+| `src/hooks/useCompanyDocuments.ts` | Mismo cambio que contactos |
+| `src/components/contacts/DocumentUploader.tsx` | Usar `DocumentTypeSelect`, subir limite a 25MB |
+| `src/components/contacts/DocumentItem.tsx` | Usar `CategoryBadge`, agregar boton compartir |
+| `src/components/contacts/ContactDocuments.tsx` | Usar `DocumentTypeSelect` para filtros |
+| `src/components/companies/CompanyDocuments.tsx` | Usar `DocumentTypeSelect` para filtros |
+| `src/App.tsx` | Rutas `/documents` y `/shared/:token` |
+| `src/components/layout/Sidebar.tsx` | Agregar "Documentos" al menu de navegacion |
 
-## Plan de ejecucion
+### Edge function a actualizar (1)
 
-### 1. Migracion SQL para limpiar datos demo
+| Archivo | Cambio |
+|---|---|
+| `supabase/functions/chat/index.ts` | 3 tools nuevas: `search_documents`, `list_recent_documents`, `get_document_stats` |
 
-Eliminar en orden correcto (respetando dependencias):
+## Detalles tecnicos
 
-1. `timeline_entries` que referencian contactos/empresas demo
-2. `activities` que referencian contactos/empresas/oportunidades demo  
-3. `contact_projects` que referencian contactos demo
-4. `opportunities` con IDs demo (`c3000001-*`)
-5. `contacts` con IDs demo (`b2000001-*`)
-6. `companies` con IDs demo (`a1000001-*`)
+### Migracion SQL
 
-### 2. Sin cambios de codigo
+1. Expandir `contact_documents` y `company_documents` con: `organization_id`, `tags TEXT[]`, `is_shared`, `share_token`, `share_expires_at`, `share_views`, `updated_at`
+2. Crear tabla `org_documents` (repositorio central) con RLS por organizacion
+3. Crear tabla `document_categories` (categorias personalizadas) con RLS por organizacion
+4. Crear funcion `get_shared_document(p_token)` SECURITY DEFINER que busca en las 3 tablas de documentos
+5. Crear bucket de storage `org-documents` (privado) con politicas para usuarios autenticados
 
-El dashboard (`Dashboard.tsx`) ya esta correctamente implementado -- usa hooks reales (`useContacts`, `useCompanies`, `useOpportunities`). No hay mock data en el codigo. Una vez limpia la base de datos, las cifras seran correctas automaticamente.
+### Dependencia: nanoid
 
-## Resultado esperado
+El hook `useShareDocument` usa `nanoid` para generar tokens. Se necesita instalar como dependencia (`nanoid`). Alternativa: usar `crypto.randomUUID()` para evitar la dependencia extra, ya que esta disponible en todos los navegadores modernos. Se usara `crypto.randomUUID()` para evitar agregar dependencias.
 
-Despues de la limpieza:
-- Pipeline Activo: **0 US$** (sin oportunidades demo)
-- Clientes Activos: **3** (solo los contactos reales)
-- Tasa de Conversion: **0%** (sin deals)
-- Charts mostraran estados vacios elegantes ("Sin datos")
+### Categorias base (8 tipos predefinidos)
+
+Contrato, Propuesta, Cotizacion, Factura, Presentacion, NDA/Acuerdo, Acuerdo, Otro -- cada uno con color y estilo Tailwind.
+
+### Orden de implementacion
+
+1. Migracion SQL (tablas + bucket + funcion)
+2. Tipos compartidos (`documents.ts`)
+3. Hooks nuevos (`useOrgDocuments`, `useDocumentCategories`)
+4. Componentes nuevos (6 componentes en `documents/`)
+5. Actualizar componentes existentes (DocumentUploader, DocumentItem, ContactDocuments, CompanyDocuments)
+6. Actualizar hooks existentes (useContactDocuments, useCompanyDocuments)
+7. Paginas nuevas (Documents, SharedDocument)
+8. Rutas en App.tsx + Sidebar
+9. Tools de documentos en chat edge function
 
