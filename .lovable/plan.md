@@ -1,77 +1,45 @@
 
 
-# Modulo de Gestion Documental Completo
+# Agregar Herramientas de Documentos a la IA
 
-## Resumen
+## Situacion actual
 
-Implementar un sistema completo de gestion documental para NeumanCRM, expandiendo la base existente (documentos de contactos y empresas) con un repositorio central de organizacion, categorias personalizables, links compartidos para clientes, y busqueda con IA.
+La edge function `chat/index.ts` tiene 74 herramientas pero **ninguna relacionada con documentos**. Las tablas `org_documents`, `contact_documents`, `company_documents` y `document_categories` ya existen con datos y RLS configurado.
 
-## Alcance
+## Herramientas a agregar (6 tools)
 
-### Nuevos archivos a crear (13)
+| Tool | Descripcion | Tabla(s) |
+|---|---|---|
+| `search_documents` | Buscar documentos por nombre, tipo o tags en las 3 tablas | org, contact, company documents |
+| `list_recent_documents` | Listar documentos recientes del repositorio central | org_documents |
+| `get_document_stats` | Estadisticas: total, por tipo, almacenamiento, compartidos | org_documents |
+| `list_contact_documents` | Documentos de un contacto especifico | contact_documents |
+| `list_company_documents` | Documentos de una empresa especifica | company_documents |
+| `share_document` | Generar link de descarga publica para un documento | org_documents |
 
-| Archivo | Descripcion |
-|---|---|
-| Migracion SQL | Expandir tablas existentes, crear `org_documents`, `document_categories`, funcion publica `get_shared_document`, bucket `org-documents` |
-| `src/types/documents.ts` | Tipos compartidos, constantes de categorias base, helpers de formato |
-| `src/hooks/useOrgDocuments.ts` | CRUD repositorio general, compartir links, estadisticas |
-| `src/hooks/useDocumentCategories.ts` | CRUD categorias personalizadas, tipos combinados (base + custom) |
-| `src/components/documents/CategoryBadge.tsx` | Badge unificado que muestra categorias base y custom con colores |
-| `src/components/documents/DocumentTypeSelect.tsx` | Select reutilizable con categorias base + personalizadas |
-| `src/components/documents/ShareDocumentDialog.tsx` | Dialog para generar/revocar links de descarga para clientes |
-| `src/components/documents/DocumentCard.tsx` | Tarjeta de documento con acciones (descargar, compartir, eliminar) |
-| `src/components/documents/UploadDocumentDialog.tsx` | Dialog de subida con tags, tipo expandido, 25MB |
-| `src/components/documents/ManageCategoriesDialog.tsx` | Panel CRUD categorias con preview, colores e iconos |
-| `src/components/documents/AIDocumentSearch.tsx` | Busqueda en lenguaje natural usando la edge function chat |
-| `src/pages/Documents.tsx` | Pagina `/documents` con repositorio, stats y busqueda IA |
-| `src/pages/SharedDocument.tsx` | Pagina publica `/shared/:token` para clientes sin auth |
+## Cambios en un solo archivo
 
-### Archivos existentes a modificar (8)
+**`supabase/functions/chat/index.ts`** -- 3 secciones a modificar:
 
-| Archivo | Cambio |
-|---|---|
-| `src/hooks/useContactDocuments.ts` | `document_type` de union a `string`, agregar campos de sharing |
-| `src/hooks/useCompanyDocuments.ts` | Mismo cambio que contactos |
-| `src/components/contacts/DocumentUploader.tsx` | Usar `DocumentTypeSelect`, subir limite a 25MB |
-| `src/components/contacts/DocumentItem.tsx` | Usar `CategoryBadge`, agregar boton compartir |
-| `src/components/contacts/ContactDocuments.tsx` | Usar `DocumentTypeSelect` para filtros |
-| `src/components/companies/CompanyDocuments.tsx` | Usar `DocumentTypeSelect` para filtros |
-| `src/App.tsx` | Rutas `/documents` y `/shared/:token` |
-| `src/components/layout/Sidebar.tsx` | Agregar "Documentos" al menu de navegacion |
+### 1. Tool Definitions (despues de linea ~1348)
+Agregar 6 definiciones de tools con sus parametros (nombre, tipo de documento, tags, limite, etc.)
 
-### Edge function a actualizar (1)
+### 2. Tool Implementations (nuevas funciones)
+- `searchDocuments()` -- Busca en las 3 tablas con `ilike` por file_name y document_type
+- `listRecentDocuments()` -- Query a org_documents con limit y filtro por tipo
+- `getDocumentStats()` -- Conteos agrupados por tipo, suma de file_size, conteo de shared
+- `listContactDocuments()` -- Busca por email del contacto, luego sus documentos
+- `listCompanyDocuments()` -- Busca por nombre de empresa, luego sus documentos
+- `shareDocument()` -- Genera `crypto.randomUUID()` como token y actualiza `is_shared`
 
-| Archivo | Cambio |
-|---|---|
-| `supabase/functions/chat/index.ts` | 3 tools nuevas: `search_documents`, `list_recent_documents`, `get_document_stats` |
+### 3. executeTool switch (despues de linea ~3027)
+Agregar 6 cases nuevos que llaman a las funciones implementadas.
 
 ## Detalles tecnicos
 
-### Migracion SQL
-
-1. Expandir `contact_documents` y `company_documents` con: `organization_id`, `tags TEXT[]`, `is_shared`, `share_token`, `share_expires_at`, `share_views`, `updated_at`
-2. Crear tabla `org_documents` (repositorio central) con RLS por organizacion
-3. Crear tabla `document_categories` (categorias personalizadas) con RLS por organizacion
-4. Crear funcion `get_shared_document(p_token)` SECURITY DEFINER que busca en las 3 tablas de documentos
-5. Crear bucket de storage `org-documents` (privado) con politicas para usuarios autenticados
-
-### Dependencia: nanoid
-
-El hook `useShareDocument` usa `nanoid` para generar tokens. Se necesita instalar como dependencia (`nanoid`). Alternativa: usar `crypto.randomUUID()` para evitar la dependencia extra, ya que esta disponible en todos los navegadores modernos. Se usara `crypto.randomUUID()` para evitar agregar dependencias.
-
-### Categorias base (8 tipos predefinidos)
-
-Contrato, Propuesta, Cotizacion, Factura, Presentacion, NDA/Acuerdo, Acuerdo, Otro -- cada uno con color y estilo Tailwind.
-
-### Orden de implementacion
-
-1. Migracion SQL (tablas + bucket + funcion)
-2. Tipos compartidos (`documents.ts`)
-3. Hooks nuevos (`useOrgDocuments`, `useDocumentCategories`)
-4. Componentes nuevos (6 componentes en `documents/`)
-5. Actualizar componentes existentes (DocumentUploader, DocumentItem, ContactDocuments, CompanyDocuments)
-6. Actualizar hooks existentes (useContactDocuments, useCompanyDocuments)
-7. Paginas nuevas (Documents, SharedDocument)
-8. Rutas en App.tsx + Sidebar
-9. Tools de documentos en chat edge function
+- Todas las funciones usan `getOrgId()` para filtrar por organizacion
+- La busqueda cruzada en 3 tablas se hace con 3 queries paralelas usando `Promise.all`
+- `share_document` genera token con `crypto.randomUUID()` (disponible en Deno)
+- Los resultados formatean el tamano de archivo con un helper similar al del frontend
+- No se requieren cambios de base de datos ni nuevas migraciones
 
