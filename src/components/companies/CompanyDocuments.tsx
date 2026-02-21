@@ -3,8 +3,8 @@ import { useCompanyDocuments } from '@/hooks/useCompanyDocuments';
 import { CompanyDocument } from '@/types/crm';
 import { DocumentUploader } from '@/components/contacts/DocumentUploader';
 import { DocumentItem } from '@/components/contacts/DocumentItem';
+import { DocumentTypeSelect } from '@/components/documents/DocumentTypeSelect';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { 
@@ -17,18 +17,9 @@ interface CompanyDocumentsProps {
   companyId: string;
 }
 
-const documentTypes: { value: CompanyDocument['document_type'] | 'all'; label: string }[] = [
-  { value: 'all', label: 'Todos' },
-  { value: 'contract', label: 'Contratos' },
-  { value: 'proposal', label: 'Propuestas' },
-  { value: 'agreement', label: 'Acuerdos' },
-  { value: 'invoice', label: 'Facturas' },
-  { value: 'other', label: 'Otros' },
-];
-
 export function CompanyDocuments({ companyId }: CompanyDocumentsProps) {
   const { documents, isLoading, uploadDocument, deleteDocument, getDownloadUrl } = useCompanyDocuments(companyId);
-  const [filter, setFilter] = useState<CompanyDocument['document_type'] | 'all'>('all');
+  const [filter, setFilter] = useState('all');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
 
   const filteredDocuments = filter === 'all'
@@ -37,7 +28,7 @@ export function CompanyDocuments({ companyId }: CompanyDocumentsProps) {
 
   const handleUpload = async (params: {
     file: File;
-    documentType: CompanyDocument['document_type'];
+    documentType: string;
     description?: string;
   }) => {
     await uploadDocument.mutateAsync({
@@ -82,18 +73,9 @@ export function CompanyDocuments({ companyId }: CompanyDocumentsProps) {
     <div className="space-y-6">
       {/* Header with filters */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-muted-foreground" />
-          {documentTypes.map((type) => (
-            <Badge
-              key={type.value}
-              variant={filter === type.value ? 'default' : 'outline'}
-              className="cursor-pointer transition-colors"
-              onClick={() => setFilter(type.value)}
-            >
-              {type.label}
-            </Badge>
-          ))}
+          <DocumentTypeSelect value={filter} onValueChange={setFilter} includeAll className="w-40" />
         </div>
         <Button size="sm" onClick={() => setIsUploadOpen(true)}>
           <Plus className="mr-1 h-4 w-4" />
@@ -109,7 +91,7 @@ export function CompanyDocuments({ companyId }: CompanyDocumentsProps) {
           description={
             filter === 'all'
               ? "No hay documentos asociados a esta empresa."
-              : `No hay ${documentTypes.find(t => t.value === filter)?.label.toLowerCase()} registrados.`
+              : `No hay documentos de este tipo registrados.`
           }
           actionLabel="Subir documento"
           onAction={() => setIsUploadOpen(true)}

@@ -11,7 +11,7 @@ export interface ContactDocument {
   file_path: string;
   file_size: number;
   mime_type: string;
-  document_type: 'contract' | 'proposal' | 'agreement' | 'invoice' | 'other';
+  document_type: string;
   description?: string;
   created_at: string;
 }
@@ -19,7 +19,7 @@ export interface ContactDocument {
 interface UploadDocumentParams {
   contactId: string;
   file: File;
-  documentType: ContactDocument['document_type'];
+  documentType: string;
   description?: string;
 }
 

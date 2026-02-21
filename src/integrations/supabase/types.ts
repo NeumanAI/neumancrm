@@ -610,7 +610,14 @@ export type Database = {
           file_path: string
           file_size: number
           id: string
+          is_shared: boolean | null
           mime_type: string
+          organization_id: string | null
+          share_expires_at: string | null
+          share_token: string | null
+          share_views: number | null
+          tags: string[] | null
+          updated_at: string | null
           user_id: string
         }
         Insert: {
@@ -622,7 +629,14 @@ export type Database = {
           file_path: string
           file_size?: number
           id?: string
+          is_shared?: boolean | null
           mime_type: string
+          organization_id?: string | null
+          share_expires_at?: string | null
+          share_token?: string | null
+          share_views?: number | null
+          tags?: string[] | null
+          updated_at?: string | null
           user_id: string
         }
         Update: {
@@ -634,10 +648,25 @@ export type Database = {
           file_path?: string
           file_size?: number
           id?: string
+          is_shared?: boolean | null
           mime_type?: string
+          organization_id?: string | null
+          share_expires_at?: string | null
+          share_token?: string | null
+          share_views?: number | null
+          tags?: string[] | null
+          updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "company_documents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contact_documents: {
         Row: {
@@ -649,7 +678,14 @@ export type Database = {
           file_path: string
           file_size: number
           id: string
+          is_shared: boolean | null
           mime_type: string
+          organization_id: string | null
+          share_expires_at: string | null
+          share_token: string | null
+          share_views: number | null
+          tags: string[] | null
+          updated_at: string | null
           user_id: string
         }
         Insert: {
@@ -661,7 +697,14 @@ export type Database = {
           file_path: string
           file_size?: number
           id?: string
+          is_shared?: boolean | null
           mime_type: string
+          organization_id?: string | null
+          share_expires_at?: string | null
+          share_token?: string | null
+          share_views?: number | null
+          tags?: string[] | null
+          updated_at?: string | null
           user_id: string
         }
         Update: {
@@ -673,7 +716,14 @@ export type Database = {
           file_path?: string
           file_size?: number
           id?: string
+          is_shared?: boolean | null
           mime_type?: string
+          organization_id?: string | null
+          share_expires_at?: string | null
+          share_token?: string | null
+          share_views?: number | null
+          tags?: string[] | null
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -682,6 +732,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_documents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -969,6 +1026,53 @@ export type Database = {
           },
           {
             foreignKeyName: "conversations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_categories: {
+        Row: {
+          color: string
+          created_at: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          organization_id: string
+          slug: string
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          color?: string
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          organization_id: string
+          slug: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          color?: string
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          organization_id?: string
+          slug?: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_categories_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1509,6 +1613,71 @@ export type Database = {
             columns: ["stage_id"]
             isOneToOne: false
             referencedRelation: "stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_documents: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          document_type: string
+          file_name: string
+          file_path: string
+          file_size: number
+          id: string
+          is_shared: boolean | null
+          mime_type: string
+          organization_id: string
+          share_expires_at: string | null
+          share_token: string | null
+          share_views: number | null
+          tags: string[] | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          document_type?: string
+          file_name: string
+          file_path: string
+          file_size?: number
+          id?: string
+          is_shared?: boolean | null
+          mime_type: string
+          organization_id: string
+          share_expires_at?: string | null
+          share_token?: string | null
+          share_views?: number | null
+          tags?: string[] | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          document_type?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          id?: string
+          is_shared?: boolean | null
+          mime_type?: string
+          organization_id?: string
+          share_expires_at?: string | null
+          share_token?: string | null
+          share_views?: number | null
+          tags?: string[] | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_documents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -2437,6 +2606,20 @@ export type Database = {
         }[]
       }
       get_reseller_organization_id: { Args: never; Returns: string }
+      get_shared_document: {
+        Args: { p_token: string }
+        Returns: {
+          description: string
+          document_type: string
+          file_name: string
+          file_path: string
+          file_size: number
+          id: string
+          mime_type: string
+          share_expires_at: string
+          source_table: string
+        }[]
+      }
       get_user_organization_id: { Args: never; Returns: string }
       get_user_role: {
         Args: never
