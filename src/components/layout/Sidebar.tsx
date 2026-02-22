@@ -226,13 +226,12 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
             </NavLink>
           );
         })}
-      </nav>
 
-      {/* Plataforma IA Section */}
-      <div className="flex-shrink-0 border-t border-sidebar-border px-3 py-3 space-y-1">
+        {/* Plataforma IA */}
         {!isCollapsed && (
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-500/70 px-3 mb-1">Plataforma IA</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-500/70 px-3 mt-4 mb-1">Plataforma IA</p>
         )}
+        {isCollapsed && <div className="mt-3" />}
         {platformAINavItems.map((item) => {
           const isActive = location.pathname === item.to;
           return (
@@ -241,13 +240,13 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
               to={item.to}
               onClick={handleNavClick}
               className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200',
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
                 'hover:bg-violet-500/10',
                 isActive && 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
                 !isActive && 'text-sidebar-foreground/60 hover:text-violet-500',
               )}
             >
-              <item.icon className={cn("h-4 w-4 flex-shrink-0", isActive ? "text-violet-600 dark:text-violet-400" : "text-violet-500/70")} />
+              <item.icon className={cn("h-5 w-5 flex-shrink-0", isActive ? "text-violet-600 dark:text-violet-400" : "text-violet-500/70")} />
               <AnimatePresence>
                 {!isCollapsed && (
                   <motion.span
@@ -263,7 +262,7 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
             </NavLink>
           );
         })}
-      </div>
+      </nav>
 
       {/* User Profile Section */}
       <div className="flex-shrink-0 border-t border-sidebar-border p-3 bg-sidebar">
