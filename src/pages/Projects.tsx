@@ -66,14 +66,14 @@ export default function Projects() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Proyectos</h1>
+          <h1 className="text-2xl font-bold">Segmentos</h1>
           <p className="text-muted-foreground">
-            Gestiona tus proyectos y unidades de negocio
+            Gestiona tus segmentos y unidades de negocio
           </p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
           <FolderPlus className="h-4 w-4 mr-2" />
-          Nuevo Proyecto
+          Nuevo Segmento
         </Button>
       </div>
 
@@ -138,7 +138,7 @@ export default function Projects() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar proyectos..."
+            placeholder="Buscar segmentos..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
@@ -185,15 +185,15 @@ export default function Projects() {
         <Card className="py-16">
           <div className="text-center">
             <Folder className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No hay proyectos</h3>
+            <h3 className="text-lg font-semibold mb-2">No hay segmentos</h3>
             <p className="text-muted-foreground mb-4">
               {search || statusFilter !== 'all' || typeFilter !== 'all'
-                ? 'No se encontraron proyectos con esos filtros'
-                : 'Crea tu primer proyecto para empezar a segmentar tus contactos y oportunidades'}
+                ? 'No se encontraron segmentos con esos filtros'
+                : 'Crea tu primer segmento para empezar a organizar tus contactos y oportunidades'}
             </p>
             <Button onClick={() => setCreateOpen(true)}>
               <FolderPlus className="h-4 w-4 mr-2" />
-              Crear Proyecto
+              Crear Segmento
             </Button>
           </div>
         </Card>

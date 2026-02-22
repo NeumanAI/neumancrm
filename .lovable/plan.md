@@ -1,6 +1,12 @@
 
 
-# Modulo Proyectos Inmobiliarios -- Implementacion completa (4 fases)
+# Modulo Proyectos Inmobiliarios -- Estado de implementación
+
+## ✅ Fase 1 -- Renombrar "Proyectos" a "Segmentos" (COMPLETADO)
+## ✅ Fase 2A -- Migración SQL (COMPLETADO) 
+## ✅ Fase 2B -- Feature flag + toggle admin (COMPLETADO)
+## ✅ Fase 3 -- UI completa del módulo (COMPLETADO)
+## ⏳ Fase 4 -- 8 tools AI en Edge Function chat (PENDIENTE)
 
 Este documento cubre los 4 prompts del archivo subido, ejecutados como una sola implementacion.
 
