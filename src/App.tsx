@@ -87,9 +87,9 @@ const App = () => (
               
               {/* Admin panel - protected with guard */}
               <Route path="/admin" element={<RequireSuperAdmin><Admin /></RequireSuperAdmin>} />
-              <Route path="/admin/firma-digital" element={<RequireSuperAdmin><FirmaDigital /></RequireSuperAdmin>} />
-              <Route path="/admin/agentic-rag" element={<RequireSuperAdmin><AgenticRAG /></RequireSuperAdmin>} />
-              <Route path="/admin/labs" element={<RequireSuperAdmin><Labs /></RequireSuperAdmin>} />
+              <Route path="/firma-digital" element={<AppLayout><FirmaDigital /></AppLayout>} />
+              <Route path="/agentic-rag" element={<AppLayout><AgenticRAG /></AppLayout>} />
+              <Route path="/labs" element={<AppLayout><Labs /></AppLayout>} />
               <Route path="/crm-documentation" element={<CRMDocumentation />} />
               
               {/* Reseller admin panel - protected with guard */}

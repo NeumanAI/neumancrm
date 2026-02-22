@@ -72,9 +72,9 @@ const adminNavItems = [
 ];
 
 const platformAINavItems = [
-  { to: '/admin/firma-digital', icon: PenTool, label: 'Firma Digital', isPlatformAI: true },
-  { to: '/admin/agentic-rag', icon: Bot, label: 'AgenticRAG', isPlatformAI: true },
-  { to: '/admin/labs', icon: FlaskConical, label: 'Labs', isPlatformAI: true },
+  { to: '/firma-digital', icon: PenTool, label: 'Firma Digital', isPlatformAI: true },
+  { to: '/agentic-rag', icon: Bot, label: 'AgenticRAG', isPlatformAI: true },
+  { to: '/labs', icon: FlaskConical, label: 'Labs', isPlatformAI: true },
 ];
 
 const resellerNavItems = [
@@ -95,7 +95,7 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
     allNavItems = [...allNavItems, ...resellerNavItems];
   }
   if (isSuperAdmin) {
-    allNavItems = [...allNavItems, ...adminNavItems, ...platformAINavItems];
+    allNavItems = [...allNavItems, ...adminNavItems];
   }
 
   const handleSignOut = async () => {
@@ -183,7 +183,6 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
           const isActive = location.pathname === item.to;
           const showBadge = 'showBadge' in item && item.showBadge && unreadCount > 0;
           const isAdminItem = 'isAdmin' in item && item.isAdmin;
-          const isPlatformAIItem = 'isPlatformAI' in item && item.isPlatformAI;
           
           return (
             <NavLink
@@ -196,11 +195,10 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
                 isActive && 'bg-sidebar-primary text-sidebar-primary-foreground',
                 !isActive && 'text-sidebar-foreground/70 hover:text-sidebar-foreground',
                 isAdminItem && 'border border-primary/20 bg-primary/5',
-                isPlatformAIItem && 'border border-violet-500/20 bg-violet-500/5 ml-4'
               )}
             >
               <div className="relative">
-                <item.icon className={cn("h-5 w-5 flex-shrink-0", isAdminItem && "text-primary", isPlatformAIItem && "text-violet-500")} />
+                <item.icon className={cn("h-5 w-5 flex-shrink-0", isAdminItem && "text-primary")} />
                 {showBadge && isCollapsed && (
                   <span className="absolute -top-1 -right-1 h-2 w-2 bg-destructive rounded-full" />
                 )}
@@ -213,7 +211,7 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
                     exit={{ opacity: 0, x: -10 }}
                     className="flex items-center justify-between flex-1"
                   >
-                    <span className={cn("font-medium text-sm", isAdminItem && "text-primary", isPlatformAIItem && "text-violet-500")}>{item.label}</span>
+                    <span className={cn("font-medium text-sm", isAdminItem && "text-primary")}>{item.label}</span>
                     {showBadge && (
                       <Badge 
                         variant="destructive" 
@@ -229,6 +227,43 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
           );
         })}
       </nav>
+
+      {/* Plataforma IA Section */}
+      <div className="flex-shrink-0 border-t border-sidebar-border px-3 py-3 space-y-1">
+        {!isCollapsed && (
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-500/70 px-3 mb-1">Plataforma IA</p>
+        )}
+        {platformAINavItems.map((item) => {
+          const isActive = location.pathname === item.to;
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              onClick={handleNavClick}
+              className={cn(
+                'flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200',
+                'hover:bg-violet-500/10',
+                isActive && 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
+                !isActive && 'text-sidebar-foreground/60 hover:text-violet-500',
+              )}
+            >
+              <item.icon className={cn("h-4 w-4 flex-shrink-0", isActive ? "text-violet-600 dark:text-violet-400" : "text-violet-500/70")} />
+              <AnimatePresence>
+                {!isCollapsed && (
+                  <motion.span
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    className="font-medium text-sm"
+                  >
+                    {item.label}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </NavLink>
+          );
+        })}
+      </div>
 
       {/* User Profile Section */}
       <div className="flex-shrink-0 border-t border-sidebar-border p-3 bg-sidebar">
