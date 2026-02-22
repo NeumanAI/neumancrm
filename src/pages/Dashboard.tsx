@@ -32,11 +32,20 @@ import { AnalysisCard } from '@/components/dashboard/AnalysisCard';
 import { TrafficSourceChart } from '@/components/dashboard/TrafficSourceChart';
 import { MiniAreaChart, MiniLineChart } from '@/components/dashboard/MiniCharts';
 
-// Lazy load AI component
+// Lazy load AI component with retry for stale chunk errors
+const lazyRetry = (fn: () => Promise<any>, retries = 2): Promise<any> =>
+  fn().catch((err: Error) => {
+    if (retries > 0 && err.message.includes('Failed to fetch dynamically imported module')) {
+      return new Promise(r => setTimeout(r, 1000)).then(() => lazyRetry(fn, retries - 1));
+    }
+    window.location.reload();
+    throw err;
+  });
+
 const AIInsightsCard = lazy(() => 
-  import('@/components/dashboard/AIInsightsCard').then(module => ({ 
+  lazyRetry(() => import('@/components/dashboard/AIInsightsCard').then(module => ({ 
     default: module.AIInsightsCard 
-  }))
+  })))
 );
 
 const STAGE_COLORS = [
