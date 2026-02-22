@@ -41,7 +41,8 @@ import {
   UserPlus,
   DollarSign,
   Search,
-  ClipboardList
+  ClipboardList,
+  HardHat
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -51,6 +52,7 @@ import { CreateOrganizationDialog } from '@/components/admin/CreateOrganizationD
 import { AssignAdminDialog } from '@/components/admin/AssignAdminDialog';
 import { DomainsTab } from '@/components/admin/DomainsTab';
 import { PricingAdminPanel } from '@/components/admin/PricingAdminPanel';
+import { ModulesDialog } from '@/components/admin/ModulesDialog';
 
 function OrganizationTypeBadge({ type }: { type: OrganizationType }) {
   if (type === 'whitelabel') {
@@ -75,6 +77,7 @@ function OrganizationRow({
   onReject,
   onEdit,
   onAssignAdmin,
+  onModules,
   isApproving,
   isRejecting,
   isSubClient = false,
@@ -85,6 +88,7 @@ function OrganizationRow({
   onReject: () => void;
   onEdit: () => void;
   onAssignAdmin: () => void;
+  onModules: () => void;
   isApproving: boolean;
   isRejecting: boolean;
   isSubClient?: boolean;
@@ -168,6 +172,14 @@ function OrganizationRow({
             <Button 
               size="sm" 
               variant="ghost"
+              onClick={onModules}
+              title="Módulos"
+            >
+              <HardHat className="h-4 w-4" />
+            </Button>
+            <Button 
+              size="sm" 
+              variant="ghost"
               onClick={onEdit}
             >
               <Pencil className="h-4 w-4" />
@@ -218,6 +230,7 @@ function OrganizationRow({
           onReject={onReject}
           onEdit={onEdit}
           onAssignAdmin={onAssignAdmin}
+          onModules={onModules}
           isApproving={isApproving}
           isRejecting={isRejecting}
           isSubClient={true}
@@ -252,6 +265,7 @@ export default function Admin() {
   const [editingOrg, setEditingOrg] = useState<OrganizationWithAdmin | null>(null);
   const [createDialogType, setCreateDialogType] = useState<OrganizationType | null>(null);
   const [assigningAdminOrg, setAssigningAdminOrg] = useState<OrganizationWithAdmin | null>(null);
+  const [modulesOrg, setModulesOrg] = useState<{ id: string; name: string; modules: Record<string, boolean> } | null>(null);
 
   // Redirect if not super-admin
   useEffect(() => {
@@ -259,6 +273,11 @@ export default function Admin() {
       navigate('/dashboard', { replace: true });
     }
   }, [isSuperAdmin, isLoading, navigate]);
+
+  const handleOpenModules = (org: OrganizationWithAdmin) => {
+    const modules = ((org as any).enabled_modules as Record<string, boolean>) || {};
+    setModulesOrg({ id: org.id, name: org.name, modules });
+  };
 
   const handleSaveOrg = async (data: any) => {
     await updateOrganization.mutateAsync(data);
@@ -457,6 +476,7 @@ export default function Admin() {
                   onReject={(id) => rejectOrganization.mutate(id)}
                   onEdit={setEditingOrg}
                   onAssignAdmin={setAssigningAdminOrg}
+                  onModules={handleOpenModules}
                   isApproving={approveOrganization.isPending}
                   isRejecting={rejectOrganization.isPending}
                   emptyMessage="No hay empresas registradas"
@@ -471,6 +491,7 @@ export default function Admin() {
                   onReject={(id) => rejectOrganization.mutate(id)}
                   onEdit={setEditingOrg}
                   onAssignAdmin={setAssigningAdminOrg}
+                  onModules={handleOpenModules}
                   isApproving={approveOrganization.isPending}
                   isRejecting={rejectOrganization.isPending}
                   emptyMessage="No hay clientes directos"
@@ -485,6 +506,7 @@ export default function Admin() {
                   onReject={(id) => rejectOrganization.mutate(id)}
                   onEdit={setEditingOrg}
                   onAssignAdmin={setAssigningAdminOrg}
+                  onModules={handleOpenModules}
                   isApproving={approveOrganization.isPending}
                   isRejecting={rejectOrganization.isPending}
                   emptyMessage="No hay empresas de marca blanca"
@@ -501,6 +523,7 @@ export default function Admin() {
                   onReject={(id) => rejectOrganization.mutate(id)}
                   onEdit={setEditingOrg}
                   onAssignAdmin={setAssigningAdminOrg}
+                  onModules={handleOpenModules}
                   isApproving={approveOrganization.isPending}
                   isRejecting={rejectOrganization.isPending}
                   emptyMessage="No hay sub-clientes registrados"
@@ -515,6 +538,7 @@ export default function Admin() {
                   onReject={(id) => rejectOrganization.mutate(id)}
                   onEdit={setEditingOrg}
                   onAssignAdmin={setAssigningAdminOrg}
+                  onModules={handleOpenModules}
                   isApproving={approveOrganization.isPending}
                   isRejecting={rejectOrganization.isPending}
                   emptyMessage="No hay empresas pendientes de aprobación"
@@ -579,6 +603,18 @@ export default function Admin() {
         }}
         isAssigning={assignAdmin.isPending}
       />
+
+      {/* Modules Dialog */}
+      {modulesOrg && (
+        <ModulesDialog
+          open={!!modulesOrg}
+          onOpenChange={(open) => !open && setModulesOrg(null)}
+          organizationId={modulesOrg.id}
+          organizationName={modulesOrg.name}
+          enabledModules={modulesOrg.modules}
+          onSaved={() => refetchOrgs()}
+        />
+      )}
     </div>
   );
 }
@@ -730,6 +766,7 @@ function OrganizationsTable({
   onReject,
   onEdit,
   onAssignAdmin,
+  onModules,
   isApproving,
   isRejecting,
   emptyMessage,
@@ -742,6 +779,7 @@ function OrganizationsTable({
   onReject: (id: string) => void;
   onEdit: (org: OrganizationWithAdmin) => void;
   onAssignAdmin: (org: OrganizationWithAdmin) => void;
+  onModules: (org: OrganizationWithAdmin) => void;
   isApproving: boolean;
   isRejecting: boolean;
   emptyMessage: string;
@@ -779,6 +817,7 @@ function OrganizationsTable({
             onReject={() => onReject(org.id)}
             onEdit={() => onEdit(org)}
             onAssignAdmin={() => onAssignAdmin(org)}
+            onModules={() => onModules(org)}
             isApproving={isApproving}
             isRejecting={isRejecting}
             subClients={showHierarchy && getSubClientsOf ? getSubClientsOf(org.id) : []}
