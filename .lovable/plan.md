@@ -1,39 +1,20 @@
 
 
-# Hacer Firma Digital, AgenticRAG y Labs accesibles para todos los usuarios
+# Integrar Plataforma IA en el menu lateral como una sola unidad
 
-## Cambios necesarios
+## Problema actual
+La seccion "Plataforma IA" esta separada visualmente del menu principal con un `border-t` y es un bloque `flex-shrink-0` fijo, lo que la hace parecer un componente aparte del sidebar.
 
-### 1. Rutas (App.tsx)
-- Mover las 3 rutas de `/admin/firma-digital`, `/admin/agentic-rag` y `/admin/labs` fuera del guard `RequireSuperAdmin`
-- Cambiar las rutas a `/firma-digital`, `/agentic-rag` y `/labs` (sin prefijo `/admin/`)
-- Envolverlas con `AppLayout` como las demas rutas protegidas
+## Solucion
+Mover los items de `platformAINavItems` dentro del `<nav>` principal, justo despues de los items de admin/reseller. Se agrega un label "Plataforma IA" como separador visual sutil (sin bordes), y los items usan el mismo estilo de navegacion que el resto del menu pero conservando el color violeta.
 
-### 2. Paginas (FirmaDigital.tsx, AgenticRAG.tsx, Labs.tsx)
-- Eliminar el guard interno de `useSuperAdmin` y el redirect a `/dashboard` en cada pagina
-- Eliminar el header con boton "volver" ya que ahora estaran dentro del AppLayout con sidebar
-- Simplificar cada pagina para que solo muestre su contenido principal
+## Cambio en un solo archivo
 
-### 3. Sidebar (Sidebar.tsx)
-- Sacar `platformAINavItems` de la condicion `isSuperAdmin`
-- Actualizar las rutas a `/firma-digital`, `/agentic-rag`, `/labs`
-- Renderizar estas 3 items en una seccion separada al fondo del sidebar, justo encima del perfil de usuario, con un label "Plataforma IA"
-- Mantener el estilo violeta distintivo
+**`src/components/layout/Sidebar.tsx`**
 
-## Detalle tecnico
-
-**Sidebar.tsx** -- La nav actual es un solo bloque scrollable. Se dividira en:
-1. `<nav>` principal (scrollable) con los items regulares + admin/reseller
-2. Seccion fija "Plataforma IA" entre la nav y el perfil de usuario, con separador visual
-
-**App.tsx** -- 3 rutas cambian de:
-```
-<Route path="/admin/firma-digital" element={<RequireSuperAdmin><FirmaDigital /></RequireSuperAdmin>} />
-```
-a:
-```
-<Route path="/firma-digital" element={<AppLayout><FirmaDigital /></AppLayout>} />
-```
-
-**Paginas** -- Cada una se simplifica eliminando ~20 lineas de guard + header, dejando solo el contenido (iframe para Firma Digital, placeholder para las otras dos).
+1. Eliminar el bloque separado de "Plataforma IA" (lineas 231-266) -- el `div` con `border-t` y `flex-shrink-0`
+2. Dentro del `<nav>` existente (linea 181-229), despues del `.map(allNavItems)`, agregar:
+   - Un label "Plataforma IA" con texto violeta (solo visible cuando no esta colapsado)
+   - Los 3 items de `platformAINavItems` con su estilo violeta, usando la misma estructura de `NavLink` + `AnimatePresence`
+3. Todo queda dentro del mismo bloque scrollable, como una seccion continua del menu
 
