@@ -40,11 +40,11 @@ export function useActionTracking() {
         success: true,
         ...params,
       } as any).then(({ error }) => {
-        if (error) console.error('[ActionTracking] Insert error:', error.message);
+        if (error) { if (import.meta.env.DEV) console.error('[ActionTracking] Insert error:', error.message); }
       });
     } catch (error) {
       // Silently fail — tracking should never break the app
-      console.error('[ActionTracking] Error:', error);
+      if (import.meta.env.DEV) console.error('[ActionTracking] Error:', error);
     }
   }, [user]);
 

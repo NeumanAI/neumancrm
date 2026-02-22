@@ -13,7 +13,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Search, Menu, LogOut, Settings, Sparkles } from 'lucide-react';
+import { Search, Menu, LogOut, Settings, Sparkles, Moon, Sun } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { GlobalProjectFilter } from '@/components/projects/GlobalProjectFilter';
@@ -57,6 +58,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   const { organization } = useTeam();
   const navigate = useNavigate();
   const location = useLocation();
+  const { theme, setTheme } = useTheme();
 
   const isDashboard = location.pathname === '/' || location.pathname === '/dashboard';
 
@@ -123,6 +125,16 @@ export function Header({ onMenuClick }: HeaderProps) {
           <div className="hidden md:block">
             <GlobalProjectFilter />
           </div>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            aria-label="Cambiar tema"
+          >
+            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
 
           <NotificationBell />
 

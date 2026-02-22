@@ -43,9 +43,9 @@ export function AppLayout({ children }: AppLayoutProps) {
     return () => clearTimeout(timer);
   }, [isLoading]);
 
-  // Redirect to pending approval
+  // Redirect blocked organizations
   useEffect(() => {
-    if (!isLoading && organization && !organization.is_approved && !isSuperAdmin) {
+    if (!isLoading && organization && (organization as any).is_blocked === true && !isSuperAdmin) {
       navigate('/pending-approval', { replace: true });
     }
   }, [organization, isLoading, isSuperAdmin, navigate]);
@@ -104,7 +104,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     return <Navigate to="/auth" replace />;
   }
 
-  if (organization && !organization.is_approved && !isSuperAdmin) {
+  if (organization && (organization as any).is_blocked === true && !isSuperAdmin) {
     return null;
   }
 

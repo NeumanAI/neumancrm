@@ -52,7 +52,7 @@ export function useSuperAdmin() {
         .rpc('is_super_admin');
       
       if (error) {
-        console.error('Error checking super admin status:', error);
+        if (import.meta.env.DEV) console.error('Error checking super admin status:', error);
         return false;
       }
       return data as boolean;

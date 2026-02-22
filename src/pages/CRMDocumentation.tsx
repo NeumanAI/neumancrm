@@ -373,7 +373,7 @@ export default function CRMDocumentation() {
       // Save PDF
       pdf.save('NeumanCRM_Documentacion_Funcionalidades.pdf');
     } catch (error) {
-      console.error('Error generating PDF:', error);
+      if (import.meta.env.DEV) console.error('Error generating PDF:', error);
     } finally {
       setIsExporting(false);
     }

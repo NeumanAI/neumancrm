@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
         // Session corrupted or expired - clear auth state
-        console.warn('Session error, clearing auth state:', error.message);
+        if (import.meta.env.DEV) console.warn('Session error, clearing auth state:', error.message);
         supabase.auth.signOut();
         setSession(null);
         setUser(null);
@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Function to clear invalid session when API returns 401
   const clearInvalidSession = async () => {
-    console.warn('Clearing invalid session due to API auth error');
+    if (import.meta.env.DEV) console.warn('Clearing invalid session due to API auth error');
     await supabase.auth.signOut();
     setSession(null);
     setUser(null);

@@ -100,7 +100,7 @@ export function ConversationalForm({ entity, onComplete, onCancel }: Conversatio
         setCurrentStep(currentStep + 1);
       }
     } catch (error: any) {
-      console.error('NLI Error:', error);
+      if (import.meta.env.DEV) console.error('NLI Error:', error);
       toast.error('No pude procesar tu mensaje. Intenta de nuevo.');
       // Remove the user message on error
       setConversation(conversation);
