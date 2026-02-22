@@ -39,6 +39,8 @@ import GoogleCalendarCallback from "./pages/GoogleCalendarCallback";
 import Documents from "./pages/Documents";
 import SharedDocument from "./pages/SharedDocument";
 import BrandedAuth from "./pages/BrandedAuth";
+import RealEstateProjects from "./pages/RealEstateProjects";
+import RealEstateProjectDetail from "./pages/RealEstateProjectDetail";
 
 // Route guards
 function RequireSuperAdmin({ children }: { children: ReactNode }) {
@@ -107,8 +109,12 @@ const App = () => (
               <Route path="/data-management" element={<AppLayout><DataManagement /></AppLayout>} />
               <Route path="/team" element={<AppLayout><Team /></AppLayout>} />
               <Route path="/conversations" element={<AppLayout><Conversations /></AppLayout>} />
-              <Route path="/projects" element={<AppLayout><Projects /></AppLayout>} />
-              <Route path="/projects/:projectId" element={<AppLayout><ProjectDetail /></AppLayout>} />
+              <Route path="/segmentos" element={<AppLayout><Projects /></AppLayout>} />
+              <Route path="/segmentos/:projectId" element={<AppLayout><ProjectDetail /></AppLayout>} />
+              <Route path="/projects" element={<Navigate to="/segmentos" replace />} />
+              <Route path="/projects/:projectId" element={<Navigate to="/segmentos" replace />} />
+              <Route path="/proyectos" element={<AppLayout><RealEstateProjects /></AppLayout>} />
+              <Route path="/proyectos/:projectId" element={<AppLayout><RealEstateProjectDetail /></AppLayout>} />
               <Route path="/calendar" element={<AppLayout><CalendarPage /></AppLayout>} />
               <Route path="/documents" element={<AppLayout><Documents /></AppLayout>} />
               <Route path="/shared/:token" element={<SharedDocument />} />

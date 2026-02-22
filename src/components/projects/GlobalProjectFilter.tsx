@@ -24,10 +24,10 @@ export function GlobalProjectFilter() {
         onValueChange={(value) => setActiveProject(value === 'all' ? null : value)}
       >
         <SelectTrigger className="w-[180px] h-9 bg-muted/50 border-0">
-          <SelectValue placeholder="Todos los proyectos" />
+          <SelectValue placeholder="Todos los segmentos" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Todos los proyectos</SelectItem>
+          <SelectItem value="all">Todos los segmentos</SelectItem>
           {projects.map((project) => (
             <SelectItem key={project.id} value={project.id}>
               <div className="flex items-center gap-2">

@@ -101,7 +101,7 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Nuevo Proyecto</DialogTitle>
+          <DialogTitle>Nuevo Segmento</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -113,7 +113,7 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
                   <FormItem className="col-span-2">
                     <FormLabel>Nombre *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Nombre del proyecto" {...field} />
+                      <Input placeholder="Nombre del segmento" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -255,7 +255,7 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
                 Cancelar
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Creando...' : 'Crear Proyecto'}
+                {isSubmitting ? 'Creando...' : 'Crear Segmento'}
               </Button>
             </div>
           </form>

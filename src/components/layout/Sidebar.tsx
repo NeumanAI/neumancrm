@@ -14,7 +14,7 @@ import {
   MessageSquare,
   ShieldCheck,
   Store,
-  FolderOpen,
+  Layers,
   FileText,
   PenTool,
   Bot,
@@ -50,6 +50,7 @@ interface SidebarProps {
   isResellerAdmin?: boolean;
   isMobileOpen?: boolean;
   onMobileClose?: () => void;
+  hasRealEstate?: boolean;
 }
 
 const navItems = [
@@ -58,7 +59,7 @@ const navItems = [
 { to: '/contacts', icon: Users, label: 'Contactos' },
 { to: '/companies', icon: Building2, label: 'Empresas' },
 { to: '/pipeline', icon: TrendingUp, label: 'Pipeline' },
-{ to: '/projects', icon: FolderOpen, label: 'Proyectos' },
+{ to: '/segmentos', icon: Layers, label: 'Segmentos' },
 { to: '/tasks', icon: CheckSquare, label: 'Tareas' },
 { to: '/calendar', icon: CalendarDays, label: 'Calendario' },
 { to: '/documents', icon: FileText, label: 'Documentos' },
@@ -81,7 +82,7 @@ const resellerNavItems = [
 { to: '/reseller-admin', icon: Store, label: 'Mis Clientes', isReseller: true }];
 
 
-export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerAdmin = false, isMobileOpen = false, onMobileClose }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerAdmin = false, isMobileOpen = false, onMobileClose, hasRealEstate = false }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -90,7 +91,14 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
   const { user, signOut } = useAuth();
   const { organization } = useTeam();
 
+  const realEstateNavItem = { to: '/proyectos', icon: Building2, label: 'Proyectos', isRealEstate: true };
+
   let allNavItems = [...navItems];
+  // Insert real estate after Pipeline if enabled
+  if (hasRealEstate) {
+    const pipelineIdx = allNavItems.findIndex(i => i.to === '/pipeline');
+    allNavItems.splice(pipelineIdx + 1, 0, realEstateNavItem);
+  }
   if (isResellerAdmin) {
     allNavItems = [...allNavItems, ...resellerNavItems];
   }

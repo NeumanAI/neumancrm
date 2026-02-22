@@ -1842,6 +1842,7 @@ export type Database = {
           country_code: string | null
           created_at: string
           custom_domain: string | null
+          enabled_modules: Json | null
           favicon_url: string | null
           first_goal: string | null
           id: string
@@ -1868,6 +1869,7 @@ export type Database = {
           country_code?: string | null
           created_at?: string
           custom_domain?: string | null
+          enabled_modules?: Json | null
           favicon_url?: string | null
           first_goal?: string | null
           id?: string
@@ -1894,6 +1896,7 @@ export type Database = {
           country_code?: string | null
           created_at?: string
           custom_domain?: string | null
+          enabled_modules?: Json | null
           favicon_url?: string | null
           first_goal?: string | null
           id?: string
@@ -2128,6 +2131,249 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      real_estate_leads: {
+        Row: {
+          assigned_to: string | null
+          budget: number | null
+          contact_id: string
+          created_at: string
+          id: string
+          last_contact_at: string | null
+          metadata: Json | null
+          next_follow_up: string | null
+          notes: string | null
+          organization_id: string
+          project_id: string
+          source: string | null
+          status: Database["public"]["Enums"]["real_estate_lead_status"]
+          unit_type_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          budget?: number | null
+          contact_id: string
+          created_at?: string
+          id?: string
+          last_contact_at?: string | null
+          metadata?: Json | null
+          next_follow_up?: string | null
+          notes?: string | null
+          organization_id: string
+          project_id: string
+          source?: string | null
+          status?: Database["public"]["Enums"]["real_estate_lead_status"]
+          unit_type_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          budget?: number | null
+          contact_id?: string
+          created_at?: string
+          id?: string
+          last_contact_at?: string | null
+          metadata?: Json | null
+          next_follow_up?: string | null
+          notes?: string | null
+          organization_id?: string
+          project_id?: string
+          source?: string | null
+          status?: Database["public"]["Enums"]["real_estate_lead_status"]
+          unit_type_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "real_estate_leads_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "real_estate_leads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "real_estate_leads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "real_estate_leads_unit_type_id_fkey"
+            columns: ["unit_type_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_unit_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      real_estate_projects: {
+        Row: {
+          address: string | null
+          amenities: Json | null
+          available_units: number | null
+          city: string | null
+          code: string | null
+          construction_progress: number | null
+          country: string | null
+          cover_image_url: string | null
+          created_at: string
+          created_by: string
+          currency: string | null
+          description: string | null
+          estimated_delivery: string | null
+          gallery_urls: Json | null
+          id: string
+          latitude: number | null
+          longitude: number | null
+          metadata: Json | null
+          name: string
+          organization_id: string
+          price_from: number | null
+          price_to: number | null
+          reserved_units: number | null
+          sold_units: number | null
+          state: string | null
+          status: string
+          total_units: number | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          amenities?: Json | null
+          available_units?: number | null
+          city?: string | null
+          code?: string | null
+          construction_progress?: number | null
+          country?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          created_by: string
+          currency?: string | null
+          description?: string | null
+          estimated_delivery?: string | null
+          gallery_urls?: Json | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          metadata?: Json | null
+          name: string
+          organization_id: string
+          price_from?: number | null
+          price_to?: number | null
+          reserved_units?: number | null
+          sold_units?: number | null
+          state?: string | null
+          status?: string
+          total_units?: number | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          amenities?: Json | null
+          available_units?: number | null
+          city?: string | null
+          code?: string | null
+          construction_progress?: number | null
+          country?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          created_by?: string
+          currency?: string | null
+          description?: string | null
+          estimated_delivery?: string | null
+          gallery_urls?: Json | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          metadata?: Json | null
+          name?: string
+          organization_id?: string
+          price_from?: number | null
+          price_to?: number | null
+          reserved_units?: number | null
+          sold_units?: number | null
+          state?: string | null
+          status?: string
+          total_units?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "real_estate_projects_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      real_estate_unit_types: {
+        Row: {
+          area_m2: number | null
+          available_count: number | null
+          bathrooms: number | null
+          bedrooms: number | null
+          created_at: string
+          currency: string | null
+          features: Json | null
+          floor_plan_url: string | null
+          id: string
+          name: string
+          price: number | null
+          project_id: string
+          total_count: number | null
+          updated_at: string
+        }
+        Insert: {
+          area_m2?: number | null
+          available_count?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          created_at?: string
+          currency?: string | null
+          features?: Json | null
+          floor_plan_url?: string | null
+          id?: string
+          name: string
+          price?: number | null
+          project_id: string
+          total_count?: number | null
+          updated_at?: string
+        }
+        Update: {
+          area_m2?: number | null
+          available_count?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          created_at?: string
+          currency?: string | null
+          features?: Json | null
+          floor_plan_url?: string | null
+          id?: string
+          name?: string
+          price?: number | null
+          project_id?: string
+          total_count?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "real_estate_unit_types_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_projects"
             referencedColumns: ["id"]
           },
         ]
@@ -2651,6 +2897,16 @@ export type Database = {
         | "product_line"
         | "location"
         | "other"
+      real_estate_lead_status:
+        | "new"
+        | "contacted"
+        | "interested"
+        | "visit_scheduled"
+        | "visited"
+        | "negotiating"
+        | "reserved"
+        | "closed_won"
+        | "closed_lost"
       team_role: "admin" | "manager" | "sales_rep" | "viewer"
     }
     CompositeTypes: {
@@ -2792,6 +3048,17 @@ export const Constants = {
         "product_line",
         "location",
         "other",
+      ],
+      real_estate_lead_status: [
+        "new",
+        "contacted",
+        "interested",
+        "visit_scheduled",
+        "visited",
+        "negotiating",
+        "reserved",
+        "closed_won",
+        "closed_lost",
       ],
       team_role: ["admin", "manager", "sales_rep", "viewer"],
     },

@@ -6,6 +6,7 @@ import { useSuperAdmin } from '@/hooks/useSuperAdmin';
 import { useResellerAdmin } from '@/hooks/useResellerAdmin';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sidebar } from './Sidebar';
+import { useHasModule } from '@/hooks/useHasModule';
 import { Header } from './Header';
 import { DailyBriefModal } from './DailyBriefModal';
 import { Loader2, RefreshCw, LogOut, AlertCircle } from 'lucide-react';
@@ -27,6 +28,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { organization, isLoading: teamLoading, isError: teamError, refetchAll } = useTeam();
   const { isSuperAdmin } = useSuperAdmin();
   const { isResellerAdmin } = useResellerAdmin();
+  const hasRealEstate = useHasModule('real_estate');
   const isMobile = useIsMobile();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -117,6 +119,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
           isSuperAdmin={isSuperAdmin}
           isResellerAdmin={isResellerAdmin}
+          hasRealEstate={hasRealEstate}
           isMobileOpen={mobileMenuOpen}
           onMobileClose={() => setMobileMenuOpen(false)}
         />

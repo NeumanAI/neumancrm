@@ -71,10 +71,10 @@ export default function ProjectDetail() {
   if (!project) {
     return (
       <div className="text-center py-16">
-        <h2 className="text-xl font-semibold mb-2">Proyecto no encontrado</h2>
-        <Button variant="outline" onClick={() => navigate('/projects')}>
+        <h2 className="text-xl font-semibold mb-2">Segmento no encontrado</h2>
+        <Button variant="outline" onClick={() => navigate('/segmentos')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Volver a Proyectos
+          Volver a Segmentos
         </Button>
       </div>
     );
@@ -95,7 +95,7 @@ export default function ProjectDetail() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/projects')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/segmentos')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div 
