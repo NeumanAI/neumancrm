@@ -31,7 +31,7 @@ export function useBranding(slug?: string) {
           .rpc('get_organization_by_slug', { slug_name: slug });
 
         if (error) {
-          console.error('Error fetching branding by slug:', error);
+          if (import.meta.env.DEV) console.error('Error fetching branding by slug:', error);
           return DEFAULT_BRANDING;
         }
 
@@ -64,7 +64,7 @@ export function useBranding(slug?: string) {
         .rpc('get_organization_by_domain', { domain_name: hostname });
 
       if (error) {
-        console.error('Error fetching branding:', error);
+        if (import.meta.env.DEV) console.error('Error fetching branding:', error);
         return DEFAULT_BRANDING;
       }
 

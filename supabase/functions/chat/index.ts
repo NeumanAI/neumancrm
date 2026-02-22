@@ -3180,7 +3180,7 @@ async function shareDocumentTool(supabase: any, userId: string, args: any) {
 
 // ===== MAIN TOOL EXECUTOR =====
 async function executeTool(supabase: any, userId: string, toolName: string, args: any): Promise<{ success: boolean; message: string; data?: any }> {
-  console.log(`Executing tool: ${toolName}`, args);
+  // Tool execution logged only when needed for debugging
   try {
     switch (toolName) {
       // CONTACTS
@@ -3439,7 +3439,7 @@ serve(async (req) => {
     }
     // ===== END AI USAGE LIMIT CHECK =====
 
-    console.log("Chat request - user:", userId, "route:", currentRoute, "tools:", tools.length);
+    // Chat request processing
     const crmContext = await fetchCRMContext(supabase, userId);
     const systemPrompt = buildSystemPrompt(crmContext, currentRoute);
 
@@ -3461,7 +3461,6 @@ serve(async (req) => {
     const choice = aiResponse.choices?.[0];
 
     if (choice?.message?.tool_calls?.length > 0) {
-      console.log("Tool calls:", choice.message.tool_calls.map((tc: any) => tc.function.name));
       const toolResults: any[] = [];
       for (const toolCall of choice.message.tool_calls) {
         const toolArgs = typeof toolCall.function.arguments === 'string' ? JSON.parse(toolCall.function.arguments) : toolCall.function.arguments;
@@ -3482,6 +3481,21 @@ serve(async (req) => {
       return new Response(followUp.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
     }
 
+    // No tool calls — reuse non-streaming response as simulated SSE stream
+    const textContent = choice?.message?.content || '';
+    if (textContent) {
+      const encoder = new TextEncoder();
+      const body = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: textContent } }] })}\n\n`));
+          controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+          controller.close();
+        }
+      });
+      return new Response(body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+    }
+
+    // Fallback: if no content in non-streaming response, do a streaming call
     const streamResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },

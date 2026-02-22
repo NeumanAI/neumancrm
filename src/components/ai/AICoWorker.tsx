@@ -52,7 +52,7 @@ export function AICoWorker() {
         setLastUpdated(new Date());
       }
     } catch (error) {
-      console.error('CoWorker error:', error);
+      if (import.meta.env.DEV) console.error('CoWorker error:', error);
     } finally {
       setIsLoading(false);
     }

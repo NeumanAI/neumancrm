@@ -28,7 +28,7 @@ export default function SharedDocument() {
         }
         setDocument(data[0] as SharedDocumentInfo);
       } catch (err) {
-        console.error('Error fetching shared document:', err);
+        if (import.meta.env.DEV) console.error('Error fetching shared document:', err);
         setError('Error al cargar el documento.');
       } finally {
         setIsLoading(false);
@@ -48,7 +48,7 @@ export default function SharedDocument() {
       if (error) throw error;
       if (data?.signedUrl) window.open(data.signedUrl, '_blank');
     } catch (err) {
-      console.error('Download error:', err);
+      if (import.meta.env.DEV) console.error('Download error:', err);
     } finally {
       setIsDownloading(false);
     }

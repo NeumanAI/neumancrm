@@ -39,7 +39,7 @@ export function useResellerAdmin() {
     queryFn: async () => {
       const { data, error } = await supabase.rpc('is_reseller_admin');
       if (error) {
-        console.error('Error checking reseller admin status:', error);
+        if (import.meta.env.DEV) console.error('Error checking reseller admin status:', error);
         return false;
       }
       return data as boolean;

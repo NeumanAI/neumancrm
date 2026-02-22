@@ -192,7 +192,7 @@ export function AIAssistant({ onMinimizedChange }: AIAssistantProps) {
         setLastUpdated(new Date());
       }
     } catch (err) {
-      console.error('Suggestions error:', err);
+      if (import.meta.env.DEV) console.error('Suggestions error:', err);
     } finally {
       setIsLoadingSuggestions(false);
     }

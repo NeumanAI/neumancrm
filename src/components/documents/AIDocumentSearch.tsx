@@ -32,7 +32,7 @@ export function AIDocumentSearch({ onResults }: AIDocumentSearchProps) {
       setResult(response);
       onResults?.(response);
     } catch (err) {
-      console.error('AI search error:', err);
+      if (import.meta.env.DEV) console.error('AI search error:', err);
       setResult('Error al realizar la búsqueda.');
     } finally {
       setIsSearching(false);

@@ -14,6 +14,7 @@ import { AIConversation, ChatMessage } from '@/types/crm';
 import { toast } from 'sonner';
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+const MAX_CHAT_RETRIES = 2;
 
 // Streaming chat function
 async function streamChat({
@@ -31,31 +32,43 @@ async function streamChat({
   accessToken?: string;
   currentRoute?: string;
 }) {
-  try {
-    const resp = await fetch(CHAT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: accessToken ? `Bearer ${accessToken}` : `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      },
-      body: JSON.stringify({ messages, currentRoute }),
-    });
+  let lastError = '';
+  for (let attempt = 0; attempt <= MAX_CHAT_RETRIES; attempt++) {
+    try {
+      const resp = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: accessToken ? `Bearer ${accessToken}` : `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ messages, currentRoute }),
+      });
 
-    if (!resp.ok) {
-      const errorData = await resp.json().catch(() => ({ error: "Error de conexión" }));
-      if (resp.status === 429) {
-        // AI limit reached — descriptive toast
-        onError(errorData.error || "Has alcanzado el límite de conversaciones IA este mes.");
-      } else {
-        onError(errorData.error || `Error ${resp.status}`);
+      if (!resp.ok) {
+        const errorData = await resp.json().catch(() => ({ error: "Error de conexión" }));
+        // Don't retry 429 (rate limit) or 4xx client errors
+        if (resp.status === 429) {
+          onError(errorData.error || "Has alcanzado el límite de conversaciones IA este mes.");
+          return;
+        }
+        if (resp.status < 500) {
+          onError(errorData.error || `Error ${resp.status}`);
+          return;
+        }
+        // 5xx: retry
+        lastError = errorData.error || `Error ${resp.status}`;
+        if (attempt < MAX_CHAT_RETRIES) {
+          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+          continue;
+        }
+        onError(lastError);
+        return;
       }
-      return;
-    }
 
-    if (!resp.body) {
-      onError("No se recibió respuesta del servidor");
-      return;
-    }
+      if (!resp.body) {
+        onError("No se recibió respuesta del servidor");
+        return;
+      }
 
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
@@ -110,11 +123,18 @@ async function streamChat({
       }
     }
 
-    onDone();
-  } catch (error) {
-    console.error("Stream error:", error);
-    onError("Error de conexión con el asistente");
-  }
+      onDone();
+      return; // Success, exit retry loop
+    } catch (error) {
+      if (import.meta.env.DEV) console.error("Stream error:", error);
+      lastError = "Error de conexión con el asistente";
+      if (attempt < MAX_CHAT_RETRIES) {
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+        continue;
+      }
+      onError(lastError);
+    }
+  } // end retry loop
 }
 
 interface ChatContextType {
@@ -355,7 +375,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         },
       });
     } catch (error) {
-      console.error('Error sending message:', error);
+      if (import.meta.env.DEV) console.error('Error sending message:', error);
       toast.error('Error al enviar el mensaje');
       setIsStreaming(false);
       setIsLoading(false);

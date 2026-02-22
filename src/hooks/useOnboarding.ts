@@ -55,7 +55,7 @@ export function useOnboarding() {
         }));
       }
     } catch (e) {
-      console.error('Onboarding init error:', e);
+      if (import.meta.env.DEV) console.error('Onboarding init error:', e);
       setMessages([{
         role: 'assistant',
         content: '👋 ¡Hola! Soy tu asistente de NeumanCRM. Voy a ayudarte a configurar todo en minutos. ¿Cuál es tu nombre?',
@@ -105,7 +105,7 @@ export function useOnboarding() {
       }
 
     } catch (e: any) {
-      console.error('Onboarding error:', e);
+      if (import.meta.env.DEV) console.error('Onboarding error:', e);
       toast.error('Error al procesar tu respuesta. Intenta de nuevo.');
     } finally {
       setIsLoading(false);

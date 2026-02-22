@@ -75,7 +75,7 @@ export function CommandBar() {
       if (error) throw error;
       handleInterpretation(data);
     } catch (error) {
-      console.error('Command error:', error);
+      if (import.meta.env.DEV) console.error('Command error:', error);
       setResults([]);
     } finally {
       setIsProcessing(false);

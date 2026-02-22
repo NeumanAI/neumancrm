@@ -75,7 +75,7 @@ export function useCompanyDocuments(companyId: string) {
       toast.success('Documento subido correctamente');
     },
     onError: (error) => {
-      console.error('Error uploading document:', error);
+      if (import.meta.env.DEV) console.error('Error uploading document:', error);
       toast.error('Error al subir el documento');
     },
   });
@@ -102,7 +102,7 @@ export function useCompanyDocuments(companyId: string) {
       toast.success('Documento eliminado');
     },
     onError: (error) => {
-      console.error('Error deleting document:', error);
+      if (import.meta.env.DEV) console.error('Error deleting document:', error);
       toast.error('Error al eliminar el documento');
     },
   });
@@ -113,7 +113,7 @@ export function useCompanyDocuments(companyId: string) {
       .createSignedUrl(filePath, 3600); // 1 hour expiry
 
     if (error) {
-      console.error('Error getting download URL:', error);
+      if (import.meta.env.DEV) console.error('Error getting download URL:', error);
       toast.error('Error al generar enlace de descarga');
       return null;
     }
