@@ -52,6 +52,9 @@ export function useContacts(options: UseContactsOptions = {}) {
         user_id: user.id,
         email: newContact.email || '',
         metadata: metadata ? (metadata as Json) : undefined,
+        assigned_advisor_id: user.id,
+        capture_advisor_id: user.id,
+        assigned_at: new Date().toISOString(),
       };
 
       const { data, error } = await supabase

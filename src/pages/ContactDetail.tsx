@@ -12,6 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { ContactSidebar } from '@/components/contacts/ContactSidebar';
+import { AdvisorAssignmentSection } from '@/components/contacts/AdvisorAssignmentSection';
 import { ContactTimeline } from '@/components/contacts/ContactTimeline';
 import { ContactActivities } from '@/components/contacts/ContactActivities';
 import { ContactDeals } from '@/components/contacts/ContactDeals';
@@ -132,9 +133,18 @@ export default function ContactDetail() {
 
       {/* Main content */}
       <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1">
-          <div className="sticky top-6 rounded-lg border bg-card p-6">
-            <ContactSidebar contact={contact} />
+        <div className="lg:col-span-1 space-y-4">
+          <div className="sticky top-6 space-y-4">
+            <div className="rounded-lg border bg-card p-6">
+              <ContactSidebar contact={contact} />
+            </div>
+            <div className="rounded-lg border bg-card p-6">
+              <AdvisorAssignmentSection
+                contactId={contact.id}
+                assignedAdvisorId={(contact as any).assigned_advisor_id}
+                captureAdvisorId={(contact as any).capture_advisor_id}
+              />
+            </div>
           </div>
         </div>
 

@@ -22,6 +22,7 @@ import {
   CalendarDays,
   User,
   LogOut,
+  Trophy,
   X } from
 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -65,6 +66,7 @@ const navItems = [
 { to: '/documents', icon: FileText, label: 'Documentos' },
 { to: '/data-management', icon: Database, label: 'Datos' },
 { to: '/team', icon: UsersRound, label: 'Equipo' },
+{ to: '/gestion-comercial', icon: Trophy, label: 'Gestión Comercial' },
 { to: '/settings', icon: Settings, label: 'Configuración' }];
 
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useOpportunities, usePipeline } from '@/hooks/useOpportunities';
 import { useCompanies } from '@/hooks/useCompanies';
 import { useContacts } from '@/hooks/useContacts';
@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { EmptyState } from '@/components/ui/empty-state';
-import { TrendingUp, Plus, Building2, User, Calendar, DollarSign, Loader2, Sparkles } from 'lucide-react';
+import { TrendingUp, Plus, Building2, User, Calendar, DollarSign, Loader2, Sparkles, UserCheck } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { motion } from 'framer-motion';
@@ -252,6 +252,7 @@ export default function Pipeline() {
   const [showNLI, setShowNLI] = useState(false);
   const [selectedStageId, setSelectedStageId] = useState<string>('');
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [advisorFilter, setAdvisorFilter] = useState<string>('all');
   const { trackAction } = useActionTracking();
   const [formData, setFormData] = useState({
     title: '',
@@ -381,7 +382,15 @@ export default function Pipeline() {
     );
   }
 
-  const openOpportunities = opportunities.filter(o => o.status === 'open');
+  const advisors = teamMembers.filter(m => m.is_active && ['admin', 'manager', 'sales_rep'].includes(m.role));
+
+  const openOpportunities = useMemo(() => {
+    let result = opportunities.filter(o => o.status === 'open');
+    if (advisorFilter !== 'all') {
+      result = result.filter(o => o.assigned_to === advisorFilter);
+    }
+    return result;
+  }, [opportunities, advisorFilter]);
 
   // Calculate total pipeline value
   const totalValue = openOpportunities.reduce((sum, o) => sum + Number(o.value || 0), 0);
@@ -422,6 +431,24 @@ export default function Pipeline() {
           </Button>
         </div>
       </div>
+
+      {/* Advisor Filter */}
+      {advisors.length > 0 && (
+        <div className="flex items-center gap-2">
+          <Select value={advisorFilter} onValueChange={setAdvisorFilter}>
+            <SelectTrigger className="w-56">
+              <UserCheck className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Filtrar por asesor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los asesores</SelectItem>
+              {advisors.map(a => (
+                <SelectItem key={a.user_id} value={a.user_id}>{a.full_name || a.email}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Kanban Board */}
       {stages.length === 0 ? (

@@ -668,6 +668,57 @@ export type Database = {
           },
         ]
       }
+      contact_advisor_history: {
+        Row: {
+          contact_id: string
+          created_at: string
+          id: string
+          new_advisor_id: string
+          organization_id: string
+          previous_advisor_id: string | null
+          reason: string | null
+          transfer_type: string
+          transferred_by: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          id?: string
+          new_advisor_id: string
+          organization_id: string
+          previous_advisor_id?: string | null
+          reason?: string | null
+          transfer_type?: string
+          transferred_by: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          id?: string
+          new_advisor_id?: string
+          organization_id?: string
+          previous_advisor_id?: string | null
+          reason?: string | null
+          transfer_type?: string
+          transferred_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_advisor_history_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_advisor_history_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_documents: {
         Row: {
           contact_id: string
@@ -847,8 +898,11 @@ export type Database = {
       }
       contacts: {
         Row: {
+          assigned_advisor_id: string | null
+          assigned_at: string | null
           assigned_to: string | null
           avatar_url: string | null
+          capture_advisor_id: string | null
           company_id: string | null
           contact_type: string
           created_at: string | null
@@ -875,8 +929,11 @@ export type Database = {
           whatsapp_number: string | null
         }
         Insert: {
+          assigned_advisor_id?: string | null
+          assigned_at?: string | null
           assigned_to?: string | null
           avatar_url?: string | null
+          capture_advisor_id?: string | null
           company_id?: string | null
           contact_type?: string
           created_at?: string | null
@@ -903,8 +960,11 @@ export type Database = {
           whatsapp_number?: string | null
         }
         Update: {
+          assigned_advisor_id?: string | null
+          assigned_at?: string | null
           assigned_to?: string | null
           avatar_url?: string | null
+          capture_advisor_id?: string | null
           company_id?: string | null
           contact_type?: string
           created_at?: string | null
@@ -2377,6 +2437,8 @@ export type Database = {
           bathrooms: number | null
           bedrooms: number | null
           buyer_contact_id: string | null
+          closing_advisor_at: string | null
+          closing_advisor_id: string | null
           commercial_status: string
           created_at: string
           currency: string | null
@@ -2404,6 +2466,8 @@ export type Database = {
           bathrooms?: number | null
           bedrooms?: number | null
           buyer_contact_id?: string | null
+          closing_advisor_at?: string | null
+          closing_advisor_id?: string | null
           commercial_status?: string
           created_at?: string
           currency?: string | null
@@ -2431,6 +2495,8 @@ export type Database = {
           bathrooms?: number | null
           bedrooms?: number | null
           buyer_contact_id?: string | null
+          closing_advisor_at?: string | null
+          closing_advisor_id?: string | null
           commercial_status?: string
           created_at?: string
           currency?: string | null

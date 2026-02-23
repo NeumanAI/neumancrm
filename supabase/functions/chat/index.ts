@@ -1592,6 +1592,70 @@ const tools = [
       },
     },
   },
+  // ===== GESTIÓN COMERCIAL (Asesores) =====
+  {
+    type: "function",
+    function: {
+      name: "get_advisor_performance",
+      description: "Métricas de rendimiento de un asesor individual o ranking completo del equipo comercial. Incluye unidades vendidas, prospectos, compradores, tasa de conversión.",
+      parameters: {
+        type: "object",
+        properties: {
+          advisor_email: { type: "string", description: "Email del asesor (opcional — si omites, muestra ranking completo)" },
+          period: { type: "string", enum: ["month", "quarter", "year"], description: "Período (default: month)" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_advisor_contacts",
+      description: "Lista los contactos (prospectos o compradores) asignados a un asesor específico.",
+      parameters: {
+        type: "object",
+        properties: {
+          advisor_email: { type: "string", description: "Email del asesor (requerido)" },
+          contact_type: { type: "string", enum: ["prospecto", "comprador", "all"], description: "Tipo (default: all)" },
+          limit: { type: "number", description: "Máximo (default: 20)" },
+        },
+        required: ["advisor_email"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "assign_contact_to_advisor",
+      description: "Asigna o traspasa un contacto a un asesor comercial, registrando el historial.",
+      parameters: {
+        type: "object",
+        properties: {
+          contact_email: { type: "string", description: "Email del contacto" },
+          advisor_email: { type: "string", description: "Email del asesor destino" },
+          reason: { type: "string", description: "Razón del traspaso" },
+        },
+        required: ["contact_email", "advisor_email"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "bulk_transfer_contacts",
+      description: "Traspaso masivo de contactos de un asesor a otro.",
+      parameters: {
+        type: "object",
+        properties: {
+          from_advisor_email: { type: "string", description: "Email del asesor origen" },
+          to_advisor_email: { type: "string", description: "Email del asesor destino" },
+          contact_type: { type: "string", enum: ["prospecto", "comprador", "all"], description: "Tipo a traspasar (default: all)" },
+          reason: { type: "string", description: "Razón del traspaso" },
+        },
+        required: ["from_advisor_email", "to_advisor_email"],
+      },
+    },
+  },
 ];
 
 // ===== TYPES =====
@@ -1715,6 +1779,15 @@ ${routeContext ? `## 📍 Contexto: ${routeContext}\n` : ''}
 - Cuando pregunten "¿cómo vamos?" o "dame un resumen" → usa get_real_estate_master_report
 - Cuando pregunten por una unidad específica → usa get_unit_detail con la nomenclatura
 - Cuando pregunten por disponibilidad → usa search_units con commercial_status="Disponible"
+
+## 👨‍💼 Gestión Comercial (Asesores):
+- Cada contacto tiene un asesor asignado (assigned_advisor_id) y un asesor de captura (capture_advisor_id)
+- Usa get_advisor_performance para ver ranking o métricas individuales
+- Usa get_advisor_contacts para ver la cartera de un asesor
+- Usa assign_contact_to_advisor para traspasar contactos entre asesores
+- Usa bulk_transfer_contacts para traspasos masivos
+- Cuando pregunten "¿cómo va [nombre del asesor]?" → usa get_advisor_performance
+- Cuando pregunten "¿cuántos prospectos tiene [asesor]?" → usa get_advisor_contacts
 
 - Responde siempre en español con markdown (negritas, listas, emojis)
 - Sé conciso pero útil, tono profesional y cercano
@@ -3762,6 +3835,67 @@ async function executeTool(supabase: any, userId: string, toolName: string, args
           sinDocumentos = ids.filter((id: string) => !contactsWithDocs.has(id)).length;
         }
         return { success: true, message: '📊 Reporte Maestro Inmobiliario', data: { resumen: { proyectos_activos: (projects || []).length, inventario_total: totalUnits, vendidas_y_separadas: vendidas + separadas, disponibles, pct_comercializado: totalUnits > 0 ? `${Math.round(((vendidas + separadas) / totalUnits) * 100)}%` : '0%', valor_inventario_disponible: fmt(valorDisponible) }, cartera: { nota: 'Módulo de cartera no disponible aún' }, comercial: { prospectos_en_pipeline: prospectos, compradores_activos: compradores, compradores_sin_documentos: sinDocumentos > 0 ? `⚠ ${sinDocumentos} compradores sin documentación` : '✅ Todos con documentos' }, por_proyecto: (projects || []).map((p: any) => { const unitsProj = (allUnits || []).filter((u: any) => u.project_id === p.id); const vend = unitsProj.filter((u: any) => u.commercial_status === 'Vendido').length; const sep = unitsProj.filter((u: any) => u.commercial_status === 'Separado').length; const total = unitsProj.length; return { proyecto: p.name, etapa: STAGE_LABELS[p.status] || p.status, unidades: total, comercializadas: `${vend + sep}/${total} (${total > 0 ? Math.round(((vend + sep) / total) * 100) : 0}%)` }; }) } };
+      }
+
+      // ===== GESTIÓN COMERCIAL =====
+      case "get_advisor_performance": {
+        const { data: tm } = await supabase.from('team_members').select('user_id, full_name, email, role, avatar_url').eq('is_active', true);
+        const advisors = (tm || []).filter((m: any) => ['admin', 'manager', 'sales_rep'].includes(m.role));
+        if (args.advisor_email) {
+          const advisor = advisors.find((a: any) => a.email.toLowerCase() === args.advisor_email.toLowerCase());
+          if (!advisor) return { success: false, message: `❌ Asesor "${args.advisor_email}" no encontrado` };
+          const { data: contacts } = await supabase.from('contacts').select('contact_type').eq('assigned_advisor_id', advisor.user_id);
+          const prospectos = (contacts || []).filter((c: any) => c.contact_type === 'prospecto').length;
+          const compradores = (contacts || []).filter((c: any) => c.contact_type === 'comprador').length;
+          const total = (contacts || []).length;
+          return { success: true, message: `👨‍💼 **${advisor.full_name || advisor.email}**\n- 📊 Contactos: ${total}\n- 🔵 Prospectos: ${prospectos}\n- 🟢 Compradores: ${compradores}\n- 📈 Conversión: ${total > 0 ? Math.round((compradores / total) * 100) : 0}%` };
+        }
+        const ranking = [];
+        for (const a of advisors) {
+          const { data: contacts } = await supabase.from('contacts').select('contact_type').eq('assigned_advisor_id', a.user_id);
+          const total = (contacts || []).length;
+          const compradores = (contacts || []).filter((c: any) => c.contact_type === 'comprador').length;
+          ranking.push({ name: a.full_name || a.email, total, compradores, conversion: total > 0 ? Math.round((compradores / total) * 100) : 0 });
+        }
+        ranking.sort((a, b) => b.compradores - a.compradores);
+        return { success: true, message: `🏆 **Ranking del Equipo**\n${ranking.map((r, i) => `${i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`} **${r.name}**: ${r.total} contactos, ${r.compradores} compradores (${r.conversion}%)`).join('\n')}` };
+      }
+      case "get_advisor_contacts": {
+        const { data: advisor } = await supabase.from('team_members').select('user_id, full_name').eq('email', args.advisor_email.toLowerCase()).eq('is_active', true).single();
+        if (!advisor) return { success: false, message: `❌ Asesor no encontrado` };
+        let query = supabase.from('contacts').select('first_name, last_name, email, contact_type, phone').eq('assigned_advisor_id', advisor.user_id);
+        if (args.contact_type && args.contact_type !== 'all') query = query.eq('contact_type', args.contact_type);
+        const { data: contacts } = await query.limit(args.limit || 20);
+        if (!contacts?.length) return { success: true, message: `ℹ️ ${advisor.full_name} no tiene contactos asignados` };
+        return { success: true, message: `👨‍💼 Contactos de **${advisor.full_name}** (${contacts.length}):\n${contacts.map((c: any) => `• ${c.first_name} ${c.last_name} (${c.email}) — ${c.contact_type}`).join('\n')}`, data: contacts };
+      }
+      case "assign_contact_to_advisor": {
+        const { data: contact } = await supabase.from('contacts').select('id, first_name, last_name, assigned_advisor_id, organization_id').eq('user_id', userId).ilike('email', args.contact_email).single();
+        if (!contact) return { success: false, message: `❌ Contacto no encontrado` };
+        const { data: advisor } = await supabase.from('team_members').select('user_id, full_name').eq('email', args.advisor_email.toLowerCase()).eq('is_active', true).single();
+        if (!advisor) return { success: false, message: `❌ Asesor no encontrado` };
+        await supabase.from('contacts').update({ assigned_advisor_id: advisor.user_id, assigned_at: new Date().toISOString() }).eq('id', contact.id);
+        if (contact.organization_id) {
+          await supabase.from('contact_advisor_history').insert({ contact_id: contact.id, organization_id: contact.organization_id, previous_advisor_id: contact.assigned_advisor_id, new_advisor_id: advisor.user_id, transferred_by: userId, reason: args.reason || null, transfer_type: 'ai' });
+        }
+        return { success: true, message: `✅ **${contact.first_name} ${contact.last_name}** asignado a **${advisor.full_name}**${args.reason ? `\n📝 ${args.reason}` : ''}` };
+      }
+      case "bulk_transfer_contacts": {
+        const { data: fromAdvisor } = await supabase.from('team_members').select('user_id, full_name').eq('email', args.from_advisor_email.toLowerCase()).eq('is_active', true).single();
+        if (!fromAdvisor) return { success: false, message: `❌ Asesor origen no encontrado` };
+        const { data: toAdvisor } = await supabase.from('team_members').select('user_id, full_name').eq('email', args.to_advisor_email.toLowerCase()).eq('is_active', true).single();
+        if (!toAdvisor) return { success: false, message: `❌ Asesor destino no encontrado` };
+        let query = supabase.from('contacts').select('id, assigned_advisor_id, organization_id').eq('assigned_advisor_id', fromAdvisor.user_id);
+        if (args.contact_type && args.contact_type !== 'all') query = query.eq('contact_type', args.contact_type);
+        const { data: contacts } = await query;
+        if (!contacts?.length) return { success: true, message: `ℹ️ ${fromAdvisor.full_name} no tiene contactos para traspasar` };
+        await supabase.from('contacts').update({ assigned_advisor_id: toAdvisor.user_id, assigned_at: new Date().toISOString() }).eq('assigned_advisor_id', fromAdvisor.user_id);
+        const orgId = contacts[0]?.organization_id;
+        if (orgId) {
+          const historyEntries = contacts.map((c: any) => ({ contact_id: c.id, organization_id: orgId, previous_advisor_id: fromAdvisor.user_id, new_advisor_id: toAdvisor.user_id, transferred_by: userId, reason: args.reason || 'Traspaso masivo por IA', transfer_type: 'bulk_ai' }));
+          await supabase.from('contact_advisor_history').insert(historyEntries);
+        }
+        return { success: true, message: `✅ **${contacts.length} contactos** traspasados de **${fromAdvisor.full_name}** a **${toAdvisor.full_name}**${args.reason ? `\n📝 ${args.reason}` : ''}` };
       }
 
       default:
