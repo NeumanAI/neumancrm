@@ -444,15 +444,16 @@ export function useSuperAdmin() {
 
       if (error) throw new Error(error.message || 'Error al acceder a la cuenta');
       if (data?.error) throw new Error(data.error);
-      return data as { url: string; target_email: string; target_name: string };
+      return data as { token_hash: string; target_email: string; target_name: string };
     },
     onSuccess: (data) => {
       setImpersonatingOrgId(null);
-      if (data.url) {
-        window.open(data.url, '_blank');
+      if (data.token_hash && data.target_email) {
+        const url = `${window.location.origin}/impersonate?token_hash=${encodeURIComponent(data.token_hash)}&email=${encodeURIComponent(data.target_email)}`;
+        window.open(url, '_blank');
         toast({
           title: 'Acceso generado',
-          description: `Enlace abierto para ${data.target_name || data.target_email}. Se abrió en una nueva pestaña.`,
+          description: `Se abrió una nueva pestaña para ${data.target_name || data.target_email}.`,
         });
       }
     },

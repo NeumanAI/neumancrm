@@ -126,14 +126,23 @@ Deno.serve(async (req) => {
       },
     });
 
-    // The generated link contains hashed_token and verification_type
-    // We need to construct the proper redirect URL
     const properties = linkData.properties;
-    const accessUrl = properties?.action_link;
+    const hashedToken = properties?.hashed_token;
+
+    if (!hashedToken) {
+      console.error("No hashed_token in response:", properties);
+      return new Response(
+        JSON.stringify({ error: "No se pudo generar el token de acceso" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
     return new Response(
       JSON.stringify({
-        url: accessUrl,
+        token_hash: hashedToken,
         target_email: targetAdmin.email,
         target_name: targetAdmin.full_name,
       }),
