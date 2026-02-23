@@ -41,6 +41,7 @@ import SharedDocument from "./pages/SharedDocument";
 import BrandedAuth from "./pages/BrandedAuth";
 import RealEstateProjects from "./pages/RealEstateProjects";
 import RealEstateProjectDetail from "./pages/RealEstateProjectDetail";
+import Impersonate from "./pages/Impersonate";
 
 // Route guards
 function RequireSuperAdmin({ children }: { children: ReactNode }) {
@@ -86,6 +87,7 @@ const App = () => (
               
               {/* Pending approval - no layout */}
               <Route path="/pending-approval" element={<PendingApproval />} />
+              <Route path="/impersonate" element={<Impersonate />} />
               
               {/* Admin panel - protected with guard */}
               <Route path="/admin" element={<RequireSuperAdmin><Admin /></RequireSuperAdmin>} />
