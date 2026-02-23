@@ -1391,12 +1391,14 @@ const tools = [
     type: "function",
     function: {
       name: "list_contact_documents",
-      description: "Lista documentos asociados a un contacto específico.",
+      description: "Lista los documentos cargados para un contacto: promesas, cédulas, soportes de pago, contratos, etc. Úsalo cuando pregunten '¿qué documentos tiene María López?' o 'verifica si Carlos Torres tiene la promesa cargada'.",
       parameters: {
         type: "object",
         properties: {
-          contact_email: { type: "string", description: "Email del contacto" },
-          contact_name: { type: "string", description: "Nombre del contacto (alternativa)" },
+          contact_name_or_email: { type: "string", description: "Nombre o email del contacto" },
+          document_type: { type: "string", enum: ["promesa", "hoja_negocio", "cedula", "certificado", "soporte_pago", "contrato", "poder", "otro"], description: "Filtrar por tipo de documento (opcional)" },
+          contact_email: { type: "string", description: "Email del contacto (legacy, usar contact_name_or_email)" },
+          contact_name: { type: "string", description: "Nombre del contacto (legacy, usar contact_name_or_email)" },
           limit: { type: "number", description: "Máximo (default: 10)" },
         },
       },
@@ -1446,6 +1448,147 @@ const tools = [
           reason: { type: "string", description: "Razón del cambio" },
         },
         required: ["contact_name_or_email", "new_type"],
+      },
+    },
+  },
+  // ===== INMOBILIARIO MEJORADO =====
+  {
+    type: "function",
+    function: {
+      name: "update_project_stage",
+      description: "Cambia la etapa de un proyecto inmobiliario. Etapas válidas: planning, pre_sale, construction, delivery, completed, cancelled.",
+      parameters: {
+        type: "object",
+        properties: {
+          project_name: { type: "string", description: "Nombre del proyecto" },
+          new_stage: { type: "string", enum: ["planning", "pre_sale", "construction", "delivery", "completed", "cancelled"], description: "Nueva etapa" },
+          reason: { type: "string", description: "Motivo del cambio (opcional)" },
+        },
+        required: ["project_name", "new_stage"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_project_inventory_summary",
+      description: "Resumen del inventario de un proyecto: unidades por estado comercial, precio promedio, avance de ventas.",
+      parameters: {
+        type: "object",
+        properties: {
+          project_name: { type: "string", description: "Nombre del proyecto (parcial o completo)" },
+        },
+        required: ["project_name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_units",
+      description: "Busca unidades específicas por nomenclatura, tipo, piso, estado o precio. Ej: '¿está disponible el apto T2-1203?' o 'locales comerciales disponibles'.",
+      parameters: {
+        type: "object",
+        properties: {
+          project_name: { type: "string", description: "Filtrar por proyecto (opcional)" },
+          nomenclature: { type: "string", description: "Nomenclatura exacta o parcial, ej: T2-1203" },
+          property_type: { type: "string", enum: ["APTO", "CASA", "LOCAL COMERCIAL", "BURBUJA", "CUARTO UTIL", "PARQUEADERO"], description: "Tipo de inmueble" },
+          commercial_status: { type: "string", enum: ["Disponible", "Separado", "Vendido", "No Disponible"], description: "Estado comercial" },
+          floor_number: { type: "number", description: "Piso específico" },
+          max_price: { type: "number", description: "Precio máximo" },
+          min_price: { type: "number", description: "Precio mínimo" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_unit_detail",
+      description: "Detalle completo de una unidad: tipo, piso, área, precio, estado, comprador. Ej: 'dime todo sobre el apto T2-0501'.",
+      parameters: {
+        type: "object",
+        properties: {
+          nomenclature: { type: "string", description: "Nomenclatura de la unidad, ej: T2-0501" },
+          project_name: { type: "string", description: "Nombre del proyecto (para desambiguar)" },
+        },
+        required: ["nomenclature"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_unit_status",
+      description: "Cambia el estado comercial de una unidad (Disponible → Separado → Vendido) y opcionalmente asigna comprador. Ej: 'marca el apto LC-05 como separado para Juan García'.",
+      parameters: {
+        type: "object",
+        properties: {
+          nomenclature: { type: "string", description: "Nomenclatura de la unidad" },
+          project_name: { type: "string", description: "Nombre del proyecto" },
+          new_status: { type: "string", enum: ["Disponible", "Separado", "Vendido", "No Disponible"], description: "Nuevo estado comercial" },
+          buyer_name_or_email: { type: "string", description: "Nombre o email del comprador (obligatorio si Separado o Vendido)" },
+          separation_date: { type: "string", description: "Fecha de separación YYYY-MM-DD (opcional)" },
+          sale_date: { type: "string", description: "Fecha de venta YYYY-MM-DD (opcional)" },
+        },
+        required: ["nomenclature", "new_status"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_contacts_by_type",
+      description: "Lista o cuenta contactos filtrando por tipo: prospecto, comprador, empresa, inactivo.",
+      parameters: {
+        type: "object",
+        properties: {
+          contact_type: { type: "string", enum: ["prospecto", "comprador", "empresa", "inactivo"], description: "Tipo de contacto" },
+          limit: { type: "number", description: "Máximo de resultados (default: 10)" },
+          include_stats: { type: "boolean", description: "Incluir estadísticas adicionales" },
+        },
+        required: ["contact_type"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_contact_full_profile",
+      description: "Perfil completo de un contacto: tipo, unidades asignadas, documentos cargados y relación con proyectos. Ej: 'dame todo sobre Juan García'.",
+      parameters: {
+        type: "object",
+        properties: {
+          contact_name_or_email: { type: "string", description: "Nombre o email del contacto" },
+        },
+        required: ["contact_name_or_email"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "check_document_completeness",
+      description: "Verifica si un comprador tiene completa su carpeta documental básica (cédula, promesa, soporte de pago). Ej: '¿está completa la documentación de Juan García?'.",
+      parameters: {
+        type: "object",
+        properties: {
+          contact_name_or_email: { type: "string", description: "Nombre o email del comprador" },
+        },
+        required: ["contact_name_or_email"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_real_estate_master_report",
+      description: "Reporte ejecutivo completo del negocio inmobiliario: inventario, ventas, compradores con documentación incompleta y prospectos en pipeline. Ej: '¿cómo va el negocio?' o 'reporte del mes'.",
+      parameters: {
+        type: "object",
+        properties: {
+          project_name: { type: "string", description: "Filtrar por proyecto (opcional — si omites, muestra todos)" },
+        },
       },
     },
   },
@@ -1530,7 +1673,7 @@ const buildSystemPrompt = (crmContext: {
     else routeContext = routeMap[currentRoute] || '';
   }
 
-  return `Eres un copiloto de CRM inteligente y proactivo con 74 herramientas avanzadas.
+  return `Eres un copiloto de CRM inteligente y proactivo con 91 herramientas avanzadas.
 
 ## 📊 Estado del CRM:
 - Contactos: ${crmContext.contactsCount} | Empresas: ${crmContext.companiesCount} | Oportunidades: ${crmContext.opportunitiesCount}
@@ -1542,7 +1685,7 @@ const buildSystemPrompt = (crmContext: {
 ${teamSection}
 ${routeContext ? `## 📍 Contexto: ${routeContext}\n` : ''}
 
-## Capacidades (80 herramientas):
+## Capacidades (91 herramientas):
 ### CRUD: contactos, empresas, oportunidades, tareas
 ### Pipeline: summary, deal health, stages, forecasting
 ### 📅 Calendario: crear/listar/actualizar/eliminar eventos, agenda hoy/semana, huecos libres, metas, time blocking
@@ -1553,6 +1696,9 @@ ${routeContext ? `## 📍 Contexto: ${routeContext}\n` : ''}
 ### 👥 Colaboración: menciones, tareas de equipo, handoff deals, aprobaciones de manager
 ### 📂 Documentos: buscar docs, listar recientes, stats, docs de contacto/empresa, compartir con link público
 ### 🏷️ Tipos de contacto: prospecto (lead/interesado), comprador (cliente con compra), empresa (corporativo), inactivo
+### 🏗️ Inmobiliario mejorado: cambiar etapa proyecto, inventario por proyecto, buscar unidades por nomenclatura/tipo/piso/precio/estado, detalle de unidad, cambiar estado comercial, asignar comprador
+### 📋 Documentos de compradores: listar documentos con filtro por tipo, verificar carpeta completa (cédula + promesa + soporte)
+### 📊 Reporte maestro: resumen ejecutivo de todo el negocio inmobiliario en una llamada
 ### Proyectos, Omnicanal, Inteligencia
 
 ## Reglas semánticas de contactos:
@@ -1560,7 +1706,16 @@ ${routeContext ? `## 📍 Contexto: ${routeContext}\n` : ''}
 - "cliente", "comprador" → contact_type = comprador
 - Usa convert_contact_type para cambiar tipos. Siempre incluye razón.
 
-## Directrices:
+## 🏗️ Capacidades inmobiliarias:
+- Proyectos: puedes cambiar etapas (planning→pre_sale→construction→delivery→completed), consultar inventario por proyecto
+- Unidades: busca por nomenclatura (T2-1203), tipo (APTO, LOCAL COMERCIAL), piso, precio o estado. Puedes marcar como Separado/Vendido y asignar compradores
+- Compradores vs Prospectos: "Prospecto" = aún en pipeline. "Comprador" = tiene unidad o contrato
+- Documentación: verifica si un comprador tiene carpeta completa (cédula + promesa + soporte de pago)
+- Reporte maestro: con get_real_estate_master_report obtienes un resumen ejecutivo de TODO el negocio en una llamada
+- Cuando pregunten "¿cómo vamos?" o "dame un resumen" → usa get_real_estate_master_report
+- Cuando pregunten por una unidad específica → usa get_unit_detail con la nomenclatura
+- Cuando pregunten por disponibilidad → usa search_units con commercial_status="Disponible"
+
 - Responde siempre en español con markdown (negritas, listas, emojis)
 - Sé conciso pero útil, tono profesional y cercano
 - Usa datos reales del contexto
@@ -3141,22 +3296,39 @@ async function listContactDocumentsTool(supabase: any, userId: string, args: any
   const orgId = await getOrgId(supabase, userId);
   if (!orgId) return { success: false, message: '❌ No perteneces a ninguna organización' };
 
+  const DOC_LABELS: Record<string, string> = {
+    promesa: 'Promesa de compraventa', hoja_negocio: 'Hoja de negocio',
+    cedula: 'Cédula', certificado: 'Certificado',
+    soporte_pago: 'Soporte de pago', contrato: 'Contrato',
+    poder: 'Poder notarial', otro: 'Otro',
+  };
+
+  // Support both new (contact_name_or_email) and legacy (contact_email/contact_name) params
+  const identifier = args.contact_name_or_email || args.contact_email || args.contact_name;
+  if (!identifier) return { success: false, message: '❌ Proporciona email o nombre del contacto' };
+
   let contactQuery = supabase.from('contacts').select('id, first_name, last_name, email').eq('organization_id', orgId);
-  if (args.contact_email) contactQuery = contactQuery.eq('email', args.contact_email);
-  else if (args.contact_name) contactQuery = contactQuery.or(`first_name.ilike.%${args.contact_name}%,last_name.ilike.%${args.contact_name}%`);
-  else return { success: false, message: '❌ Proporciona email o nombre del contacto' };
+  // Check if it looks like an email
+  if (identifier.includes('@')) {
+    contactQuery = contactQuery.eq('email', identifier);
+  } else {
+    contactQuery = contactQuery.or(`email.ilike.%${identifier}%,first_name.ilike.%${identifier}%,last_name.ilike.%${identifier}%`);
+  }
 
   const { data: contact } = await contactQuery.limit(1).maybeSingle();
-  if (!contact) return { success: false, message: '❌ Contacto no encontrado' };
-
-  const { data: docs } = await supabase.from('contact_documents').select('id, file_name, file_size, document_type, created_at, is_shared, description').eq('contact_id', contact.id).order('created_at', { ascending: false }).limit(args.limit || 10);
+  if (!contact) return { success: false, message: `❌ Contacto "${identifier}" no encontrado` };
 
   const name = `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || contact.email;
-  if (!docs?.length) return { success: true, message: `Sin documentos para ${name}.`, data: [] };
+
+  let docsQuery = supabase.from('contact_documents').select('id, file_name, file_size, document_type, created_at, is_shared, description').eq('contact_id', contact.id).order('created_at', { ascending: false });
+  if (args.document_type) docsQuery = docsQuery.eq('document_type', args.document_type);
+  const { data: docs } = await docsQuery.limit(args.limit || 10);
+
+  if (!docs?.length) return { success: true, message: `${name} no tiene documentos cargados${args.document_type ? ` de tipo "${DOC_LABELS[args.document_type] || args.document_type}"` : ''}.`, data: [] };
 
   let message = `## 📂 Documentos de ${name} (${docs.length})\n\n`;
   message += docs.map((d: any) => {
-    const label = docTypeLabels[d.document_type] || `📎 ${d.document_type}`;
+    const label = DOC_LABELS[d.document_type] || docTypeLabels[d.document_type] || `📎 ${d.document_type}`;
     return `${label} **${d.file_name}** (${formatFileSize(d.file_size)})${d.is_shared ? ' 🔗' : ''}\n   ${getTimeAgo(new Date(d.created_at))}`;
   }).join('\n\n');
   return { success: true, message, data: docs };
@@ -3405,6 +3577,192 @@ async function executeTool(supabase: any, userId: string, toolName: string, args
       case "list_contact_documents": return await listContactDocumentsTool(supabase, userId, args);
       case "list_company_documents": return await listCompanyDocumentsTool(supabase, userId, args);
       case "share_document": return await shareDocumentTool(supabase, userId, args);
+
+      // ===== INMOBILIARIO MEJORADO =====
+      case "update_project_stage": {
+        const orgId = await getOrgId(supabase, userId);
+        if (!orgId) return { success: false, message: '❌ No perteneces a ninguna organización' };
+        const STAGE_LABELS: Record<string, string> = { planning: 'Planeación', pre_sale: 'Pre-venta', construction: 'En construcción', delivery: 'Entregando', completed: 'Completado', cancelled: 'Cancelado' };
+        const { data: projects } = await supabase.from('real_estate_projects').select('id, name, status').eq('organization_id', orgId).ilike('name', `%${args.project_name}%`).limit(1);
+        if (!projects || projects.length === 0) return { success: false, message: `❌ No encontré el proyecto "${args.project_name}"` };
+        const project = projects[0] as any;
+        const oldStage = project.status;
+        await supabase.from('real_estate_projects').update({ status: args.new_stage, updated_at: new Date().toISOString() }).eq('id', project.id);
+        return { success: true, message: `✅ Proyecto "${project.name}" actualizado:\n${STAGE_LABELS[oldStage] || oldStage} → ${STAGE_LABELS[args.new_stage] || args.new_stage}${args.reason ? `\nMotivo: ${args.reason}` : ''}` };
+      }
+
+      case "get_project_inventory_summary": {
+        const orgId = await getOrgId(supabase, userId);
+        if (!orgId) return { success: false, message: '❌ No perteneces a ninguna organización' };
+        const fmt = (v: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
+        const { data: projects } = await supabase.from('real_estate_projects').select('id, name, status, city').eq('organization_id', orgId).ilike('name', `%${args.project_name}%`).limit(1);
+        if (!projects || projects.length === 0) return { success: false, message: `❌ No encontré el proyecto "${args.project_name}"` };
+        const project = projects[0] as any;
+        const { data: units } = await supabase.from('real_estate_unit_types').select('commercial_status, price, property_type, nomenclature, area_m2').eq('project_id', project.id);
+        const total = (units || []).length;
+        const disponibles = (units || []).filter((u: any) => u.commercial_status === 'Disponible');
+        const separadas = (units || []).filter((u: any) => u.commercial_status === 'Separado');
+        const vendidas = (units || []).filter((u: any) => u.commercial_status === 'Vendido');
+        const priced = (units || []).filter((u: any) => u.price);
+        const avgPrice = priced.length > 0 ? priced.reduce((s: number, u: any) => s + (u.price || 0), 0) / priced.length : 0;
+        const byType: Record<string, { total: number; disponible: number }> = {};
+        (units || []).forEach((u: any) => { const t = u.property_type || 'Unidad'; if (!byType[t]) byType[t] = { total: 0, disponible: 0 }; byType[t].total++; if (u.commercial_status === 'Disponible') byType[t].disponible++; });
+        return { success: true, message: `📊 Inventario de ${project.name}`, data: { proyecto: project.name, ciudad: project.city || null, etapa: project.status, inventario: { total_unidades: total, disponibles: disponibles.length, separadas: separadas.length, vendidas: vendidas.length, pct_vendido: total > 0 ? `${Math.round(((vendidas.length + separadas.length) / total) * 100)}%` : '0%' }, precio_promedio: avgPrice > 0 ? fmt(avgPrice) : 'No registrado', por_tipo: Object.entries(byType).map(([tipo, d]) => ({ tipo, total: d.total, disponibles: d.disponible })) } };
+      }
+
+      case "search_units": {
+        const orgId = await getOrgId(supabase, userId);
+        if (!orgId) return { success: false, message: '❌ No perteneces a ninguna organización' };
+        const fmt = (v: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
+        let query = supabase.from('real_estate_unit_types').select('*, contacts!real_estate_unit_types_buyer_contact_id_fkey(first_name, last_name, email)').eq('organization_id', orgId);
+        if (args.project_name) {
+          const { data: proj } = await supabase.from('real_estate_projects').select('id').eq('organization_id', orgId).ilike('name', `%${args.project_name}%`).limit(1);
+          if (proj && proj.length > 0) query = query.eq('project_id', (proj[0] as any).id);
+        }
+        if (args.nomenclature) query = query.ilike('nomenclature', `%${args.nomenclature}%`);
+        if (args.property_type) query = query.eq('property_type', args.property_type);
+        if (args.commercial_status) query = query.eq('commercial_status', args.commercial_status);
+        if (args.floor_number) query = query.eq('floor_number', args.floor_number);
+        if (args.max_price) query = query.lte('price', args.max_price);
+        if (args.min_price) query = query.gte('price', args.min_price);
+        const { data: units } = await query.order('floor_number', { ascending: true, nullsFirst: false }).order('nomenclature', { ascending: true }).limit(15);
+        if (!units || units.length === 0) return { success: true, message: 'No encontré unidades con esos criterios.', data: [] };
+        return { success: true, message: `🏗️ ${units.length} unidad(es) encontradas`, data: { total: units.length, unidades: units.map((u: any) => ({ nomenclatura: u.nomenclature || u.name, tipo: u.property_type || 'Unidad', piso: u.floor_number ? `Piso ${u.floor_number}` : null, area: u.area_m2 ? `${u.area_m2} m²` : null, tipologia: u.typology || null, precio: u.price ? fmt(u.price) : 'No registrado', estado: u.commercial_status, comprador: u.contacts ? `${u.contacts.first_name || ''} ${u.contacts.last_name || ''}`.trim() : null })) } };
+      }
+
+      case "get_unit_detail": {
+        const orgId = await getOrgId(supabase, userId);
+        if (!orgId) return { success: false, message: '❌ No perteneces a ninguna organización' };
+        const fmt = (v: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
+        let query = supabase.from('real_estate_unit_types').select('*, contacts!real_estate_unit_types_buyer_contact_id_fkey(id, first_name, last_name, email, phone, contact_type)').eq('organization_id', orgId).ilike('nomenclature', args.nomenclature);
+        if (args.project_name) {
+          const { data: proj } = await supabase.from('real_estate_projects').select('id').eq('organization_id', orgId).ilike('name', `%${args.project_name}%`).limit(1);
+          if (proj && proj.length > 0) query = query.eq('project_id', (proj[0] as any).id);
+        }
+        const { data: units } = await query.limit(1);
+        if (!units || units.length === 0) return { success: false, message: `❌ No encontré la unidad "${args.nomenclature}"` };
+        const u = units[0] as any;
+        const buyerContact = u.contacts;
+        return { success: true, message: `🏠 Detalle de unidad ${u.nomenclature}`, data: { unidad: { nomenclatura: u.nomenclature, tipo: u.property_type || 'Unidad', piso: u.floor_number || null, area: u.area_m2 ? `${u.area_m2} m²` : null, tipologia: u.typology || null, precio: u.price ? fmt(u.price) : 'No registrado', estado_comercial: u.commercial_status, fecha_separacion: u.separation_date || null, fecha_venta: u.sale_date || null }, comprador: buyerContact ? { nombre: `${buyerContact.first_name || ''} ${buyerContact.last_name || ''}`.trim(), email: buyerContact.email, telefono: buyerContact.phone || null, tipo_contacto: buyerContact.contact_type } : null, cartera: null } };
+      }
+
+      case "update_unit_status": {
+        const orgId = await getOrgId(supabase, userId);
+        if (!orgId) return { success: false, message: '❌ No perteneces a ninguna organización' };
+        let unitQuery = supabase.from('real_estate_unit_types').select('id, nomenclature, commercial_status, project_id').eq('organization_id', orgId).ilike('nomenclature', args.nomenclature);
+        if (args.project_name) {
+          const { data: proj } = await supabase.from('real_estate_projects').select('id').eq('organization_id', orgId).ilike('name', `%${args.project_name}%`).limit(1);
+          if (proj && proj.length > 0) unitQuery = unitQuery.eq('project_id', (proj[0] as any).id);
+        }
+        const { data: units } = await unitQuery.limit(1);
+        if (!units || units.length === 0) return { success: false, message: `❌ No encontré la unidad "${args.nomenclature}"` };
+        const unit = units[0] as any;
+        const updateData: Record<string, any> = { commercial_status: args.new_status, updated_at: new Date().toISOString() };
+        if (args.separation_date) updateData.separation_date = args.separation_date;
+        if (args.sale_date) updateData.sale_date = args.sale_date;
+        let buyerName = null;
+        let wasProspecto = false;
+        if (args.buyer_name_or_email && args.new_status !== 'Disponible') {
+          const { data: buyers } = await supabase.from('contacts').select('id, first_name, last_name, contact_type').eq('organization_id', orgId).or(`email.ilike.%${args.buyer_name_or_email}%,first_name.ilike.%${args.buyer_name_or_email}%,last_name.ilike.%${args.buyer_name_or_email}%`).limit(1);
+          if (buyers && buyers.length > 0) {
+            updateData.buyer_contact_id = buyers[0].id;
+            buyerName = `${buyers[0].first_name || ''} ${buyers[0].last_name || ''}`.trim();
+            if (buyers[0].contact_type === 'prospecto') {
+              wasProspecto = true;
+              await supabase.from('contacts').update({ contact_type: 'comprador', updated_at: new Date().toISOString() }).eq('id', buyers[0].id);
+              await supabase.from('contact_type_history').insert({ contact_id: buyers[0].id, organization_id: orgId, previous_type: 'prospecto', new_type: 'comprador', changed_by: userId, reason: `Unidad asignada: ${args.nomenclature} — marcada como ${args.new_status}` });
+            }
+          }
+        }
+        if (args.new_status === 'Disponible') { updateData.buyer_contact_id = null; updateData.separation_date = null; updateData.sale_date = null; }
+        await supabase.from('real_estate_unit_types').update(updateData).eq('id', unit.id);
+        const fmtStatus = args.new_status === 'Disponible' ? '🟢 Disponible' : args.new_status === 'Separado' ? '🟡 Separado' : args.new_status === 'Vendido' ? '🔵 Vendido' : '🔴 No Disponible';
+        return { success: true, message: `✅ Unidad ${args.nomenclature} actualizada a ${fmtStatus}.${buyerName ? ` Comprador: ${buyerName}.` : ''}${wasProspecto ? ` ${buyerName} fue convertido automáticamente a Comprador.` : ''}` };
+      }
+
+      case "get_contacts_by_type": {
+        const orgId = await getOrgId(supabase, userId);
+        if (!orgId) return { success: false, message: '❌ No perteneces a ninguna organización' };
+        const LABELS: Record<string, string> = { prospecto: 'Prospecto', comprador: 'Comprador', empresa: 'Empresa', inactivo: 'Inactivo' };
+        const limit = args.limit || 10;
+        const { data: contacts, count } = await supabase.from('contacts').select('id, first_name, last_name, email, phone, created_at', { count: 'exact' }).eq('organization_id', orgId).eq('contact_type', args.contact_type).order('created_at', { ascending: false }).limit(limit);
+        if (!contacts || contacts.length === 0) return { success: true, message: `No hay contactos con tipo "${LABELS[args.contact_type]}" en este momento.`, data: [] };
+        let stats = null;
+        if (args.include_stats && args.contact_type === 'comprador') {
+          const { count: withUnit } = await supabase.from('real_estate_unit_types').select('buyer_contact_id', { count: 'exact', head: true }).eq('organization_id', orgId).not('buyer_contact_id', 'is', null);
+          stats = { con_unidad_asignada: withUnit || 0 };
+        }
+        return { success: true, message: `📋 ${count || contacts.length} contacto(s) tipo ${LABELS[args.contact_type]}`, data: { tipo: LABELS[args.contact_type], total: count || contacts.length, mostrando: contacts.length, contactos: contacts.map((c: any) => ({ nombre: `${c.first_name || ''} ${c.last_name || ''}`.trim(), email: c.email, telefono: c.phone || null })), ...(stats ? { estadisticas: stats } : {}) } };
+      }
+
+      case "get_contact_full_profile": {
+        const orgId = await getOrgId(supabase, userId);
+        if (!orgId) return { success: false, message: '❌ No perteneces a ninguna organización' };
+        const fmt = (v: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
+        const LABELS: Record<string, string> = { prospecto: 'Prospecto', comprador: 'Comprador', empresa: 'Empresa', inactivo: 'Inactivo' };
+        const { data: contacts } = await supabase.from('contacts').select('id, first_name, last_name, email, phone, contact_type, created_at').eq('organization_id', orgId).or(`email.ilike.%${args.contact_name_or_email}%,first_name.ilike.%${args.contact_name_or_email}%,last_name.ilike.%${args.contact_name_or_email}%`).limit(1);
+        if (!contacts || contacts.length === 0) return { success: false, message: `❌ No encontré el contacto "${args.contact_name_or_email}"` };
+        const c = contacts[0] as any;
+        const name = `${c.first_name || ''} ${c.last_name || ''}`.trim();
+        // Units assigned
+        const { data: units } = await supabase.from('real_estate_unit_types').select('nomenclature, commercial_status, property_type, price').eq('buyer_contact_id', c.id);
+        // Documents
+        const { data: docs } = await supabase.from('contact_documents').select('document_type, file_name').eq('contact_id', c.id);
+        const docTypes = [...new Set((docs || []).map((d: any) => d.document_type))];
+        return { success: true, message: `👤 Perfil completo de ${name}`, data: { contacto: { nombre: name, email: c.email, telefono: c.phone || null, tipo: LABELS[c.contact_type] || c.contact_type, cliente_desde: c.created_at?.split('T')[0] }, unidades_asignadas: (units || []).length > 0 ? (units || []).map((u: any) => ({ nomenclatura: u.nomenclature, tipo: u.property_type, estado: u.commercial_status, precio: u.price ? fmt(u.price) : null })) : 'Sin unidades asignadas', contratos_cartera: null, documentos: docs && docs.length > 0 ? `${docs.length} documentos: ${docTypes.join(', ')}` : 'Sin documentos cargados' } };
+      }
+
+      case "check_document_completeness": {
+        const orgId = await getOrgId(supabase, userId);
+        if (!orgId) return { success: false, message: '❌ No perteneces a ninguna organización' };
+        const { data: contacts } = await supabase.from('contacts').select('id, first_name, last_name').eq('organization_id', orgId).or(`email.ilike.%${args.contact_name_or_email}%,first_name.ilike.%${args.contact_name_or_email}%,last_name.ilike.%${args.contact_name_or_email}%`).limit(1);
+        if (!contacts || contacts.length === 0) return { success: false, message: `❌ No encontré el contacto "${args.contact_name_or_email}"` };
+        const c = contacts[0] as any;
+        const name = `${c.first_name || ''} ${c.last_name || ''}`.trim();
+        const { data: docs } = await supabase.from('contact_documents').select('document_type').eq('contact_id', c.id);
+        const tieneDoc = (tipo: string) => (docs || []).some((d: any) => d.document_type === tipo);
+        const REQUIRED = ['cedula', 'promesa', 'soporte_pago'] as const;
+        const OPTIONAL = ['hoja_negocio', 'contrato', 'certificado', 'poder'] as const;
+        const REQ_LABELS: Record<string, string> = { cedula: 'Cédula', promesa: 'Promesa de compraventa', soporte_pago: 'Soporte de pago' };
+        const OPT_LABELS: Record<string, string> = { hoja_negocio: 'Hoja de negocio', contrato: 'Contrato', certificado: 'Certificado', poder: 'Poder notarial' };
+        const required = REQUIRED.map(t => ({ tipo: t, label: REQ_LABELS[t], tiene: tieneDoc(t) }));
+        const optional = OPTIONAL.map(t => ({ tipo: t, label: OPT_LABELS[t], tiene: tieneDoc(t) }));
+        const completa = required.every(r => r.tiene);
+        const faltantes = required.filter(r => !r.tiene).map(r => r.label);
+        return { success: true, message: completa ? `✅ ${name}: documentación básica completa` : `⚠️ ${name}: faltan ${faltantes.join(', ')}`, data: { comprador: name, carpeta_completa: completa, estado: completa ? '✅ Documentación básica completa' : `⚠ Faltan: ${faltantes.join(', ')}`, documentos_obligatorios: required.map(r => ({ documento: r.label, estado: r.tiene ? '✅' : '❌' })), documentos_opcionales: optional.map(r => ({ documento: r.label, estado: r.tiene ? '✅' : '—' })) } };
+      }
+
+      case "get_real_estate_master_report": {
+        const orgId = await getOrgId(supabase, userId);
+        if (!orgId) return { success: false, message: '❌ No perteneces a ninguna organización' };
+        const fmt = (v: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
+        const STAGE_LABELS: Record<string, string> = { planning: 'Planeación', pre_sale: 'Pre-venta', construction: 'En construcción', delivery: 'Entregando', completed: 'Completado', cancelled: 'Cancelado' };
+        // 1. Projects
+        let projQuery = supabase.from('real_estate_projects').select('id, name, status, city').eq('organization_id', orgId).not('status', 'eq', 'cancelled');
+        if (args.project_name) projQuery = projQuery.ilike('name', `%${args.project_name}%`);
+        const { data: projects } = await projQuery;
+        // 2. All units
+        const { data: allUnits } = await supabase.from('real_estate_unit_types').select('commercial_status, price, project_id').eq('organization_id', orgId);
+        const totalUnits = (allUnits || []).length;
+        const vendidas = (allUnits || []).filter((u: any) => u.commercial_status === 'Vendido').length;
+        const separadas = (allUnits || []).filter((u: any) => u.commercial_status === 'Separado').length;
+        const disponibles = (allUnits || []).filter((u: any) => u.commercial_status === 'Disponible').length;
+        const valorDisponible = (allUnits || []).filter((u: any) => u.commercial_status === 'Disponible' && u.price).reduce((s: number, u: any) => s + (u.price || 0), 0);
+        // 3. Contacts by type
+        const { data: contactCounts } = await supabase.from('contacts').select('contact_type').eq('organization_id', orgId);
+        const prospectos = (contactCounts || []).filter((c: any) => c.contact_type === 'prospecto').length;
+        const compradores = (contactCounts || []).filter((c: any) => c.contact_type === 'comprador').length;
+        // 4. Buyers without documents
+        const { data: compradorIds } = await supabase.from('contacts').select('id').eq('organization_id', orgId).eq('contact_type', 'comprador');
+        let sinDocumentos = 0;
+        if (compradorIds && compradorIds.length > 0) {
+          const ids = compradorIds.map((c: any) => c.id);
+          const { data: docContacts } = await supabase.from('contact_documents').select('contact_id').eq('organization_id', orgId);
+          const contactsWithDocs = new Set((docContacts || []).map((d: any) => d.contact_id));
+          sinDocumentos = ids.filter((id: string) => !contactsWithDocs.has(id)).length;
+        }
+        return { success: true, message: '📊 Reporte Maestro Inmobiliario', data: { resumen: { proyectos_activos: (projects || []).length, inventario_total: totalUnits, vendidas_y_separadas: vendidas + separadas, disponibles, pct_comercializado: totalUnits > 0 ? `${Math.round(((vendidas + separadas) / totalUnits) * 100)}%` : '0%', valor_inventario_disponible: fmt(valorDisponible) }, cartera: { nota: 'Módulo de cartera no disponible aún' }, comercial: { prospectos_en_pipeline: prospectos, compradores_activos: compradores, compradores_sin_documentos: sinDocumentos > 0 ? `⚠ ${sinDocumentos} compradores sin documentación` : '✅ Todos con documentos' }, por_proyecto: (projects || []).map((p: any) => { const unitsProj = (allUnits || []).filter((u: any) => u.project_id === p.id); const vend = unitsProj.filter((u: any) => u.commercial_status === 'Vendido').length; const sep = unitsProj.filter((u: any) => u.commercial_status === 'Separado').length; const total = unitsProj.length; return { proyecto: p.name, etapa: STAGE_LABELS[p.status] || p.status, unidades: total, comercializadas: `${vend + sep}/${total} (${total > 0 ? Math.round(((vend + sep) / total) * 100) : 0}%)` }; }) } };
+      }
 
       default:
         return { success: false, message: `❌ Función desconocida: ${toolName}` };
