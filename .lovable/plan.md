@@ -1,61 +1,61 @@
 
 
-# Plan: Acceso Directo a Cuentas de Clientes (Impersonacion para Super Admin)
+# Plan: Acceso Directo a Cuentas de Clientes (Nuevo Metodo)
 
-Permitir que los Super Admins accedan directamente a cualquier cuenta de cliente desde el panel de administracion, sin necesidad de pedir credenciales.
-
----
-
-## Como funciona
-
-1. En el panel Admin, cada organizacion tendra un boton "Acceder como admin"
-2. Al hacer clic, se llama a una edge function que genera un enlace de acceso temporal
-3. El enlace abre una nueva pestana del navegador donde el Super Admin queda autenticado como el admin de esa organizacion
-4. Se registra la accion en el audit log para trazabilidad
+El enlace magico actual falla porque depende de redirecciones del servidor de autenticacion que no siempre apuntan al dominio correcto. La solucion es eliminar esa dependencia y verificar el token directamente en el frontend.
 
 ---
 
-## Componentes a crear/modificar
+## Problema actual
 
-### 1. Edge Function: `supabase/functions/impersonate-user/index.ts`
+La edge function genera un `action_link` que apunta al servidor de autenticacion. Ese enlace, al hacer clic, verifica el token y redirige al usuario. Pero la redireccion apunta al dominio base del proyecto de backend, no al dominio real de la app (neumancrm.lovable.app o iacrm.neumanai.com), por lo que el login no se completa correctamente.
 
-- Recibe `organization_id` en el body
-- Verifica que el caller sea Super Admin (consulta tabla `super_admins`)
-- Busca el admin activo de la organizacion objetivo en `team_members`
-- Usa `supabase.auth.admin.generateLink({ type: 'magiclink', email })` para generar un enlace de acceso
-- Registra la impersonacion en `audit_log`
-- Retorna la URL de acceso
+---
 
-### 2. Modificar: `src/pages/Admin.tsx`
+## Solucion
 
-- Agregar boton "Acceder" (icono LogIn) en cada fila de organizacion, junto a los botones existentes de editar/modulos
-- Al hacer clic: llamar a la edge function, abrir el link en nueva pestana
-- Mostrar toast de confirmacion
+En lugar de abrir un enlace externo, el sistema:
+
+1. La edge function retorna el `token_hash` y el `email` (en vez de la URL)
+2. El frontend abre una nueva pestana apuntando a una ruta interna: `/impersonate?token_hash=XXX&email=YYY`
+3. Esa pagina llama a `supabase.auth.verifyOtp({ token_hash, type: 'magiclink', email })` directamente
+4. Si la verificacion es exitosa, redirige al `/dashboard` ya autenticado como el admin del cliente
+
+Esto elimina completamente la dependencia de URLs de redireccion externas.
+
+---
+
+## Archivos a modificar/crear
+
+### 1. Modificar: `supabase/functions/impersonate-user/index.ts`
+
+- En vez de retornar `properties.action_link`, retornar `properties.hashed_token` y el `email` del target
+- Eliminar la construccion de la URL
+
+### 2. Crear: `src/pages/Impersonate.tsx`
+
+- Pagina que lee `token_hash` y `email` de los parametros de URL
+- Llama a `supabase.auth.verifyOtp({ token_hash, type: 'magiclink', email })`
+- Si tiene exito: redirige a `/dashboard`
+- Si falla: muestra mensaje de error con boton para cerrar la pestana
+- Muestra un spinner mientras verifica
 
 ### 3. Modificar: `src/hooks/useSuperAdmin.ts`
 
-- Agregar mutacion `impersonateOrg` que invoca la edge function `impersonate-user`
+- Cambiar `impersonateOrg` para que abra `/impersonate?token_hash=XXX&email=YYY` en nueva pestana en vez de abrir `data.url`
 
-### 4. Configuracion: `supabase/config.toml`
+### 4. Modificar: `src/App.tsx`
 
-- Agregar entrada para `impersonate-user` con `verify_jwt = false` (la verificacion se hace manualmente en el codigo)
-
----
-
-## Seguridad
-
-- Solo Super Admins pueden usar esta funcion (verificado server-side via tabla `super_admins`)
-- Cada uso queda registrado en `audit_log` con tipo `impersonate`
-- El enlace generado es de un solo uso (comportamiento por defecto de magic links)
-- No se almacenan credenciales ni tokens persistentes
+- Agregar ruta `/impersonate` apuntando a la nueva pagina
 
 ---
 
-## Resumen de archivos
+## Flujo completo
 
-| Archivo | Accion |
-|---------|--------|
-| `supabase/functions/impersonate-user/index.ts` | Crear |
-| `src/hooks/useSuperAdmin.ts` | Modificar (agregar mutacion impersonateOrg) |
-| `src/pages/Admin.tsx` | Modificar (agregar boton "Acceder" en cada fila) |
+1. Super Admin hace clic en "Acceder" en el panel admin
+2. Edge function genera token, lo retorna al frontend
+3. Frontend abre nueva pestana: `/impersonate?token_hash=abc123&email=admin@cliente.com`
+4. La pagina Impersonate verifica el token con la API de auth
+5. Session queda establecida en esa pestana, redirige a `/dashboard`
+6. Super Admin opera como el admin del cliente en esa pestana
 
