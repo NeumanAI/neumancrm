@@ -63,6 +63,7 @@ const tools = [
           query: { type: "string", description: "Texto de búsqueda (nombre, email, empresa)" },
           company_name: { type: "string", description: "Filtrar por nombre de empresa" },
           has_whatsapp: { type: "boolean", description: "Solo contactos con WhatsApp" },
+          contact_type: { type: "string", enum: ["prospecto", "comprador", "empresa", "inactivo"], description: "Filtrar por tipo de contacto" },
           limit: { type: "number", description: "Número máximo de resultados (default: 10)" },
         },
       },
@@ -1431,6 +1432,23 @@ const tools = [
       },
     },
   },
+  // ===== CONTACT TYPE CONVERSION =====
+  {
+    type: "function",
+    function: {
+      name: "convert_contact_type",
+      description: "Convierte el tipo de un contacto (prospecto, comprador, empresa, inactivo). Registra el cambio en historial.",
+      parameters: {
+        type: "object",
+        properties: {
+          contact_name_or_email: { type: "string", description: "Nombre o email del contacto" },
+          new_type: { type: "string", enum: ["prospecto", "comprador", "empresa", "inactivo"], description: "Nuevo tipo" },
+          reason: { type: "string", description: "Razón del cambio" },
+        },
+        required: ["contact_name_or_email", "new_type"],
+      },
+    },
+  },
 ];
 
 // ===== TYPES =====
@@ -1534,7 +1552,13 @@ ${routeContext ? `## 📍 Contexto: ${routeContext}\n` : ''}
 ### 📈 Datos: búsqueda avanzada, duplicados, bulk update, export, calidad de datos
 ### 👥 Colaboración: menciones, tareas de equipo, handoff deals, aprobaciones de manager
 ### 📂 Documentos: buscar docs, listar recientes, stats, docs de contacto/empresa, compartir con link público
+### 🏷️ Tipos de contacto: prospecto (lead/interesado), comprador (cliente con compra), empresa (corporativo), inactivo
 ### Proyectos, Omnicanal, Inteligencia
+
+## Reglas semánticas de contactos:
+- "lead", "prospecto", "interesado" → contact_type = prospecto
+- "cliente", "comprador" → contact_type = comprador
+- Usa convert_contact_type para cambiar tipos. Siempre incluye razón.
 
 ## Directrices:
 - Responde siempre en español con markdown (negritas, listas, emojis)
@@ -1619,13 +1643,14 @@ async function getOrgId(supabase: any, userId: string): Promise<string | null> {
 // ===== CRM CONTEXT FETCHER =====
 async function fetchCRMContext(supabase: any, userId: string) {
   try {
-    const [contactsResult, companiesResult, opportunitiesResult, activitiesResult, teamMemberResult, projectsResult] = await Promise.all([
-      supabase.from('contacts').select('id, first_name, last_name, email, companies(name)').order('created_at', { ascending: false }).limit(5),
+    const [contactsResult, companiesResult, opportunitiesResult, activitiesResult, teamMemberResult, projectsResult, contactTypeCountsResult] = await Promise.all([
+      supabase.from('contacts').select('id, first_name, last_name, email, contact_type, companies(name)').order('created_at', { ascending: false }).limit(5),
       supabase.from('companies').select('id').limit(1000),
       supabase.from('opportunities').select('id, title, value, status, stage_id, stages(name)').order('created_at', { ascending: false }).limit(5),
       supabase.from('activities').select('id, title, due_date, priority, completed').order('due_date', { ascending: true }).limit(10),
       supabase.from('team_members').select('*, organizations(*)').eq('user_id', userId).eq('is_active', true).maybeSingle(),
       supabase.from('projects').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+      supabase.from('contacts').select('contact_type').eq('user_id', userId),
     ]);
 
     const contacts = contactsResult.data || [];
@@ -1634,6 +1659,9 @@ async function fetchCRMContext(supabase: any, userId: string) {
     const activities = activitiesResult.data || [];
     const currentMember = teamMemberResult.data;
     const projectsCount = projectsResult.count || 0;
+    const allContactTypes = contactTypeCountsResult.data || [];
+    const contactTypeSummary = { prospecto: 0, comprador: 0, empresa: 0, inactivo: 0 };
+    allContactTypes.forEach((c: any) => { contactTypeSummary[c.contact_type as keyof typeof contactTypeSummary] = (contactTypeSummary[c.contact_type as keyof typeof contactTypeSummary] || 0) + 1; });
     const pendingTasks = activities.filter((a: any) => !a.completed);
     const pipelineValue = opportunities.filter((o: any) => o.status === 'open').reduce((sum: number, o: any) => sum + (o.value || 0), 0);
 
@@ -1701,15 +1729,22 @@ async function updateCompany(supabase: any, userId: string, args: any) {
 }
 
 async function searchContactsAdvanced(supabase: any, userId: string, args: any) {
-  let query = supabase.from('contacts').select('id, first_name, last_name, email, phone, whatsapp_number, job_title, companies(name)').eq('user_id', userId);
+  let query = supabase.from('contacts').select('id, first_name, last_name, email, phone, whatsapp_number, job_title, contact_type, companies(name)').eq('user_id', userId);
   if (args.query) query = query.or(`first_name.ilike.%${args.query}%,last_name.ilike.%${args.query}%,email.ilike.%${args.query}%`);
   if (args.has_whatsapp) query = query.not('whatsapp_number', 'is', null);
+  if (args.contact_type) {
+    query = query.eq('contact_type', args.contact_type);
+  } else {
+    // Exclude inactive by default
+    query = query.neq('contact_type', 'inactivo');
+  }
   const { data, error } = await query.limit(args.limit || 10);
   if (error) return { success: false, message: `❌ Error: ${error.message}` };
   let contacts = data || [];
   if (args.company_name) contacts = contacts.filter((c: any) => c.companies?.name?.toLowerCase().includes(args.company_name.toLowerCase()));
   if (contacts.length === 0) return { success: true, message: 'No se encontraron contactos', data: [] };
-  const results = contacts.map((c: any) => `• ${c.first_name || ''} ${c.last_name || ''} - ${c.email}${c.whatsapp_number ? ` 📱` : ''}${c.companies?.name ? ` @ ${c.companies.name}` : ''}`).join('\n');
+  const typeLabels: Record<string, string> = { prospecto: '🔵', comprador: '🟢', empresa: '🏢', inactivo: '⚪' };
+  const results = contacts.map((c: any) => `• ${typeLabels[c.contact_type] || '🔵'} ${c.first_name || ''} ${c.last_name || ''} - ${c.email}${c.whatsapp_number ? ` 📱` : ''}${c.companies?.name ? ` @ ${c.companies.name}` : ''} [${c.contact_type}]`).join('\n');
   return { success: true, message: `📇 ${contacts.length} contacto(s):\n${results}`, data: contacts };
 }
 
@@ -3193,6 +3228,20 @@ async function executeTool(supabase: any, userId: string, toolName: string, args
       }
       case "update_contact": return await updateContact(supabase, userId, args);
       case "search_contacts": return await searchContactsAdvanced(supabase, userId, args);
+      case "convert_contact_type": {
+        const { data: contacts } = await supabase.from('contacts').select('id, first_name, last_name, email, contact_type, organization_id').eq('user_id', userId).or(`email.ilike.%${args.contact_name_or_email}%,first_name.ilike.%${args.contact_name_or_email}%,last_name.ilike.%${args.contact_name_or_email}%`).limit(1);
+        if (!contacts?.length) return { success: false, message: `❌ No se encontró contacto "${args.contact_name_or_email}"` };
+        const contact = contacts[0];
+        const previousType = contact.contact_type || 'prospecto';
+        if (previousType === args.new_type) return { success: true, message: `ℹ️ ${contact.first_name} ${contact.last_name} ya es tipo "${args.new_type}"` };
+        const { error } = await supabase.from('contacts').update({ contact_type: args.new_type }).eq('id', contact.id);
+        if (error) return { success: false, message: `❌ Error: ${error.message}` };
+        if (contact.organization_id) {
+          await supabase.from('contact_type_history').insert({ contact_id: contact.id, organization_id: contact.organization_id, previous_type: previousType, new_type: args.new_type, reason: args.reason || null, changed_by: userId });
+        }
+        const typeLabels: Record<string,string> = { prospecto: '🔵 Prospecto', comprador: '🟢 Comprador', empresa: '🏢 Empresa', inactivo: '⚪ Inactivo' };
+        return { success: true, message: `✅ **${contact.first_name} ${contact.last_name}** convertido de ${typeLabels[previousType] || previousType} → ${typeLabels[args.new_type] || args.new_type}${args.reason ? `\n📝 Razón: ${args.reason}` : ''}` };
+      }
       // COMPANIES
       case "create_company": {
         const { data, error } = await supabase.from('companies').insert({ user_id: userId, name: args.name, industry: args.industry || null, website: args.website || null, phone: args.phone || null, city: args.city || null, country: args.country || null, description: args.description || null }).select().single();

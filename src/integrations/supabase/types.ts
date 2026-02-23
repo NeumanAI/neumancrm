@@ -797,11 +797,60 @@ export type Database = {
           },
         ]
       }
+      contact_type_history: {
+        Row: {
+          changed_at: string
+          changed_by: string
+          contact_id: string
+          id: string
+          new_type: string
+          organization_id: string
+          previous_type: string
+          reason: string | null
+        }
+        Insert: {
+          changed_at?: string
+          changed_by: string
+          contact_id: string
+          id?: string
+          new_type: string
+          organization_id: string
+          previous_type: string
+          reason?: string | null
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string
+          contact_id?: string
+          id?: string
+          new_type?: string
+          organization_id?: string
+          previous_type?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_type_history_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_type_history_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts: {
         Row: {
           assigned_to: string | null
           avatar_url: string | null
           company_id: string | null
+          contact_type: string
           created_at: string | null
           created_by: string | null
           department: string | null
@@ -829,6 +878,7 @@ export type Database = {
           assigned_to?: string | null
           avatar_url?: string | null
           company_id?: string | null
+          contact_type?: string
           created_at?: string | null
           created_by?: string | null
           department?: string | null
@@ -856,6 +906,7 @@ export type Database = {
           assigned_to?: string | null
           avatar_url?: string | null
           company_id?: string | null
+          contact_type?: string
           created_at?: string | null
           created_by?: string | null
           department?: string | null

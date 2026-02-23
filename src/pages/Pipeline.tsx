@@ -4,6 +4,7 @@ import { useCompanies } from '@/hooks/useCompanies';
 import { useContacts } from '@/hooks/useContacts';
 import { useTeam } from '@/hooks/useTeam';
 import { Opportunity, Stage } from '@/types/crm';
+import { ContactType, CONTACT_TYPE_LABELS, CONTACT_TYPE_COLORS } from '@/lib/contactTypes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -107,6 +108,11 @@ function OpportunityCard({
             <span className="truncate">
               {opportunity.contacts.first_name} {opportunity.contacts.last_name}
             </span>
+            {(opportunity.contacts as any)?.contact_type === 'comprador' && (
+              <Badge variant="outline" className="text-[10px] bg-teal-100 text-teal-800 border-teal-200 ml-1">
+                Comprador
+              </Badge>
+            )}
           </div>
         )}
         
@@ -239,7 +245,7 @@ export default function Pipeline() {
   const { opportunities, isLoading: oppsLoading, createOpportunity, updateOpportunity } = useOpportunities();
   const { pipeline, stages, isLoading: pipelineLoading, createPipeline } = usePipeline();
   const { companies } = useCompanies();
-  const { contacts } = useContacts();
+  const { contacts, convertContactType } = useContacts();
   const { teamMembers } = useTeam();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -331,6 +337,25 @@ export default function Pipeline() {
         probability: targetStage.probability,
       });
       toast.success(`Movido a ${targetStage.name}`);
+
+      // If moved to won stage and contact is prospecto, suggest conversion
+      if (targetStage.is_closed_won && activeOpp.contact_id) {
+        const contact = contacts.find(c => c.id === activeOpp.contact_id);
+        if (contact && ((contact as any).contact_type || 'prospecto') === 'prospecto') {
+          toast('¿Convertir contacto a Comprador?', {
+            description: `${contact.first_name} ${contact.last_name} ganó un deal.`,
+            action: {
+              label: 'Convertir',
+              onClick: () => convertContactType.mutate({
+                contactId: contact.id,
+                newType: 'comprador',
+                reason: `Deal "${activeOpp.title}" ganado`,
+              }),
+            },
+            duration: 10000,
+          });
+        }
+      }
       return;
     }
 

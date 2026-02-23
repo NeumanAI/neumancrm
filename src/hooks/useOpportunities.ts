@@ -97,7 +97,7 @@ export function useOpportunities(options: UseOpportunitiesOptions = {}) {
     queryFn: async () => {
       let query = supabase
         .from('opportunities')
-        .select('*, companies(id, name), contacts(id, first_name, last_name), stages(id, name, color)')
+        .select('*, companies(id, name), contacts(id, first_name, last_name, contact_type), stages(id, name, color)')
         .order('created_at', { ascending: false });
       
       if (status) {

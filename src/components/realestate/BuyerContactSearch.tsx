@@ -1,16 +1,19 @@
 import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useDebounce } from 'use-debounce';
 import { X, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { CONTACT_TYPE_LABELS, CONTACT_TYPE_COLORS, ContactType } from '@/lib/contactTypes';
 
 interface ContactResult {
   id: string;
   first_name: string | null;
   last_name: string | null;
   email: string;
+  contact_type?: string;
 }
 
 interface BuyerContactSearchProps {
@@ -33,7 +36,8 @@ export function BuyerContactSearch({ value, selectedContact, onChange }: BuyerCo
     const fetchContacts = async () => {
       const { data } = await supabase
         .from('contacts')
-        .select('id, first_name, last_name, email')
+        .select('id, first_name, last_name, email, contact_type')
+        .neq('contact_type', 'inactivo')
         .or(`first_name.ilike.%${debouncedSearch}%,last_name.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%`)
         .limit(10);
       setResults((data as ContactResult[]) || []);
@@ -71,24 +75,32 @@ export function BuyerContactSearch({ value, selectedContact, onChange }: BuyerCo
       </div>
       {showResults && results.length > 0 && (
         <div className="absolute z-50 top-full mt-1 w-full bg-popover border rounded-md shadow-md max-h-48 overflow-y-auto">
-          {results.map((c) => (
-            <div
-              key={c.id}
-              className="flex items-center gap-2 p-2 hover:bg-muted/50 cursor-pointer text-sm"
-              onClick={() => {
-                onChange(c.id, c);
-                setSearch('');
-                setShowResults(false);
-              }}
-            >
-              <Avatar className="h-6 w-6">
-                <AvatarFallback className="text-xs">
-                  {`${c.first_name?.[0] || ''}${c.last_name?.[0] || ''}`.toUpperCase() || 'C'}
-                </AvatarFallback>
-              </Avatar>
-              <span>{c.first_name} {c.last_name} — {c.email}</span>
-            </div>
-          ))}
+          {results.map((c) => {
+            const cType = (c.contact_type || 'prospecto') as ContactType;
+            return (
+              <div
+                key={c.id}
+                className="flex items-center gap-2 p-2 hover:bg-muted/50 cursor-pointer text-sm"
+                onClick={() => {
+                  onChange(c.id, c);
+                  setSearch('');
+                  setShowResults(false);
+                }}
+              >
+                <Avatar className="h-6 w-6">
+                  <AvatarFallback className="text-xs">
+                    {`${c.first_name?.[0] || ''}${c.last_name?.[0] || ''}`.toUpperCase() || 'C'}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="flex-1">{c.first_name} {c.last_name} — {c.email}</span>
+                {cType !== 'prospecto' && (
+                  <Badge variant="outline" className={`text-[10px] ${CONTACT_TYPE_COLORS[cType]}`}>
+                    {CONTACT_TYPE_LABELS[cType]}
+                  </Badge>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

@@ -3,23 +3,29 @@ import { supabase } from '@/integrations/supabase/client';
 import { Contact } from '@/types/crm';
 import { toast } from 'sonner';
 import { Json } from '@/integrations/supabase/types';
+import { ContactType } from '@/lib/contactTypes';
 
 interface UseContactsOptions {
   limit?: number;
   enabled?: boolean;
+  contactType?: ContactType;
 }
 
 export function useContacts(options: UseContactsOptions = {}) {
-  const { limit, enabled = true } = options;
+  const { limit, enabled = true, contactType } = options;
   const queryClient = useQueryClient();
 
   const { data: contacts, isLoading } = useQuery({
-    queryKey: ['contacts', { limit }],
+    queryKey: ['contacts', { limit, contactType }],
     queryFn: async () => {
       let query = supabase
         .from('contacts')
         .select('*, companies(id, name, logo_url)')
         .order('created_at', { ascending: false });
+      
+      if (contactType) {
+        query = query.eq('contact_type', contactType);
+      }
       
       if (limit) {
         query = query.limit(limit);
@@ -30,7 +36,7 @@ export function useContacts(options: UseContactsOptions = {}) {
       return data as Contact[];
     },
     enabled,
-    staleTime: 30000, // 30 seconds
+    staleTime: 30000,
     refetchOnWindowFocus: false,
   });
 
@@ -39,7 +45,6 @@ export function useContacts(options: UseContactsOptions = {}) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated user');
 
-      // Prepare data without the joined companies field
       const { companies, metadata, ...contactData } = newContact;
       
       const insertData = { 
@@ -69,7 +74,6 @@ export function useContacts(options: UseContactsOptions = {}) {
 
   const updateContact = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Contact> & { id: string }) => {
-      // Remove joined data and cast metadata
       const { companies, metadata, ...updateData } = updates;
       
       const { data, error } = await supabase
@@ -112,11 +116,60 @@ export function useContacts(options: UseContactsOptions = {}) {
     },
   });
 
+  const convertContactType = useMutation({
+    mutationFn: async ({ contactId, newType, reason }: { contactId: string; newType: ContactType; reason?: string }) => {
+      // Get current contact to know previous type
+      const { data: contact, error: fetchError } = await supabase
+        .from('contacts')
+        .select('contact_type, organization_id')
+        .eq('id', contactId)
+        .single();
+      
+      if (fetchError || !contact) throw new Error('Contacto no encontrado');
+
+      const previousType = (contact as any).contact_type || 'prospecto';
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No authenticated user');
+
+      // Update contact type
+      const { error: updateError } = await supabase
+        .from('contacts')
+        .update({ contact_type: newType } as any)
+        .eq('id', contactId);
+      
+      if (updateError) throw updateError;
+
+      // Record in history
+      if (contact.organization_id) {
+        await supabase.from('contact_type_history' as any).insert({
+          contact_id: contactId,
+          organization_id: contact.organization_id,
+          previous_type: previousType,
+          new_type: newType,
+          reason: reason || null,
+          changed_by: user.id,
+        });
+      }
+
+      return { previousType, newType };
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      queryClient.invalidateQueries({ queryKey: ['contact', variables.contactId] });
+      toast.success(`Contacto convertido a ${variables.newType}`);
+    },
+    onError: (error) => {
+      toast.error('Error al convertir: ' + error.message);
+    },
+  });
+
   return {
     contacts: contacts || [],
     isLoading,
     createContact,
     updateContact,
     deleteContact,
+    convertContactType,
   };
 }
