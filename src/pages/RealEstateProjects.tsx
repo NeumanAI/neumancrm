@@ -14,18 +14,22 @@ import { CreateRealEstateProjectDialog } from '@/components/realestate/CreateRea
 
 const statusLabels: Record<string, string> = {
   planning: 'Planeación',
+  pre_sale: 'Preventa',
   presale: 'Preventa',
   construction: 'Construcción',
   delivery: 'Entrega',
   completed: 'Completado',
+  cancelled: 'Cancelado',
 };
 
 const statusColors: Record<string, string> = {
   planning: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+  pre_sale: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
   presale: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
   construction: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
   delivery: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
   completed: 'bg-green-500/10 text-green-600 border-green-500/20',
+  cancelled: 'bg-red-500/10 text-red-600 border-red-500/20',
 };
 
 const formatCurrency = (value: number, currency = 'MXN') =>
@@ -48,7 +52,7 @@ export default function RealEstateProjects() {
   const totalUnits = projects.reduce((s, p) => s + (p.total_units || 0), 0);
   const soldUnits = projects.reduce((s, p) => s + (p.sold_units || 0), 0);
   const availableUnits = projects.reduce((s, p) => s + (p.available_units || 0), 0);
-  const activeCount = projects.filter(p => ['presale', 'construction'].includes(p.status)).length;
+  const activeCount = projects.filter(p => ['presale', 'pre_sale', 'construction'].includes(p.status)).length;
 
   return (
     <div className="space-y-6">
@@ -122,7 +126,9 @@ export default function RealEstateProjects() {
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="Estado" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los estados</SelectItem>
-            {Object.entries(statusLabels).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+            {Object.entries(statusLabels).filter(([k]) => k !== 'presale').map(([v, l]) => (
+              <SelectItem key={v} value={v}>{l}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -161,12 +167,16 @@ function ProjectCard({ project, onClick }: { project: RealEstateProject; onClick
 
   return (
     <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={onClick}>
-      {project.cover_image_url && (
+      {project.cover_image_url ? (
         <div className="h-40 overflow-hidden rounded-t-lg">
           <img src={project.cover_image_url} alt={project.name} className="w-full h-full object-cover" />
         </div>
+      ) : (
+        <div className="h-40 overflow-hidden rounded-t-lg bg-muted flex items-center justify-center">
+          <Building2 className="h-12 w-12 text-muted-foreground/30" />
+        </div>
       )}
-      <CardContent className={project.cover_image_url ? 'pt-4' : 'pt-6'}>
+      <CardContent className="pt-4">
         <div className="space-y-3">
           <div className="flex items-start justify-between">
             <div>
@@ -178,7 +188,7 @@ function ProjectCard({ project, onClick }: { project: RealEstateProject; onClick
               )}
             </div>
             <Badge variant="outline" className={statusColors[project.status] || ''}>
-              {statusLabels[project.status] || project.status}
+              {statusLabels[project.status] || project.status || 'Sin etapa'}
             </Badge>
           </div>
 

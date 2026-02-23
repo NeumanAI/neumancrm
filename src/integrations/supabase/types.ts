@@ -2325,15 +2325,26 @@ export type Database = {
           available_count: number | null
           bathrooms: number | null
           bedrooms: number | null
+          buyer_contact_id: string | null
+          commercial_status: string
           created_at: string
           currency: string | null
           features: Json | null
+          floor_number: number | null
           floor_plan_url: string | null
           id: string
           name: string
+          nomenclature: string | null
+          organization_id: string | null
           price: number | null
           project_id: string
+          property_type: string | null
+          sale_balance: number | null
+          sale_date: string | null
+          separation_date: string | null
+          separation_value: number | null
           total_count: number | null
+          typology: string | null
           updated_at: string
         }
         Insert: {
@@ -2341,15 +2352,26 @@ export type Database = {
           available_count?: number | null
           bathrooms?: number | null
           bedrooms?: number | null
+          buyer_contact_id?: string | null
+          commercial_status?: string
           created_at?: string
           currency?: string | null
           features?: Json | null
+          floor_number?: number | null
           floor_plan_url?: string | null
           id?: string
           name: string
+          nomenclature?: string | null
+          organization_id?: string | null
           price?: number | null
           project_id: string
+          property_type?: string | null
+          sale_balance?: number | null
+          sale_date?: string | null
+          separation_date?: string | null
+          separation_value?: number | null
           total_count?: number | null
+          typology?: string | null
           updated_at?: string
         }
         Update: {
@@ -2357,18 +2379,43 @@ export type Database = {
           available_count?: number | null
           bathrooms?: number | null
           bedrooms?: number | null
+          buyer_contact_id?: string | null
+          commercial_status?: string
           created_at?: string
           currency?: string | null
           features?: Json | null
+          floor_number?: number | null
           floor_plan_url?: string | null
           id?: string
           name?: string
+          nomenclature?: string | null
+          organization_id?: string | null
           price?: number | null
           project_id?: string
+          property_type?: string | null
+          sale_balance?: number | null
+          sale_date?: string | null
+          separation_date?: string | null
+          separation_value?: number | null
           total_count?: number | null
+          typology?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "real_estate_unit_types_buyer_contact_id_fkey"
+            columns: ["buyer_contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "real_estate_unit_types_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "real_estate_unit_types_project_id_fkey"
             columns: ["project_id"]

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -14,33 +15,57 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
+import {
   ArrowLeft, Building2, MapPin, Home, Users, Plus, Trash2, MoreHorizontal, Calendar,
+  Pencil, FileSpreadsheet, Image,
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useRealEstateProject } from '@/hooks/useRealEstateProjects';
-import { useRealEstateUnitTypes, RealEstateUnitType } from '@/hooks/useRealEstateUnitTypes';
+import { useRealEstateProject, useRealEstateProjects } from '@/hooks/useRealEstateProjects';
+import {
+  useRealEstateUnitTypes, RealEstateUnitType,
+  PROPERTY_TYPE_OPTIONS, COMMERCIAL_STATUS_OPTIONS, COMMERCIAL_STATUS_COLORS,
+} from '@/hooks/useRealEstateUnitTypes';
 import { useRealEstateLeads, leadStatusLabels, leadStatusColors, RealEstateLeadStatus } from '@/hooks/useRealEstateLeads';
 import { useContacts } from '@/hooks/useContacts';
+import { BuyerContactSearch } from '@/components/realestate/BuyerContactSearch';
+import { ImportUnitsDialog } from '@/components/realestate/ImportUnitsDialog';
 import { cn } from '@/lib/utils';
 
 const formatCurrency = (value: number, currency = 'MXN') =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency, minimumFractionDigits: 0 }).format(value);
 
 const statusLabels: Record<string, string> = {
-  planning: 'Planeación', presale: 'Preventa', construction: 'Construcción',
-  delivery: 'Entrega', completed: 'Completado',
+  planning: 'Planeación', pre_sale: 'Preventa', presale: 'Preventa',
+  construction: 'Construcción', delivery: 'Entrega', completed: 'Completado', cancelled: 'Cancelado',
 };
+
+const STATUS_OPTIONS = [
+  { value: 'planning', label: 'Planeación' },
+  { value: 'pre_sale', label: 'Preventa' },
+  { value: 'construction', label: 'Construcción' },
+  { value: 'delivery', label: 'Entrega' },
+  { value: 'completed', label: 'Completado' },
+  { value: 'cancelled', label: 'Cancelado' },
+];
 
 export default function RealEstateProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const [addUnitOpen, setAddUnitOpen] = useState(false);
+  const [editUnit, setEditUnit] = useState<RealEstateUnitType | null>(null);
   const [addLeadOpen, setAddLeadOpen] = useState(false);
+  const [importUnitsOpen, setImportUnitsOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [editingImage, setEditingImage] = useState(false);
+  const [newImageUrl, setNewImageUrl] = useState('');
 
   const { data: project, isLoading } = useRealEstateProject(projectId);
-  const { unitTypes, createUnitType, deleteUnitType } = useRealEstateUnitTypes(projectId);
+  const { updateProject } = useRealEstateProjects();
+  const { unitTypes, createUnitType, updateUnitType, deleteUnitType } = useRealEstateUnitTypes(projectId);
   const { leads, addLead, updateLeadStatus, deleteLead } = useRealEstateLeads(projectId);
 
   if (isLoading) {
@@ -58,8 +83,21 @@ export default function RealEstateProjectDetail() {
     );
   }
 
+  const filteredUnits = statusFilter === 'all'
+    ? unitTypes
+    : unitTypes.filter(u => u.commercial_status === statusFilter);
+
   const progressPercent = project.total_units > 0
     ? Math.round((project.sold_units / project.total_units) * 100) : 0;
+
+  const handleStatusChange = (newStatus: string) => {
+    updateProject.mutate({ id: project.id, status: newStatus } as any);
+  };
+
+  const handleImageSave = () => {
+    updateProject.mutate({ id: project.id, cover_image_url: newImageUrl || null } as any);
+    setEditingImage(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -69,11 +107,20 @@ export default function RealEstateProjectDetail() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <Building2 className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold">{project.name}</h1>
             {project.code && <Badge variant="outline">{project.code}</Badge>}
-            <Badge variant="outline">{statusLabels[project.status] || project.status}</Badge>
+            <Select value={project.status} onValueChange={handleStatusChange}>
+              <SelectTrigger className="h-8 w-auto text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map(s => (
+                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           {project.city && (
             <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
@@ -117,6 +164,35 @@ export default function RealEstateProjectDetail() {
 
         {/* Summary Tab */}
         <TabsContent value="summary" className="mt-4 space-y-4">
+          {/* Cover Image */}
+          <Card>
+            <CardHeader className="flex-row items-center justify-between pb-2">
+              <CardTitle className="text-base">Imagen del Proyecto</CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => { setNewImageUrl(project.cover_image_url || ''); setEditingImage(!editingImage); }}>
+                <Image className="h-4 w-4 mr-1" />{project.cover_image_url ? 'Cambiar' : 'Agregar'}
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {editingImage ? (
+                <div className="space-y-2">
+                  <Input placeholder="URL de la imagen..." value={newImageUrl} onChange={(e) => setNewImageUrl(e.target.value)} />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleImageSave}>Guardar</Button>
+                    <Button size="sm" variant="outline" onClick={() => setEditingImage(false)}>Cancelar</Button>
+                  </div>
+                </div>
+              ) : project.cover_image_url ? (
+                <div className="h-48 rounded-lg overflow-hidden">
+                  <img src={project.cover_image_url} alt={project.name} className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div className="h-48 rounded-lg bg-muted flex items-center justify-center">
+                  <Building2 className="h-12 w-12 text-muted-foreground/30" />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader><CardTitle>Información General</CardTitle></CardHeader>
             <CardContent className="space-y-4">
@@ -139,7 +215,6 @@ export default function RealEstateProjectDetail() {
                   </div>
                 )}
               </div>
-              {/* Sales progress */}
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-2">Progreso de ventas</p>
                 <div className="h-3 bg-muted rounded-full overflow-hidden">
@@ -147,7 +222,6 @@ export default function RealEstateProjectDetail() {
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">{progressPercent}% vendido</p>
               </div>
-              {/* Amenities */}
               {project.amenities && (project.amenities as string[]).length > 0 && (
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-2">Amenidades</p>
@@ -165,39 +239,102 @@ export default function RealEstateProjectDetail() {
         {/* Units Tab */}
         <TabsContent value="units" className="mt-4">
           <Card>
-            <CardHeader className="flex-row items-center justify-between pb-4">
-              <CardTitle>Tipos de Unidades</CardTitle>
-              <Button size="sm" onClick={() => setAddUnitOpen(true)}><Plus className="h-4 w-4 mr-2" />Agregar Tipo</Button>
+            <CardHeader className="flex-row items-center justify-between pb-4 flex-wrap gap-2">
+              <CardTitle>Unidades</CardTitle>
+              <div className="flex items-center gap-2">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-8 w-[140px] text-xs">
+                    <SelectValue placeholder="Filtrar estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {COMMERCIAL_STATUS_OPTIONS.map(s => (
+                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button size="sm" variant="outline" onClick={() => setImportUnitsOpen(true)}>
+                  <FileSpreadsheet className="h-4 w-4 mr-1" />Importar
+                </Button>
+                <Button size="sm" onClick={() => setAddUnitOpen(true)}>
+                  <Plus className="h-4 w-4 mr-1" />Agregar
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              {unitTypes.length === 0 ? (
+              {filteredUnits.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Home className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No hay tipos de unidades</p>
+                  <p>No hay unidades{statusFilter !== 'all' ? ' con este estado' : ''}</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {unitTypes.map((ut) => (
-                    <Card key={ut.id} className="border">
-                      <CardContent className="pt-4">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h4 className="font-semibold">{ut.name}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              {ut.bedrooms} hab · {ut.bathrooms} baños · {ut.area_m2 ? `${ut.area_m2} m²` : '—'}
-                            </p>
-                            {ut.price && <p className="font-medium mt-1">{formatCurrency(ut.price)}</p>}
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {ut.available_count} disponibles de {ut.total_count}
-                            </p>
-                          </div>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => deleteUnitType.mutate(ut.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                <div className="overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Nombre / Nomenclatura</TableHead>
+                        <TableHead>Piso</TableHead>
+                        <TableHead>Tipología</TableHead>
+                        <TableHead>Área</TableHead>
+                        <TableHead>Precio</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead>Comprador</TableHead>
+                        <TableHead className="w-[60px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUnits.map((ut) => (
+                        <TableRow key={ut.id}>
+                          <TableCell className="text-sm">
+                            {PROPERTY_TYPE_OPTIONS.find(p => p.value === ut.property_type)?.label || ut.property_type || '—'}
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium text-sm">{ut.name}</p>
+                              {ut.nomenclature && <p className="text-xs text-muted-foreground">{ut.nomenclature}</p>}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">{ut.floor_number ?? '—'}</TableCell>
+                          <TableCell className="text-sm">{ut.typology || '—'}</TableCell>
+                          <TableCell className="text-sm">{ut.area_m2 ? `${ut.area_m2} m²` : '—'}</TableCell>
+                          <TableCell className="text-sm">{ut.price ? formatCurrency(ut.price) : '—'}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={cn('text-xs', COMMERCIAL_STATUS_COLORS[ut.commercial_status] || '')}>
+                              {ut.commercial_status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {ut.buyer_contact ? (
+                              <button
+                                className="text-primary hover:underline text-xs"
+                                onClick={() => navigate(`/contacts/${ut.buyer_contact!.id}`)}
+                              >
+                                {ut.buyer_contact.first_name} {ut.buyer_contact.last_name}
+                              </button>
+                            ) : '—'}
+                          </TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => setEditUnit(ut)}>
+                                  <Pencil className="h-4 w-4 mr-2" />Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => deleteUnitType.mutate(ut.id)} className="text-destructive">
+                                  <Trash2 className="h-4 w-4 mr-2" />Eliminar
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </CardContent>
@@ -269,12 +406,22 @@ export default function RealEstateProjectDetail() {
         </TabsContent>
       </Tabs>
 
-      {/* Add Unit Type Dialog */}
-      <AddUnitTypeDialog
-        open={addUnitOpen}
-        onOpenChange={setAddUnitOpen}
+      {/* Add/Edit Unit Dialog */}
+      <UnitTypeDialog
+        open={addUnitOpen || !!editUnit}
+        onOpenChange={(o) => { if (!o) { setAddUnitOpen(false); setEditUnit(null); } }}
         projectId={projectId!}
-        onCreate={(data) => createUnitType.mutate({ ...data, project_id: projectId! })}
+        editData={editUnit}
+        onCreate={(data) => {
+          createUnitType.mutate({ ...data, project_id: projectId! } as any);
+          setAddUnitOpen(false);
+        }}
+        onUpdate={(data) => {
+          if (editUnit) {
+            updateUnitType.mutate({ id: editUnit.id, ...data } as any);
+            setEditUnit(null);
+          }
+        }}
       />
 
       {/* Add Lead Dialog */}
@@ -284,74 +431,222 @@ export default function RealEstateProjectDetail() {
         projectId={projectId!}
         onAdd={(contactId) => addLead.mutate({ project_id: projectId!, contact_id: contactId })}
       />
+
+      {/* Import Units Dialog */}
+      <ImportUnitsDialog
+        open={importUnitsOpen}
+        onOpenChange={setImportUnitsOpen}
+        projectId={projectId!}
+      />
     </div>
   );
 }
 
 // ── Sub-components ──────────────────────────────────────────────
 
-function AddUnitTypeDialog({ open, onOpenChange, projectId, onCreate }: {
+function UnitTypeDialog({ open, onOpenChange, projectId, editData, onCreate, onUpdate }: {
   open: boolean; onOpenChange: (o: boolean) => void; projectId: string;
+  editData: RealEstateUnitType | null;
   onCreate: (data: Partial<RealEstateUnitType>) => void;
+  onUpdate: (data: Partial<RealEstateUnitType>) => void;
 }) {
   const [name, setName] = useState('');
+  const [propertyType, setPropertyType] = useState('');
+  const [nomenclature, setNomenclature] = useState('');
+  const [floorNumber, setFloorNumber] = useState('');
+  const [typology, setTypology] = useState('');
   const [bedrooms, setBedrooms] = useState('0');
   const [bathrooms, setBathrooms] = useState('0');
   const [area, setArea] = useState('');
   const [price, setPrice] = useState('');
-  const [totalCount, setTotalCount] = useState('0');
+  const [totalCount, setTotalCount] = useState('1');
+  const [commercialStatus, setCommercialStatus] = useState('Disponible');
+  const [buyerContactId, setBuyerContactId] = useState<string | null>(null);
+  const [buyerContact, setBuyerContact] = useState<any>(null);
+  const [separationDate, setSeparationDate] = useState('');
+  const [saleDate, setSaleDate] = useState('');
+  const [separationValue, setSeparationValue] = useState('');
+  const [saleBalance, setSaleBalance] = useState('');
+
+  // Populate when editing
+  const populateForm = () => {
+    if (editData) {
+      setName(editData.name);
+      setPropertyType(editData.property_type || '');
+      setNomenclature(editData.nomenclature || '');
+      setFloorNumber(editData.floor_number?.toString() || '');
+      setTypology(editData.typology || '');
+      setBedrooms(editData.bedrooms?.toString() || '0');
+      setBathrooms(editData.bathrooms?.toString() || '0');
+      setArea(editData.area_m2?.toString() || '');
+      setPrice(editData.price?.toString() || '');
+      setTotalCount(editData.total_count?.toString() || '1');
+      setCommercialStatus(editData.commercial_status || 'Disponible');
+      setBuyerContactId(editData.buyer_contact_id);
+      setBuyerContact(editData.buyer_contact || null);
+      setSeparationDate(editData.separation_date || '');
+      setSaleDate(editData.sale_date || '');
+      setSeparationValue(editData.separation_value?.toString() || '');
+      setSaleBalance(editData.sale_balance?.toString() || '');
+    } else {
+      setName(''); setPropertyType(''); setNomenclature(''); setFloorNumber('');
+      setTypology(''); setBedrooms('0'); setBathrooms('0'); setArea(''); setPrice('');
+      setTotalCount('1'); setCommercialStatus('Disponible'); setBuyerContactId(null);
+      setBuyerContact(null); setSeparationDate(''); setSaleDate('');
+      setSeparationValue(''); setSaleBalance('');
+    }
+  };
+
+  // Populate when dialog opens
+  useState(() => { populateForm(); });
+
+  // Re-populate when editData changes
+  const [lastEditId, setLastEditId] = useState<string | null>(null);
+  if ((editData?.id || null) !== lastEditId) {
+    setLastEditId(editData?.id || null);
+    populateForm();
+  }
 
   const handleSubmit = () => {
     if (!name.trim()) return;
-    onCreate({
+    const data: Partial<RealEstateUnitType> = {
       name,
+      property_type: propertyType || null,
+      nomenclature: nomenclature || null,
+      floor_number: floorNumber ? parseInt(floorNumber) : null,
+      typology: typology || null,
       bedrooms: parseInt(bedrooms) || 0,
       bathrooms: parseFloat(bathrooms) || 0,
-      area_m2: area ? parseFloat(area) : undefined,
-      price: price ? parseFloat(price) : undefined,
-      total_count: parseInt(totalCount) || 0,
-      available_count: parseInt(totalCount) || 0,
-    } as any);
-    setName(''); setBedrooms('0'); setBathrooms('0'); setArea(''); setPrice(''); setTotalCount('0');
-    onOpenChange(false);
+      area_m2: area ? parseFloat(area) : null,
+      price: price ? parseFloat(price) : null,
+      total_count: parseInt(totalCount) || 1,
+      available_count: commercialStatus === 'Disponible' ? (parseInt(totalCount) || 1) : 0,
+      commercial_status: commercialStatus,
+      buyer_contact_id: ['Separado', 'Vendido'].includes(commercialStatus) ? buyerContactId : null,
+      separation_date: separationDate || null,
+      sale_date: saleDate || null,
+      separation_value: separationValue ? parseFloat(separationValue) : null,
+      sale_balance: saleBalance ? parseFloat(saleBalance) : null,
+    };
+
+    if (editData) {
+      onUpdate(data);
+    } else {
+      onCreate(data);
+    }
   };
+
+  const showBuyerFields = ['Separado', 'Vendido'].includes(commercialStatus);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader><DialogTitle>Nuevo Tipo de Unidad</DialogTitle></DialogHeader>
+      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>{editData ? 'Editar Unidad' : 'Nueva Unidad'}</DialogTitle></DialogHeader>
         <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium">Nombre *</label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Depto 2 recámaras" />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Nombre *</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Apto 101" />
+            </div>
+            <div>
+              <Label>Tipo de propiedad</Label>
+              <Select value={propertyType} onValueChange={setPropertyType}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                <SelectContent>
+                  {PROPERTY_TYPE_OPTIONS.map(p => (
+                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="text-sm font-medium">Recámaras</label>
+              <Label>Nomenclatura</Label>
+              <Input value={nomenclature} onChange={(e) => setNomenclature(e.target.value)} placeholder="A-101" />
+            </div>
+            <div>
+              <Label>Piso</Label>
+              <Input type="number" value={floorNumber} onChange={(e) => setFloorNumber(e.target.value)} />
+            </div>
+            <div>
+              <Label>Tipología</Label>
+              <Input value={typology} onChange={(e) => setTypology(e.target.value)} placeholder="2 Hab" />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <Label>Recámaras</Label>
               <Input type="number" value={bedrooms} onChange={(e) => setBedrooms(e.target.value)} />
             </div>
             <div>
-              <label className="text-sm font-medium">Baños</label>
+              <Label>Baños</Label>
               <Input type="number" value={bathrooms} onChange={(e) => setBathrooms(e.target.value)} />
             </div>
             <div>
-              <label className="text-sm font-medium">m²</label>
+              <Label>Área m²</Label>
               <Input type="number" value={area} onChange={(e) => setArea(e.target.value)} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium">Precio</label>
+              <Label>Precio</Label>
               <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
             </div>
             <div>
-              <label className="text-sm font-medium">Total unidades</label>
+              <Label>Total unidades</Label>
               <Input type="number" value={totalCount} onChange={(e) => setTotalCount(e.target.value)} />
             </div>
           </div>
-          <div className="flex justify-end gap-2">
+          <div>
+            <Label>Estado comercial</Label>
+            <Select value={commercialStatus} onValueChange={setCommercialStatus}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {COMMERCIAL_STATUS_OPTIONS.map(s => (
+                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {showBuyerFields && (
+            <div className="space-y-4 border-t pt-4">
+              <p className="text-sm font-medium text-muted-foreground">Datos del comprador</p>
+              <div>
+                <Label>Comprador</Label>
+                <BuyerContactSearch
+                  value={buyerContactId}
+                  selectedContact={buyerContact}
+                  onChange={(id, contact) => { setBuyerContactId(id); setBuyerContact(contact); }}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>{commercialStatus === 'Separado' ? 'Fecha separación' : 'Fecha venta'}</Label>
+                  <Input
+                    type="date"
+                    value={commercialStatus === 'Separado' ? separationDate : saleDate}
+                    onChange={(e) => commercialStatus === 'Separado' ? setSeparationDate(e.target.value) : setSaleDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>{commercialStatus === 'Separado' ? 'Valor separación' : 'Saldo venta'}</Label>
+                  <Input
+                    type="number"
+                    value={commercialStatus === 'Separado' ? separationValue : saleBalance}
+                    onChange={(e) => commercialStatus === 'Separado' ? setSeparationValue(e.target.value) : setSaleBalance(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button onClick={handleSubmit} disabled={!name.trim()}>Crear</Button>
+            <Button onClick={handleSubmit} disabled={!name.trim()}>
+              {editData ? 'Guardar' : 'Crear'}
+            </Button>
           </div>
         </div>
       </DialogContent>
