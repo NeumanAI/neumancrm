@@ -20,19 +20,22 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Users, Plus, Search, Mail, Building2, Trash2, Edit, Sparkles } from 'lucide-react';
+import { Users, Plus, Search, Mail, Building2, Trash2, Edit, Sparkles, UserCheck } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { ConversationalForm } from '@/components/ai/ConversationalForm';
 import { useActionTracking } from '@/hooks/useActionTracking';
+import { useAdvisors } from '@/hooks/useAdvisorAttribution';
 
 export default function Contacts() {
   const navigate = useNavigate();
   const { contacts, isLoading, createContact, updateContact, deleteContact } = useContacts();
   const { companies } = useCompanies();
+  const { advisors } = useAdvisors();
   const [searchQuery, setSearchQuery] = useState('');
+  const [advisorFilter, setAdvisorFilter] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showNLI, setShowNLI] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
@@ -57,6 +60,9 @@ export default function Contacts() {
     if (activeTypeTab !== 'all') {
       result = result.filter(c => ((c as any).contact_type || 'prospecto') === activeTypeTab);
     }
+    if (advisorFilter !== 'all') {
+      result = result.filter(c => (c as any).assigned_advisor_id === advisorFilter);
+    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(c =>
@@ -67,7 +73,7 @@ export default function Contacts() {
       );
     }
     return result;
-  }, [contacts, activeTypeTab, searchQuery]);
+  }, [contacts, activeTypeTab, advisorFilter, searchQuery]);
 
   const openCreateDialog = () => {
     setEditingContact(null);
@@ -133,10 +139,26 @@ export default function Contacts() {
         </TabsList>
       </Tabs>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Buscar contactos..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+      {/* Search + Advisor Filter */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Buscar contactos..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+        </div>
+        {advisors.length > 0 && (
+          <Select value={advisorFilter} onValueChange={setAdvisorFilter}>
+            <SelectTrigger className="w-48">
+              <UserCheck className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Asesor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los asesores</SelectItem>
+              {advisors.map(a => (
+                <SelectItem key={a.user_id} value={a.user_id}>{a.full_name || a.email}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Table */}
@@ -150,7 +172,7 @@ export default function Contacts() {
                 <TableHead>Nombre</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Empresa</TableHead>
-                <TableHead>Cargo</TableHead>
+                <TableHead>Asesor</TableHead>
                 <TableHead>Creado</TableHead>
                 <TableHead className="w-[100px]">Acciones</TableHead>
               </TableRow>
@@ -188,7 +210,12 @@ export default function Contacts() {
                         </Badge>
                       ) : <span className="text-muted-foreground text-sm">-</span>}
                     </TableCell>
-                    <TableCell><span className="text-sm">{contact.job_title || '-'}</span></TableCell>
+                    <TableCell>
+                      {(() => {
+                        const advisor = advisors.find(a => a.user_id === (contact as any).assigned_advisor_id);
+                        return advisor ? <span className="text-sm">{advisor.full_name || advisor.email}</span> : <span className="text-muted-foreground text-sm">-</span>;
+                      })()}
+                    </TableCell>
                     <TableCell>
                       <span className="text-sm text-muted-foreground">
                         {format(parseISO(contact.created_at), 'dd MMM yyyy', { locale: es })}

@@ -42,6 +42,7 @@ import BrandedAuth from "./pages/BrandedAuth";
 import RealEstateProjects from "./pages/RealEstateProjects";
 import RealEstateProjectDetail from "./pages/RealEstateProjectDetail";
 import Impersonate from "./pages/Impersonate";
+import AdvisorDashboard from "./pages/AdvisorDashboard";
 
 // Route guards
 function RequireSuperAdmin({ children }: { children: ReactNode }) {
@@ -115,6 +116,7 @@ const App = () => (
               <Route path="/segmentos/:projectId" element={<AppLayout><ProjectDetail /></AppLayout>} />
               <Route path="/projects" element={<Navigate to="/segmentos" replace />} />
               <Route path="/projects/:projectId" element={<Navigate to="/segmentos" replace />} />
+              <Route path="/gestion-comercial" element={<AppLayout><AdvisorDashboard /></AppLayout>} />
               <Route path="/proyectos" element={<AppLayout><RealEstateProjects /></AppLayout>} />
               <Route path="/proyectos/:projectId" element={<AppLayout><RealEstateProjectDetail /></AppLayout>} />
               <Route path="/calendar" element={<AppLayout><CalendarPage /></AppLayout>} />
