@@ -3,6 +3,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
+export const REAL_ESTATE_DOC_TYPES = [
+  { value: 'promesa', label: 'Promesa de compraventa', color: 'bg-blue-500/10 text-blue-600' },
+  { value: 'hoja_negocio', label: 'Hoja de negocio', color: 'bg-green-500/10 text-green-600' },
+  { value: 'cedula', label: 'Cédula / ID', color: 'bg-amber-500/10 text-amber-600' },
+  { value: 'certificado', label: 'Certificado', color: 'bg-purple-500/10 text-purple-600' },
+  { value: 'soporte_pago', label: 'Soporte de pago', color: 'bg-emerald-500/10 text-emerald-600' },
+  { value: 'contrato', label: 'Contrato', color: 'bg-indigo-500/10 text-indigo-600' },
+  { value: 'poder', label: 'Poder notarial', color: 'bg-orange-500/10 text-orange-600' },
+  { value: 'other', label: 'Otro', color: 'bg-gray-500/10 text-gray-600' },
+] as const;
+
 export interface ContactDocument {
   id: string;
   user_id: string;
@@ -46,19 +57,16 @@ export function useContactDocuments(contactId: string) {
     mutationFn: async ({ contactId, file, documentType, description }: UploadDocumentParams) => {
       if (!user) throw new Error('No autenticado');
 
-      // Generate unique file path
       const timestamp = Date.now();
       const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
       const filePath = `${user.id}/${contactId}/${timestamp}_${safeName}`;
 
-      // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from('contact-documents')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      // Create database record
       const { data, error: dbError } = await supabase
         .from('contact_documents')
         .insert({
@@ -75,7 +83,6 @@ export function useContactDocuments(contactId: string) {
         .single();
 
       if (dbError) {
-        // Rollback storage upload if DB insert fails
         await supabase.storage.from('contact-documents').remove([filePath]);
         throw dbError;
       }
@@ -94,14 +101,12 @@ export function useContactDocuments(contactId: string) {
 
   const deleteDocument = useMutation({
     mutationFn: async (document: ContactDocument) => {
-      // Delete from storage
       const { error: storageError } = await supabase.storage
         .from('contact-documents')
         .remove([document.file_path]);
 
       if (storageError) throw storageError;
 
-      // Delete from database
       const { error: dbError } = await supabase
         .from('contact_documents')
         .delete()
@@ -122,7 +127,7 @@ export function useContactDocuments(contactId: string) {
   const getDownloadUrl = async (filePath: string): Promise<string | null> => {
     const { data, error } = await supabase.storage
       .from('contact-documents')
-      .createSignedUrl(filePath, 3600); // 1 hour expiry
+      .createSignedUrl(filePath, 3600);
 
     if (error) {
       if (import.meta.env.DEV) console.error('Error getting download URL:', error);

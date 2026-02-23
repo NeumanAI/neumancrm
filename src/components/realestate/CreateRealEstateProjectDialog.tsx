@@ -12,12 +12,27 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { useRealEstateProjects } from '@/hooks/useRealEstateProjects';
+import { Building2 } from 'lucide-react';
+
+const STATUS_OPTIONS = [
+  { value: 'planning', label: 'Planeación' },
+  { value: 'pre_sale', label: 'Preventa' },
+  { value: 'construction', label: 'Construcción' },
+  { value: 'delivery', label: 'Entrega' },
+  { value: 'completed', label: 'Completado' },
+  { value: 'cancelled', label: 'Cancelado' },
+];
 
 const formSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
   code: z.string().optional(),
   description: z.string().optional(),
+  status: z.string().min(1, 'La etapa es requerida'),
+  cover_image_url: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
@@ -42,10 +57,13 @@ export function CreateRealEstateProjectDialog({ open, onOpenChange }: Props) {
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: '', code: '', description: '', address: '', city: '',
-      state: '', country: '', total_units: '', price_from: '', price_to: '', estimated_delivery: '',
+      name: '', code: '', description: '', status: '', cover_image_url: '',
+      address: '', city: '', state: '', country: '',
+      total_units: '', price_from: '', price_to: '', estimated_delivery: '',
     },
   });
+
+  const coverUrl = form.watch('cover_image_url');
 
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);
@@ -54,6 +72,8 @@ export function CreateRealEstateProjectDialog({ open, onOpenChange }: Props) {
         name: data.name,
         code: data.code || undefined,
         description: data.description || undefined,
+        status: data.status,
+        cover_image_url: data.cover_image_url || undefined,
         address: data.address || undefined,
         city: data.city || undefined,
         state: data.state || undefined,
@@ -100,19 +120,59 @@ export function CreateRealEstateProjectDialog({ open, onOpenChange }: Props) {
                       <FormMessage />
                     </FormItem>
                   )} />
-                  <FormField control={form.control} name="estimated_delivery" render={({ field }) => (
+                  <FormField control={form.control} name="status" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Entrega estimada</FormLabel>
-                      <FormControl><Input type="date" {...field} /></FormControl>
+                      <FormLabel>Etapa *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar etapa" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {STATUS_OPTIONS.map((s) => (
+                            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )} />
                 </div>
+                <FormField control={form.control} name="estimated_delivery" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Entrega estimada</FormLabel>
+                    <FormControl><Input type="date" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
                 <FormField control={form.control} name="description" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Descripción</FormLabel>
                     <FormControl><Textarea rows={3} placeholder="Descripción del proyecto..." {...field} /></FormControl>
                     <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="cover_image_url" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>URL imagen de portada</FormLabel>
+                    <FormControl><Input placeholder="https://..." {...field} /></FormControl>
+                    <FormMessage />
+                    {coverUrl && (
+                      <div className="mt-2 h-32 rounded-lg overflow-hidden border bg-muted">
+                        <img
+                          src={coverUrl}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      </div>
+                    )}
+                    {!coverUrl && (
+                      <div className="mt-2 h-32 rounded-lg border bg-muted flex items-center justify-center">
+                        <Building2 className="h-8 w-8 text-muted-foreground/40" />
+                      </div>
+                    )}
                   </FormItem>
                 )} />
               </TabsContent>
