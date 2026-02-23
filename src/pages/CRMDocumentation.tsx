@@ -19,7 +19,10 @@ import {
   Plug,
   BarChart3,
   Loader2,
-  ArrowLeft
+  ArrowLeft,
+  CalendarDays,
+  FileText,
+  UserCheck
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
@@ -41,214 +44,259 @@ const modules: Module[] = [
   {
     icon: <Users className="h-6 w-6" />,
     title: "Gestión de Contactos",
-    description: "Sistema completo para administrar leads y contactos comerciales",
+    description: "Captura, organiza y da seguimiento a todos tus prospectos y clientes en un solo lugar",
     features: [
-      { name: "Creación y edición de contactos", description: "Formularios completos con validación de datos" },
-      { name: "Importación masiva (CSV/Excel)", description: "Hasta 1500+ registros con mapeo automático de columnas", status: "stable" },
-      { name: "Campos personalizados", description: "WhatsApp, Instagram, teléfono alternativo" },
-      { name: "Historial de timeline", description: "Registro cronológico de todas las interacciones" },
-      { name: "Documentos adjuntos", description: "Contratos, propuestas, acuerdos por contacto" },
-      { name: "Asignación a proyectos", description: "Relación muchos-a-muchos con proyectos/unidades de negocio" },
-      { name: "Estados de contacto", description: "Lead, Calificado, Cliente, Inactivo" },
-      { name: "Nivel de interés", description: "Escala 1-10 para priorización" },
-      { name: "Fuente de origen", description: "Tracking de canal: Manual, Webchat, WhatsApp, Instagram, Email" },
-      { name: "Búsqueda y filtros avanzados", description: "Por nombre, email, empresa, proyecto" },
+      { name: "Fichas completas de contacto", description: "Toda la información de tu prospecto en una sola vista: datos, historial, documentos y más" },
+      { name: "Importación masiva", description: "Sube tu base de datos desde Excel o CSV con mapeo automático de columnas — hasta 1,500+ registros de una vez", status: "stable" },
+      { name: "Canales de contacto unificados", description: "WhatsApp, Instagram, teléfono, email — todos los datos de contacto en un mismo perfil" },
+      { name: "Historial completo de interacciones", description: "Timeline cronológico de cada llamada, email, reunión y nota con el contacto" },
+      { name: "Documentos por contacto", description: "Adjunta contratos, propuestas y acuerdos directamente al perfil del prospecto" },
+      { name: "Segmentación por proyecto", description: "Asigna contactos a múltiples unidades de negocio o proyectos simultáneamente" },
+      { name: "Estados inteligentes", description: "Clasifica automáticamente: Lead, Calificado, Cliente o Inactivo" },
+      { name: "Nivel de interés", description: "Prioriza tu atención con una escala visual de 1 a 10" },
+      { name: "Rastreo de origen", description: "Sabe exactamente de dónde vino cada lead: Webchat, WhatsApp, Instagram, Email o captura manual" },
+      { name: "Búsqueda y filtros avanzados", description: "Encuentra cualquier contacto en segundos filtrando por nombre, empresa, proyecto o asesor" },
     ]
   },
   {
     icon: <Building2 className="h-6 w-6" />,
     title: "Gestión de Empresas",
-    description: "Administración de cuentas corporativas y organizaciones",
+    description: "Administra cuentas corporativas con visión completa de contactos, oportunidades y documentos",
     features: [
-      { name: "Perfil completo de empresa", description: "Nombre, dominio, industria, tamaño, ingresos" },
-      { name: "Contactos asociados", description: "Vista de todos los contactos de la empresa" },
-      { name: "Oportunidades de la empresa", description: "Deals asociados a la cuenta" },
-      { name: "Timeline unificado", description: "Historial de interacciones a nivel empresa" },
-      { name: "Documentos corporativos", description: "Contratos marco, acuerdos comerciales" },
-      { name: "Información de ubicación", description: "Dirección, ciudad, país" },
-      { name: "Redes sociales", description: "LinkedIn, Twitter corporativo" },
-      { name: "Logo de empresa", description: "Carga y visualización de imagen corporativa" },
+      { name: "Perfil corporativo completo", description: "Nombre, sitio web, industria, tamaño del equipo e ingresos estimados en una vista" },
+      { name: "Contactos de la empresa", description: "Ve todos los contactos asociados a cada cuenta corporativa" },
+      { name: "Oportunidades vinculadas", description: "Visualiza todos los deals abiertos con la empresa de un vistazo" },
+      { name: "Timeline unificado", description: "Historial completo de todas las interacciones a nivel empresa" },
+      { name: "Documentos corporativos", description: "Contratos marco, acuerdos comerciales y propuestas centralizados" },
+      { name: "Ubicación y datos geográficos", description: "Dirección, ciudad y país para segmentación regional" },
+      { name: "Redes sociales corporativas", description: "LinkedIn y Twitter de la empresa siempre a la mano" },
+      { name: "Logo e identidad visual", description: "Identifica rápidamente cada cuenta con su imagen corporativa" },
     ]
   },
   {
     icon: <Target className="h-6 w-6" />,
     title: "Pipeline de Ventas",
-    description: "Gestión visual del embudo de ventas con Kanban",
+    description: "Visualiza y controla tu embudo de ventas con tablero Kanban interactivo",
     features: [
-      { name: "Vista Kanban drag & drop", description: "Arrastrar oportunidades entre etapas" },
-      { name: "Pipelines múltiples", description: "Diferentes embudos para distintos productos/servicios" },
-      { name: "Etapas personalizables", description: "Nombre, color, probabilidad, posición" },
-      { name: "Valores de oportunidad", description: "Monto, moneda, probabilidad de cierre" },
-      { name: "Fecha de cierre esperada", description: "Proyección de ingresos" },
-      { name: "Estados: Abierto/Ganado/Perdido", description: "Con registro de razón de pérdida" },
-      { name: "Asociación a contactos y empresas", description: "Vinculación completa de entidades" },
-      { name: "Asignación por proyecto", description: "Filtrado de deals por unidad de negocio" },
-      { name: "Métricas de pipeline", description: "Valor total, tasa de conversión" },
+      { name: "Tablero Kanban visual", description: "Arrastra y suelta oportunidades entre etapas — ve el estado de tus ventas de un vistazo" },
+      { name: "Múltiples pipelines", description: "Crea embudos distintos para cada producto, servicio o línea de negocio" },
+      { name: "Etapas personalizables", description: "Define nombres, colores y probabilidades para cada fase de tu proceso de venta" },
+      { name: "Valor y probabilidad", description: "Registra el monto de cada oportunidad y su probabilidad de cierre" },
+      { name: "Proyección de cierre", description: "Fecha esperada de cierre para planificar tus ingresos" },
+      { name: "Ganado / Perdido con razón", description: "Registra el resultado final y el motivo — aprende de cada negociación" },
+      { name: "Vinculación completa", description: "Asocia cada oportunidad a contactos, empresas y proyectos" },
+      { name: "Filtrado por proyecto", description: "Ve solo los deals de la unidad de negocio que te interesa" },
+      { name: "Métricas del pipeline", description: "Valor total en juego, tasa de conversión y velocidad del embudo" },
     ]
   },
   {
     icon: <CheckSquare className="h-6 w-6" />,
     title: "Tareas y Actividades",
-    description: "Gestión de productividad y seguimiento de acciones",
+    description: "Nunca pierdas un seguimiento — organiza llamadas, reuniones, emails y pendientes",
     features: [
-      { name: "Tipos de actividad", description: "Tarea, Llamada, Email, Reunión, Nota" },
-      { name: "Prioridades", description: "Baja, Media, Alta, Urgente con colores distintivos" },
-      { name: "Fechas de vencimiento", description: "Selector de fecha para planificación" },
-      { name: "Estado completado", description: "Checkbox con marca de tiempo" },
-      { name: "Vinculación a entidades", description: "Contacto, Empresa, Oportunidad asociados" },
-      { name: "Filtros por tipo y estado", description: "Vista de tareas pendientes/completadas" },
-      { name: "Asignación a miembros", description: "Delegación de tareas dentro del equipo" },
+      { name: "5 tipos de actividad", description: "Tarea, Llamada, Email, Reunión y Nota — cada una con su icono y flujo" },
+      { name: "Prioridades visuales", description: "Baja, Media, Alta y Urgente con colores distintivos para enfocarte en lo importante" },
+      { name: "Fechas de vencimiento", description: "Planifica cuándo debe completarse cada seguimiento" },
+      { name: "Marca de completado", description: "Un clic para cerrar la tarea con registro automático de fecha y hora" },
+      { name: "Vinculación a entidades", description: "Asocia cada tarea a un contacto, empresa u oportunidad específica" },
+      { name: "Filtros inteligentes", description: "Ve solo las tareas pendientes, completadas o filtradas por tipo" },
+      { name: "Asignación al equipo", description: "Delega tareas a miembros de tu equipo con seguimiento de cumplimiento" },
     ]
   },
   {
     icon: <MessageSquare className="h-6 w-6" />,
     title: "Conversaciones Omnicanal",
-    description: "Centro unificado de comunicación multicanal",
+    description: "WhatsApp, Instagram, Messenger y Webchat — todos tus canales en un solo inbox",
     features: [
-      { name: "Webchat integrado", description: "Widget para sitios web con script de inserción", status: "stable" },
-      { name: "WhatsApp vía ManyChat", description: "Integración con API de ManyChat" },
-      { name: "Instagram DM", description: "Mensajes directos de Instagram" },
-      { name: "Facebook Messenger", description: "Conversaciones de Messenger" },
-      { name: "Creación automática de leads", description: "Cada conversación genera/actualiza contacto" },
-      { name: "Algoritmo de matching", description: "Email > Teléfono > IG Username > ID Proveedor" },
-      { name: "Historial de mensajes", description: "Timeline completo de la conversación" },
-      { name: "Notas internas", description: "Comentarios privados en conversaciones" },
-      { name: "Asignación de agentes", description: "Distribución de conversaciones por equipo" },
-      { name: "Estados de conversación", description: "Activa, En espera, Resuelta, Spam" },
+      { name: "Webchat para tu sitio web", description: "Widget embebible listo para pegar en cualquier página web", status: "stable" },
+      { name: "WhatsApp vía ManyChat", description: "Recibe y responde mensajes de WhatsApp directamente desde el CRM" },
+      { name: "Instagram Direct", description: "Gestiona mensajes directos de Instagram sin salir de la plataforma" },
+      { name: "Facebook Messenger", description: "Atiende conversaciones de Messenger en el mismo inbox" },
+      { name: "Creación automática de leads", description: "Cada nueva conversación genera o actualiza un contacto automáticamente" },
+      { name: "Matching inteligente", description: "Identifica contactos existentes por email, teléfono, usuario de IG o ID externo" },
+      { name: "Historial completo", description: "Todo el hilo de la conversación visible en un timeline limpio" },
+      { name: "Notas internas", description: "Deja comentarios privados que solo tu equipo puede ver" },
+      { name: "Asignación de agentes", description: "Distribuye las conversaciones entre los miembros del equipo" },
+      { name: "Estados de conversación", description: "Clasifica en Activa, En espera, Resuelta o Spam para mantener el orden" },
     ]
   },
   {
     icon: <FolderKanban className="h-6 w-6" />,
     title: "Proyectos y Unidades de Negocio",
-    description: "Segmentación avanzada por líneas de negocio",
+    description: "Segmenta toda tu operación por líneas de negocio, marcas, ubicaciones o productos",
     features: [
-      { name: "Tipos de proyecto", description: "Inmobiliario, Construcción, Marca, Producto, Departamento, Ubicación" },
-      { name: "Filtro global", description: "Selector en header que afecta toda la aplicación", status: "stable" },
-      { name: "Métricas por proyecto", description: "Contactos, empresas, oportunidades, valor pipeline" },
-      { name: "Asignación de contactos", description: "Relación muchos-a-muchos con estados" },
-      { name: "Miembros de proyecto", description: "Roles: Owner, Admin, Member, Viewer" },
-      { name: "Datos del proyecto", description: "Presupuesto, meta de ingresos, fechas" },
-      { name: "Información geográfica", description: "Ubicación, dirección, ciudad, país" },
-      { name: "Personalización visual", description: "Color, icono, imagen del proyecto" },
-      { name: "Códigos de proyecto", description: "Identificadores únicos para referencia" },
+      { name: "6 tipos de proyecto", description: "Inmobiliario, Construcción, Marca, Producto, Departamento y Ubicación" },
+      { name: "Filtro global en toda la app", description: "Selecciona un proyecto y toda la plataforma muestra solo esos datos", status: "stable" },
+      { name: "Métricas por proyecto", description: "Contactos, empresas, oportunidades y valor del pipeline de cada uno" },
+      { name: "Asignación de contactos", description: "Relaciona prospectos con uno o más proyectos con estados individuales" },
+      { name: "Roles de proyecto", description: "Owner, Admin, Miembro y Viewer — controla quién ve y edita qué" },
+      { name: "Presupuesto y metas", description: "Define meta de ingresos, presupuesto y fechas de cada proyecto" },
+      { name: "Información geográfica", description: "Ubicación, dirección y ciudad para proyectos con presencia física" },
+      { name: "Personalización visual", description: "Color, icono e imagen para identificar cada proyecto al instante" },
+      { name: "Códigos de referencia", description: "Identificadores únicos para reportes y seguimiento interno" },
     ]
   },
   {
     icon: <Brain className="h-6 w-6" />,
-    title: "Asistente de IA",
-    description: "Copiloto inteligente con 30+ herramientas especializadas",
+    title: "Asistente de IA — 91+ Herramientas",
+    description: "Tu copiloto de ventas con inteligencia artificial: habla en lenguaje natural y la IA ejecuta",
     features: [
-      { name: "Chat conversacional", description: "Interfaz natural de lenguaje para comandos" },
-      { name: "Creación de contactos", description: "create_contact con todos los campos" },
-      { name: "Búsqueda inteligente", description: "search_contacts, search_companies, search_opportunities" },
-      { name: "Gestión de pipeline", description: "create_opportunity, update_opportunity, list_opportunities" },
-      { name: "Herramientas de etapas", description: "create_stage, update_stage, get_pipeline_stages" },
-      { name: "Gestión de tareas", description: "create_task, update_task, list_tasks" },
-      { name: "Programación de reuniones", description: "schedule_meeting con fecha, hora, participantes" },
-      { name: "Adición de notas", description: "add_note a cualquier entidad" },
-      { name: "Herramientas de proyectos", description: "list_projects, create_project, get_project_stats", status: "new" },
-      { name: "Análisis de contactos por proyecto", description: "add_contact_to_project, get_project_contacts" },
-      { name: "Búsqueda de proyectos", description: "search_projects por nombre o tipo" },
-      { name: "Daily Brief", description: "Resumen diario de actividades y prioridades" },
-      { name: "Insights automáticos", description: "Sugerencias basadas en datos del CRM" },
+      { name: "Gestión de contactos y prospectos", description: "Crea, busca, actualiza y perfila contactos solo con pedírselo a la IA", status: "stable" },
+      { name: "Pipeline y oportunidades", description: "Crea deals, mueve etapas, analiza la salud de tus negociaciones" },
+      { name: "Productividad inteligente", description: "Prioriza tu día, programa reuniones y recibe sugerencias de seguimiento automáticas" },
+      { name: "Redacción de emails", description: "La IA te redacta correos profesionales y sugiere respuestas personalizadas" },
+      { name: "WhatsApp y mensajería", description: "Responde mensajes de WhatsApp con sugerencias de la IA" },
+      { name: "Análisis de sentimiento", description: "Detecta el tono emocional de correos y conversaciones" },
+      { name: "Reportes instantáneos", description: "Pide reportes de ventas, conversión, forecast o actividad en lenguaje natural" },
+      { name: "Colaboración de equipo", description: "Asigna contactos, notifica miembros y traspasa cuentas por IA" },
+      { name: "Calendario inteligente", description: "Crea eventos, define metas y bloquea tiempo de enfoque con un comando", status: "new" },
+      { name: "Gestión de documentos", description: "Sube, busca y comparte documentos asistido por IA" },
+      { name: "Módulo inmobiliario", description: "Consulta inventario, busca unidades, cambia estatus y genera reportes maestros", status: "new" },
+      { name: "Gestión comercial por asesor", description: "Consulta performance, ranking, cartera y traspasos de asesores", status: "new" },
+      { name: "Daily Brief", description: "Resumen diario inteligente de tus prioridades, pendientes y oportunidades" },
+      { name: "Predicción de cierre", description: "La IA analiza probabilidades de cierre basada en datos históricos" },
+      { name: "Sugerencias de upsell", description: "Identifica oportunidades de venta cruzada y upselling automáticamente" },
+    ]
+  },
+  {
+    icon: <UserCheck className="h-6 w-6" />,
+    title: "Gestión Comercial por Asesor",
+    description: "Atribución, ranking y traspasos de cartera — mide el desempeño de cada asesor",
+    features: [
+      { name: "Atribución automática", description: "Cada contacto se asigna automáticamente al asesor que lo capturó", status: "new" },
+      { name: "Dashboard de desempeño", description: "KPIs individuales: contactos, deals cerrados, tasa de conversión y valor" },
+      { name: "Ranking de asesores", description: "Tabla de posiciones por volumen de ventas y eficiencia" },
+      { name: "Traspaso de cartera", description: "Transfiere contactos entre asesores con registro de motivo y fecha" },
+      { name: "Traspaso masivo", description: "Mueve múltiples contactos de un asesor a otro en una sola acción" },
+      { name: "Historial de asignaciones", description: "Trazabilidad completa de quién atendió a cada contacto y cuándo" },
+      { name: "Filtros por asesor", description: "Filtra contactos y pipeline por asesor asignado" },
     ]
   },
   {
     icon: <Users className="h-6 w-6" />,
     title: "Gestión de Equipo",
-    description: "Administración de usuarios y colaboración",
+    description: "Invita a tu equipo, asigna roles y mide el rendimiento de cada miembro",
     features: [
-      { name: "Invitación de miembros", description: "Por email con vinculación automática al registro", status: "stable" },
-      { name: "Roles de equipo", description: "Admin, Manager, Sales Rep, Viewer" },
-      { name: "Cuotas de venta", description: "Mensuales y trimestrales por miembro" },
-      { name: "Valor de deals cerrados", description: "Tracking de performance individual" },
-      { name: "Estados de invitación", description: "Pendiente, Activo, Inactivo" },
-      { name: "Feed de actividad", description: "Timeline de acciones del equipo" },
-      { name: "Comentarios y menciones", description: "Colaboración en entidades (@usuario)" },
-      { name: "Asignación de registros", description: "Contactos, empresas, deals por miembro" },
+      { name: "Invitación por email", description: "Agrega miembros con un email y se vinculan automáticamente a la organización", status: "stable" },
+      { name: "Roles diferenciados", description: "Admin, Manager, Vendedor y Viewer — cada uno con permisos adecuados" },
+      { name: "Cuotas de venta", description: "Define metas mensuales y trimestrales por vendedor" },
+      { name: "Tracking de resultados", description: "Compara cuotas vs. deals cerrados en tiempo real" },
+      { name: "Estados de miembros", description: "Pendiente, Activo e Inactivo para control de acceso" },
+      { name: "Feed de actividad", description: "Timeline de todo lo que hace tu equipo: creaciones, ediciones, cierres" },
+      { name: "Comentarios y menciones", description: "Colabora en cualquier entidad mencionando a compañeros con @" },
+      { name: "Asignación de registros", description: "Distribuye contactos, empresas y deals entre tu equipo" },
     ]
   },
   {
-    icon: <Shield className="h-6 w-6" />,
-    title: "Administración y Seguridad",
-    description: "Control de acceso y configuración del sistema",
+    icon: <CalendarDays className="h-6 w-6" />,
+    title: "Calendario Comercial",
+    description: "Agenda inteligente con eventos, metas de venta y bloques de tiempo enfocado",
     features: [
-      { name: "Multi-tenancy jerárquico", description: "Super Admin > Reseller > Sub-cliente", status: "stable" },
-      { name: "Panel Super Admin", description: "Gestión global de organizaciones" },
-      { name: "Panel Reseller", description: "Marca blanca para distribuidores" },
-      { name: "Aprobación de organizaciones", description: "Flujo de aprobación/rechazo" },
-      { name: "Dominios verificados", description: "Asociación de dominios a organizaciones" },
-      { name: "Row Level Security (RLS)", description: "Aislamiento de datos por organización" },
-      { name: "Autenticación JWT", description: "Tokens seguros con Supabase Auth" },
-      { name: "Recuperación de contraseña", description: "Flujo de reset por email" },
-      { name: "Magic Links", description: "Inicio de sesión sin contraseña" },
+      { name: "Vista de calendario completa", description: "Día, semana y mes con todos tus eventos comerciales", status: "new" },
+      { name: "Eventos vinculados al CRM", description: "Cada reunión conectada a un contacto, empresa u oportunidad" },
+      { name: "Metas de venta en calendario", description: "Visualiza tus objetivos mensuales directamente en la agenda" },
+      { name: "Bloques de tiempo", description: "Reserva horas de enfoque para prospección, llamadas o seguimiento" },
+      { name: "Sincronización con Google Calendar", description: "Bidireccional — lo que agendas aquí aparece allá y viceversa" },
+      { name: "Recordatorios automáticos", description: "Notificaciones antes de cada evento para que nunca llegues tarde" },
+      { name: "Colores por tipo", description: "Identifica visualmente reuniones, llamadas, seguimientos y bloques" },
     ]
   },
   {
-    icon: <Settings className="h-6 w-6" />,
-    title: "Marca Blanca (White Label)",
-    description: "Personalización completa de la plataforma",
+    icon: <FileText className="h-6 w-6" />,
+    title: "Gestión de Documentos",
+    description: "Centraliza contratos, propuestas y archivos con categorización y búsqueda inteligente",
     features: [
-      { name: "Logo personalizado", description: "Carga de imagen corporativa" },
-      { name: "Colores de marca", description: "Primario y secundario personalizables" },
-      { name: "Nombre de empresa", description: "Visible en header y contexto" },
-      { name: "Favicon personalizado", description: "Icono de pestaña del navegador" },
-      { name: "Herencia de branding", description: "Sub-clientes heredan del reseller padre" },
-      { name: "Dominios personalizados", description: "Configuración de custom domains" },
-    ]
-  },
-  {
-    icon: <Database className="h-6 w-6" />,
-    title: "Gestión de Datos",
-    description: "Importación, exportación y mantenimiento de datos",
-    features: [
-      { name: "Importación CSV/Excel", description: "Con mapeo automático de columnas", status: "stable" },
-      { name: "Procesamiento por lotes", description: "Batches de 100 registros para archivos grandes" },
-      { name: "Exportación de datos", description: "JSON, CSV (solo admin de cuenta)" },
-      { name: "Detección de duplicados", description: "Escaneo automático de registros similares" },
-      { name: "Fusión de duplicados", description: "Merge inteligente de registros" },
-      { name: "Operaciones masivas", description: "Actualización y eliminación en lote" },
-      { name: "Log de auditoría", description: "Historial completo de cambios" },
-      { name: "Backups automáticos", description: "Copias de seguridad programadas" },
-    ]
-  },
-  {
-    icon: <Plug className="h-6 w-6" />,
-    title: "Integraciones",
-    description: "Conexiones con servicios externos",
-    features: [
-      { name: "Gmail", description: "Sincronización de correos y contactos" },
-      { name: "ManyChat", description: "WhatsApp, Instagram, Messenger" },
-      { name: "Webchat Widget", description: "Script embebible para sitios web" },
-      { name: "n8n Webhooks", description: "Automatizaciones personalizadas" },
-      { name: "API de Lovable AI Gateway", description: "Modelos Gemini y GPT integrados" },
-    ]
-  },
-  {
-    icon: <Bell className="h-6 w-6" />,
-    title: "Notificaciones",
-    description: "Sistema de alertas y recordatorios",
-    features: [
-      { name: "Centro de notificaciones", description: "Campana con badge de no leídas" },
-      { name: "Recordatorios de tareas", description: "Alertas antes del vencimiento" },
-      { name: "Actualizaciones de deals", description: "Cambios en oportunidades" },
-      { name: "Nuevos contactos", description: "Notificación de leads entrantes" },
-      { name: "Sincronización de email", description: "Estado de importación de correos" },
-      { name: "Preferencias configurables", description: "Browser, email, horas de anticipación" },
+      { name: "Repositorio centralizado", description: "Todos los documentos de tu organización en un solo lugar", status: "new" },
+      { name: "Categorías personalizables", description: "Crea categorías con colores e iconos para organizar tus archivos" },
+      { name: "Búsqueda con IA", description: "Encuentra documentos describiendo lo que buscas en lenguaje natural" },
+      { name: "Compartir con enlace", description: "Genera links seguros con fecha de expiración para compartir externamente" },
+      { name: "Documentos por contacto y empresa", description: "Adjunta archivos directamente a la ficha de cada entidad" },
+      { name: "Tipos de documento", description: "Contrato, Propuesta, Factura, Acuerdo y más — clasificación automática" },
+      { name: "Control de versiones", description: "Historial de cambios y actualizaciones de cada documento" },
     ]
   },
   {
     icon: <BarChart3 className="h-6 w-6" />,
     title: "Dashboard y Métricas",
-    description: "Visualización de KPIs y rendimiento",
+    description: "KPIs en tiempo real para tomar decisiones basadas en datos, no en intuición",
     features: [
-      { name: "Resumen de pipeline", description: "Valor total y por etapa" },
-      { name: "Actividades pendientes", description: "Contador de tareas próximas" },
-      { name: "Contactos recientes", description: "Últimas interacciones" },
-      { name: "Daily Brief con IA", description: "Resumen inteligente del día" },
-      { name: "Insights automáticos", description: "Sugerencias basadas en patrones" },
-      { name: "Métricas por proyecto", description: "Tasa de conversión, valor pipeline" },
-      { name: "Performance de equipo", description: "Cuotas vs. cerrados por miembro" },
+      { name: "Resumen de pipeline", description: "Valor total en juego y desglose por etapa de tu embudo" },
+      { name: "Actividades pendientes", description: "Cuántos seguimientos tienes próximos y cuáles son urgentes" },
+      { name: "Contactos recientes", description: "Últimas interacciones para retomar donde dejaste" },
+      { name: "Daily Brief con IA", description: "Cada mañana, un resumen inteligente de lo que necesitas hacer hoy" },
+      { name: "Insights automáticos", description: "La IA detecta patrones y te sugiere acciones concretas" },
+      { name: "Métricas por proyecto", description: "Tasa de conversión y valor del pipeline por cada unidad de negocio" },
+      { name: "Performance del equipo", description: "Cuotas vs. cerrados por cada vendedor — identifica a tus top performers" },
+    ]
+  },
+  {
+    icon: <Plug className="h-6 w-6" />,
+    title: "Integraciones",
+    description: "Conecta con las herramientas que ya usas sin cambiar tu flujo de trabajo",
+    features: [
+      { name: "Gmail", description: "Sincroniza correos y contactos automáticamente con tu cuenta de Google" },
+      { name: "Google Calendar", description: "Sincronización bidireccional de eventos y reuniones" },
+      { name: "ManyChat", description: "WhatsApp, Instagram y Messenger conectados en un solo clic" },
+      { name: "Webchat Widget", description: "Copia y pega un código en tu sitio web para recibir chats en vivo" },
+      { name: "n8n y Webhooks", description: "Automatiza cualquier flujo personalizado con webhooks" },
+      { name: "IA integrada", description: "Modelos de inteligencia artificial listos para usar sin configuración adicional" },
+    ]
+  },
+  {
+    icon: <Bell className="h-6 w-6" />,
+    title: "Notificaciones Inteligentes",
+    description: "Alertas en el momento justo para que no se te escape ninguna oportunidad",
+    features: [
+      { name: "Centro de notificaciones", description: "Campana con badge de no leídas — todo en un vistazo" },
+      { name: "Recordatorios de tareas", description: "Alerta antes de que venza un seguimiento importante" },
+      { name: "Cambios en oportunidades", description: "Entérate al instante cuando un deal cambia de etapa o se cierra" },
+      { name: "Nuevos leads entrantes", description: "Notificación inmediata cuando llega un prospecto nuevo" },
+      { name: "Estado de sincronización", description: "Sabe cuándo se importaron tus correos o se sincronizó el calendario" },
+      { name: "Preferencias configurables", description: "Elige qué notificaciones quieres recibir y con cuánta anticipación" },
+    ]
+  },
+  {
+    icon: <Settings className="h-6 w-6" />,
+    title: "Marca Blanca (White Label)",
+    description: "Tu marca, tu plataforma — personaliza colores, logo y dominio",
+    features: [
+      { name: "Logo personalizado", description: "Sube el logo de tu empresa y aparece en toda la plataforma" },
+      { name: "Colores de marca", description: "Define color primario y secundario para que todo se vea como tu marca" },
+      { name: "Nombre de empresa", description: "Tu nombre de empresa visible en el header y en todo el contexto" },
+      { name: "Favicon personalizado", description: "El icono de la pestaña del navegador también es tuyo" },
+      { name: "Herencia de marca", description: "Tus sub-clientes heredan automáticamente tu identidad visual" },
+      { name: "Dominios personalizados", description: "Usa tu propio dominio para que la plataforma sea 100% tuya" },
+    ]
+  },
+  {
+    icon: <Shield className="h-6 w-6" />,
+    title: "Administración y Seguridad",
+    description: "Control total sobre usuarios, organizaciones y datos — con aislamiento garantizado",
+    features: [
+      { name: "Multi-tenancy jerárquico", description: "Super Admin, Reseller y Sub-clientes — cada nivel con sus permisos", status: "stable" },
+      { name: "Panel de Super Admin", description: "Gestiona todas las organizaciones desde un solo lugar" },
+      { name: "Panel de Reseller", description: "Distribuye la plataforma como propia con tu marca" },
+      { name: "Aprobación de organizaciones", description: "Controla quién puede acceder con flujo de aprobación manual" },
+      { name: "Dominios verificados", description: "Asocia dominios a organizaciones para mayor seguridad" },
+      { name: "Datos 100% aislados", description: "Cada organización solo ve sus propios datos — aislamiento total" },
+      { name: "Autenticación segura", description: "Tokens JWT encriptados para proteger cada sesión" },
+      { name: "Recuperación de contraseña", description: "Flujo automático de reset por email" },
+      { name: "Inicio sin contraseña", description: "Magic Links para acceder con un solo clic desde tu email" },
+    ]
+  },
+  {
+    icon: <Database className="h-6 w-6" />,
+    title: "Gestión de Datos",
+    description: "Importa, exporta y mantén tu base de datos limpia y actualizada",
+    features: [
+      { name: "Importación CSV/Excel", description: "Sube archivos con mapeo automático de columnas — sin configuración técnica", status: "stable" },
+      { name: "Procesamiento de archivos grandes", description: "Maneja miles de registros en lotes automáticos" },
+      { name: "Exportación de datos", description: "Descarga tu información en JSON o CSV cuando la necesites" },
+      { name: "Detección de duplicados", description: "Escaneo automático que encuentra registros similares" },
+      { name: "Fusión inteligente", description: "Combina duplicados conservando la mejor información de cada uno" },
+      { name: "Operaciones masivas", description: "Actualiza o elimina cientos de registros en una sola acción" },
+      { name: "Auditoría completa", description: "Historial de quién cambió qué, cuándo y desde dónde" },
+      { name: "Backups automáticos", description: "Copias de seguridad programadas para proteger tu información" },
     ]
   },
 ];
@@ -268,7 +316,6 @@ export default function CRMDocumentation() {
       const contentWidth = pageWidth - (margin * 2);
       let yPosition = margin;
 
-      // Helper function to add new page if needed
       const checkNewPage = (requiredHeight: number) => {
         if (yPosition + requiredHeight > pageHeight - margin) {
           pdf.addPage();
@@ -280,12 +327,12 @@ export default function CRMDocumentation() {
 
       // Title Page
       pdf.setFontSize(28);
-      pdf.setTextColor(30, 64, 175); // Blue
+      pdf.setTextColor(30, 64, 175);
       pdf.text("NeumanCRM", pageWidth / 2, 60, { align: 'center' });
       
       pdf.setFontSize(18);
       pdf.setTextColor(100, 100, 100);
-      pdf.text("Documentación de Funcionalidades", pageWidth / 2, 75, { align: 'center' });
+      pdf.text("Funcionalidades de la Plataforma", pageWidth / 2, 75, { align: 'center' });
       
       pdf.setFontSize(12);
       pdf.setTextColor(150, 150, 150);
@@ -295,11 +342,10 @@ export default function CRMDocumentation() {
         day: 'numeric' 
       })}`, pageWidth / 2, 90, { align: 'center' });
 
-      // Stats summary
       const totalFeatures = modules.reduce((sum, m) => sum + m.features.length, 0);
       pdf.setFontSize(14);
       pdf.setTextColor(60, 60, 60);
-      pdf.text(`${modules.length} Módulos • ${totalFeatures}+ Funcionalidades`, pageWidth / 2, 110, { align: 'center' });
+      pdf.text(`${modules.length} Módulos • ${totalFeatures}+ Funcionalidades • 91+ Herramientas IA`, pageWidth / 2, 110, { align: 'center' });
 
       // Table of Contents
       pdf.addPage();
@@ -327,7 +373,6 @@ export default function CRMDocumentation() {
         pdf.addPage();
         yPosition = margin;
 
-        // Module Header
         pdf.setFontSize(18);
         pdf.setTextColor(30, 64, 175);
         pdf.text(`${moduleIndex + 1}. ${module.title}`, margin, yPosition);
@@ -339,11 +384,9 @@ export default function CRMDocumentation() {
         pdf.text(descLines, margin, yPosition);
         yPosition += (descLines.length * 5) + 10;
 
-        // Features
-        module.features.forEach((feature, featureIndex) => {
+        module.features.forEach((feature) => {
           checkNewPage(20);
 
-          // Feature name
           pdf.setFontSize(11);
           pdf.setTextColor(40, 40, 40);
           pdf.setFont('helvetica', 'bold');
@@ -355,7 +398,6 @@ export default function CRMDocumentation() {
           pdf.text(featureName, margin, yPosition);
           yPosition += 5;
 
-          // Feature description
           pdf.setFont('helvetica', 'normal');
           pdf.setFontSize(10);
           pdf.setTextColor(80, 80, 80);
@@ -365,13 +407,11 @@ export default function CRMDocumentation() {
         });
       });
 
-      // Footer on last page
       pdf.setFontSize(10);
       pdf.setTextColor(150, 150, 150);
-      pdf.text("NeumanCRM - Plataforma de Gestión de Relaciones con Clientes", pageWidth / 2, pageHeight - 10, { align: 'center' });
+      pdf.text("NeumanCRM - Plataforma Inteligente de Gestión Comercial", pageWidth / 2, pageHeight - 10, { align: 'center' });
 
-      // Save PDF
-      pdf.save('NeumanCRM_Documentacion_Funcionalidades.pdf');
+      pdf.save('NeumanCRM_Funcionalidades.pdf');
     } catch (error) {
       if (import.meta.env.DEV) console.error('Error generating PDF:', error);
     } finally {
@@ -383,7 +423,6 @@ export default function CRMDocumentation() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -391,9 +430,9 @@ export default function CRMDocumentation() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold">Documentación del CRM</h1>
+              <h1 className="text-2xl font-bold">Funcionalidades de NeumanCRM</h1>
               <p className="text-muted-foreground text-sm">
-                {modules.length} módulos • {totalFeatures}+ funcionalidades
+                {modules.length} módulos • {totalFeatures}+ funcionalidades • 91+ herramientas IA
               </p>
             </div>
           </div>
@@ -413,7 +452,6 @@ export default function CRMDocumentation() {
         </div>
       </div>
 
-      {/* Content */}
       <ScrollArea className="h-[calc(100vh-80px)]">
         <div className="container mx-auto px-4 py-8">
           <div className="grid gap-6">
@@ -472,7 +510,6 @@ export default function CRMDocumentation() {
             ))}
           </div>
 
-          {/* Summary Footer */}
           <Card className="mt-8 bg-primary/5 border-primary/20">
             <CardContent className="py-6">
               <div className="text-center">
@@ -487,7 +524,7 @@ export default function CRMDocumentation() {
                     <p className="text-muted-foreground">Funcionalidades</p>
                   </div>
                   <div>
-                    <span className="text-2xl font-bold text-primary">30+</span>
+                    <span className="text-2xl font-bold text-primary">91+</span>
                     <p className="text-muted-foreground">Herramientas IA</p>
                   </div>
                 </div>
