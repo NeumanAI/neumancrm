@@ -77,7 +77,7 @@ export function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
     <Card 
       className="group hover:shadow-lg transition-all duration-200 cursor-pointer border-l-4"
       style={{ borderLeftColor: project.color || '#3B82F6' }}
-      onClick={() => navigate(`/projects/${project.id}`)}
+      onClick={() => navigate(`/segmentos/${project.id}`)}
     >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
@@ -113,7 +113,7 @@ export function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/projects/${project.id}`);
+                navigate(`/segmentos/${project.id}`);
               }}>
                 <Eye className="h-4 w-4 mr-2" />
                 Ver detalles

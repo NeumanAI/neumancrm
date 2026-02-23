@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { BrandingProvider } from "@/contexts/BrandingContext";
@@ -43,6 +43,12 @@ import RealEstateProjects from "./pages/RealEstateProjects";
 import RealEstateProjectDetail from "./pages/RealEstateProjectDetail";
 import Impersonate from "./pages/Impersonate";
 import AdvisorDashboard from "./pages/AdvisorDashboard";
+
+// Redirect helper
+function ProjectRedirect() {
+  const { projectId } = useParams();
+  return <Navigate to={`/segmentos/${projectId}`} replace />;
+}
 
 // Route guards
 function RequireSuperAdmin({ children }: { children: ReactNode }) {
@@ -115,7 +121,7 @@ const App = () => (
               <Route path="/segmentos" element={<AppLayout><Projects /></AppLayout>} />
               <Route path="/segmentos/:projectId" element={<AppLayout><ProjectDetail /></AppLayout>} />
               <Route path="/projects" element={<Navigate to="/segmentos" replace />} />
-              <Route path="/projects/:projectId" element={<Navigate to="/segmentos" replace />} />
+              <Route path="/projects/:projectId" element={<ProjectRedirect />} />
               <Route path="/gestion-comercial" element={<AppLayout><AdvisorDashboard /></AppLayout>} />
               <Route path="/proyectos" element={<AppLayout><RealEstateProjects /></AppLayout>} />
               <Route path="/proyectos/:projectId" element={<AppLayout><RealEstateProjectDetail /></AppLayout>} />
