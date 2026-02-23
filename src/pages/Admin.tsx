@@ -42,7 +42,8 @@ import {
   DollarSign,
   Search,
   ClipboardList,
-  HardHat
+  HardHat,
+  LogIn
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -78,8 +79,10 @@ function OrganizationRow({
   onEdit,
   onAssignAdmin,
   onModules,
+  onImpersonate,
   isApproving,
   isRejecting,
+  isImpersonating,
   isSubClient = false,
   subClients = [],
 }: { 
@@ -89,8 +92,10 @@ function OrganizationRow({
   onEdit: () => void;
   onAssignAdmin: () => void;
   onModules: () => void;
+  onImpersonate: () => void;
   isApproving: boolean;
   isRejecting: boolean;
+  isImpersonating: boolean;
   isSubClient?: boolean;
   subClients?: OrganizationWithAdmin[];
 }) {
@@ -169,6 +174,22 @@ function OrganizationRow({
         </TableCell>
         <TableCell className="text-right">
           <div className="flex gap-2 justify-end">
+            {org.admin_email && org.is_approved && (
+              <Button 
+                size="sm" 
+                variant="ghost"
+                onClick={onImpersonate}
+                disabled={isImpersonating}
+                title="Acceder como admin"
+                className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+              >
+                {isImpersonating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <LogIn className="h-4 w-4" />
+                )}
+              </Button>
+            )}
             <Button 
               size="sm" 
               variant="ghost"
@@ -231,8 +252,10 @@ function OrganizationRow({
           onEdit={onEdit}
           onAssignAdmin={onAssignAdmin}
           onModules={onModules}
+          onImpersonate={onImpersonate}
           isApproving={isApproving}
           isRejecting={isRejecting}
+          isImpersonating={isImpersonating}
           isSubClient={true}
         />
       ))}
@@ -260,6 +283,8 @@ export default function Admin() {
     domains,
     domainsLoading,
     deleteDomain,
+    impersonateOrg,
+    impersonatingOrgId,
   } = useSuperAdmin();
 
   const [editingOrg, setEditingOrg] = useState<OrganizationWithAdmin | null>(null);
@@ -477,8 +502,10 @@ export default function Admin() {
                   onEdit={setEditingOrg}
                   onAssignAdmin={setAssigningAdminOrg}
                   onModules={handleOpenModules}
+                  onImpersonate={(id) => impersonateOrg.mutate(id)}
                   isApproving={approveOrganization.isPending}
                   isRejecting={rejectOrganization.isPending}
+                  isImpersonatingId={impersonatingOrgId}
                   emptyMessage="No hay empresas registradas"
                   emptyIcon={Building2}
                 />
@@ -492,8 +519,10 @@ export default function Admin() {
                   onEdit={setEditingOrg}
                   onAssignAdmin={setAssigningAdminOrg}
                   onModules={handleOpenModules}
+                  onImpersonate={(id) => impersonateOrg.mutate(id)}
                   isApproving={approveOrganization.isPending}
                   isRejecting={rejectOrganization.isPending}
+                  isImpersonatingId={impersonatingOrgId}
                   emptyMessage="No hay clientes directos"
                   emptyIcon={Building2}
                 />
@@ -507,8 +536,10 @@ export default function Admin() {
                   onEdit={setEditingOrg}
                   onAssignAdmin={setAssigningAdminOrg}
                   onModules={handleOpenModules}
+                  onImpersonate={(id) => impersonateOrg.mutate(id)}
                   isApproving={approveOrganization.isPending}
                   isRejecting={rejectOrganization.isPending}
+                  isImpersonatingId={impersonatingOrgId}
                   emptyMessage="No hay empresas de marca blanca"
                   emptyIcon={Palette}
                   getSubClientsOf={getSubClientsOf}
@@ -524,8 +555,10 @@ export default function Admin() {
                   onEdit={setEditingOrg}
                   onAssignAdmin={setAssigningAdminOrg}
                   onModules={handleOpenModules}
+                  onImpersonate={(id) => impersonateOrg.mutate(id)}
                   isApproving={approveOrganization.isPending}
                   isRejecting={rejectOrganization.isPending}
+                  isImpersonatingId={impersonatingOrgId}
                   emptyMessage="No hay sub-clientes registrados"
                   emptyIcon={Users}
                 />
@@ -539,8 +572,10 @@ export default function Admin() {
                   onEdit={setEditingOrg}
                   onAssignAdmin={setAssigningAdminOrg}
                   onModules={handleOpenModules}
+                  onImpersonate={(id) => impersonateOrg.mutate(id)}
                   isApproving={approveOrganization.isPending}
                   isRejecting={rejectOrganization.isPending}
+                  isImpersonatingId={impersonatingOrgId}
                   emptyMessage="No hay empresas pendientes de aprobación"
                   emptyIcon={Clock}
                 />
@@ -767,8 +802,10 @@ function OrganizationsTable({
   onEdit,
   onAssignAdmin,
   onModules,
+  onImpersonate,
   isApproving,
   isRejecting,
+  isImpersonatingId,
   emptyMessage,
   emptyIcon: EmptyIcon,
   getSubClientsOf,
@@ -780,8 +817,10 @@ function OrganizationsTable({
   onEdit: (org: OrganizationWithAdmin) => void;
   onAssignAdmin: (org: OrganizationWithAdmin) => void;
   onModules: (org: OrganizationWithAdmin) => void;
+  onImpersonate: (orgId: string) => void;
   isApproving: boolean;
   isRejecting: boolean;
+  isImpersonatingId: string | null;
   emptyMessage: string;
   emptyIcon: React.ComponentType<{ className?: string }>;
   getSubClientsOf?: (parentId: string) => OrganizationWithAdmin[];
@@ -818,8 +857,10 @@ function OrganizationsTable({
             onEdit={() => onEdit(org)}
             onAssignAdmin={() => onAssignAdmin(org)}
             onModules={() => onModules(org)}
+            onImpersonate={() => onImpersonate(org.id)}
             isApproving={isApproving}
             isRejecting={isRejecting}
+            isImpersonating={isImpersonatingId === org.id}
             subClients={showHierarchy && getSubClientsOf ? getSubClientsOf(org.id) : []}
           />
         ))}

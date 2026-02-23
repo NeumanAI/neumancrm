@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
+import { useState } from 'react';
 import { generateUniqueSlug } from '@/lib/utils';
 
 export type OrganizationType = 'direct' | 'whitelabel';
@@ -431,6 +432,40 @@ export function useSuperAdmin() {
   // Helper to get sub-clients of a parent organization
   const getSubClientsOf = (parentId: string) => organizations.filter(org => org.parent_organization_id === parentId);
 
+  // Impersonate organization admin
+  const [impersonatingOrgId, setImpersonatingOrgId] = useState<string | null>(null);
+  
+  const impersonateOrg = useMutation({
+    mutationFn: async (organizationId: string) => {
+      setImpersonatingOrgId(organizationId);
+      const { data, error } = await supabase.functions.invoke('impersonate-user', {
+        body: { organization_id: organizationId },
+      });
+
+      if (error) throw new Error(error.message || 'Error al acceder a la cuenta');
+      if (data?.error) throw new Error(data.error);
+      return data as { url: string; target_email: string; target_name: string };
+    },
+    onSuccess: (data) => {
+      setImpersonatingOrgId(null);
+      if (data.url) {
+        window.open(data.url, '_blank');
+        toast({
+          title: 'Acceso generado',
+          description: `Enlace abierto para ${data.target_name || data.target_email}. Se abrió en una nueva pestaña.`,
+        });
+      }
+    },
+    onError: (error: Error) => {
+      setImpersonatingOrgId(null);
+      toast({
+        title: 'Error al acceder',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   return {
     isSuperAdmin,
     isLoading: checkingAdmin || orgsLoading,
@@ -454,5 +489,8 @@ export function useSuperAdmin() {
     addDomain,
     deleteDomain,
     assignAdmin,
+    // Impersonation
+    impersonateOrg,
+    impersonatingOrgId,
   };
 }
