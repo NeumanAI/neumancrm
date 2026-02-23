@@ -34,6 +34,7 @@ import { useContacts } from '@/hooks/useContacts';
 import { BuyerContactSearch } from '@/components/realestate/BuyerContactSearch';
 import { ImportUnitsDialog } from '@/components/realestate/ImportUnitsDialog';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 const formatCurrency = (value: number, currency = 'MXN') =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency, minimumFractionDigits: 0 }).format(value);
@@ -67,6 +68,7 @@ export default function RealEstateProjectDetail() {
   const { updateProject } = useRealEstateProjects();
   const { unitTypes, createUnitType, updateUnitType, deleteUnitType } = useRealEstateUnitTypes(projectId);
   const { leads, addLead, updateLeadStatus, deleteLead } = useRealEstateLeads(projectId);
+  const { convertContactType } = useContacts();
 
   if (isLoading) {
     return <div className="space-y-6"><Skeleton className="h-10 w-48" /><Skeleton className="h-96" /></div>;
@@ -97,6 +99,28 @@ export default function RealEstateProjectDetail() {
   const handleImageSave = () => {
     updateProject.mutate({ id: project.id, cover_image_url: newImageUrl || null } as any);
     setEditingImage(false);
+  };
+
+  const checkAndSuggestConversion = async (buyerContactId: string, status: string) => {
+    const { data } = await (await import('@/integrations/supabase/client')).supabase
+      .from('contacts')
+      .select('id, first_name, last_name, contact_type')
+      .eq('id', buyerContactId)
+      .single();
+    if (data && (data as any).contact_type === 'prospecto') {
+      toast(`¿Convertir a ${data.first_name} ${data.last_name} a Comprador?`, {
+        description: `Unidad marcada como ${status}.`,
+        action: {
+          label: 'Convertir',
+          onClick: () => convertContactType.mutate({
+            contactId: data.id,
+            newType: 'comprador',
+            reason: `Unidad asignada con estado ${status}`,
+          }),
+        },
+        duration: 10000,
+      });
+    }
   };
 
   return (
@@ -414,11 +438,18 @@ export default function RealEstateProjectDetail() {
         editData={editUnit}
         onCreate={(data) => {
           createUnitType.mutate({ ...data, project_id: projectId! } as any);
+          // Check if buyer should be converted
+          if (data.buyer_contact_id && data.commercial_status && ['Separado', 'Vendido'].includes(data.commercial_status)) {
+            checkAndSuggestConversion(data.buyer_contact_id, data.commercial_status);
+          }
           setAddUnitOpen(false);
         }}
         onUpdate={(data) => {
           if (editUnit) {
             updateUnitType.mutate({ id: editUnit.id, ...data } as any);
+            if (data.buyer_contact_id && data.commercial_status && ['Separado', 'Vendido'].includes(data.commercial_status)) {
+              checkAndSuggestConversion(data.buyer_contact_id, data.commercial_status);
+            }
             setEditUnit(null);
           }
         }}

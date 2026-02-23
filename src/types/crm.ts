@@ -29,6 +29,7 @@ export interface Contact {
   first_name?: string;
   last_name?: string;
   email: string;
+  contact_type: 'prospecto' | 'comprador' | 'empresa' | 'inactivo';
   phone?: string;
   mobile?: string;
   whatsapp_number?: string;
