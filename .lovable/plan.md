@@ -1,61 +1,111 @@
 
+# Plan: Atribucion Comercial por Asesor
 
-# Plan: Acceso Directo a Cuentas de Clientes (Nuevo Metodo)
-
-El enlace magico actual falla porque depende de redirecciones del servidor de autenticacion que no siempre apuntan al dominio correcto. La solucion es eliminar esa dependencia y verificar el token directamente en el frontend.
-
----
-
-## Problema actual
-
-La edge function genera un `action_link` que apunta al servidor de autenticacion. Ese enlace, al hacer clic, verifica el token y redirige al usuario. Pero la redireccion apunta al dominio base del proyecto de backend, no al dominio real de la app (neumancrm.lovable.app o iacrm.neumanai.com), por lo que el login no se completa correctamente.
+Implementar el sistema completo de atribucion comercial que vincula cada contacto, unidad y contrato a su asesor comercial, con dashboard gerencial, historial de traspasos y AI tools.
 
 ---
 
-## Solucion
+## Fase 1: Migracion SQL
 
-En lugar de abrir un enlace externo, el sistema:
+Ejecutar una migracion de base de datos con:
 
-1. La edge function retorna el `token_hash` y el `email` (en vez de la URL)
-2. El frontend abre una nueva pestana apuntando a una ruta interna: `/impersonate?token_hash=XXX&email=YYY`
-3. Esa pagina llama a `supabase.auth.verifyOtp({ token_hash, type: 'magiclink', email })` directamente
-4. Si la verificacion es exitosa, redirige al `/dashboard` ya autenticado como el admin del cliente
+1. **3 columnas nuevas en `contacts`**: `assigned_advisor_id`, `capture_advisor_id`, `assigned_at`
+2. **2 columnas nuevas en `real_estate_unit_types`**: `closing_advisor_id`, `closing_advisor_at`
+3. **Tabla nueva `contact_advisor_history`**: historial de traspasos con RLS
+4. **Indices** para las nuevas columnas
+5. **Migracion de datos**: asignar `created_by` como asesor inicial en contactos existentes
 
-Esto elimina completamente la dependencia de URLs de redireccion externas.
+**Nota**: Se omite `portfolio_contracts` porque esa tabla no existe en el proyecto. Las referencias a cartera en los hooks retornaran datos vacios.
 
----
-
-## Archivos a modificar/crear
-
-### 1. Modificar: `supabase/functions/impersonate-user/index.ts`
-
-- En vez de retornar `properties.action_link`, retornar `properties.hashed_token` y el `email` del target
-- Eliminar la construccion de la URL
-
-### 2. Crear: `src/pages/Impersonate.tsx`
-
-- Pagina que lee `token_hash` y `email` de los parametros de URL
-- Llama a `supabase.auth.verifyOtp({ token_hash, type: 'magiclink', email })`
-- Si tiene exito: redirige a `/dashboard`
-- Si falla: muestra mensaje de error con boton para cerrar la pestana
-- Muestra un spinner mientras verifica
-
-### 3. Modificar: `src/hooks/useSuperAdmin.ts`
-
-- Cambiar `impersonateOrg` para que abra `/impersonate?token_hash=XXX&email=YYY` en nueva pestana en vez de abrir `data.url`
-
-### 4. Modificar: `src/App.tsx`
-
-- Agregar ruta `/impersonate` apuntando a la nueva pagina
+**Nota sobre FK**: El documento original usa `REFERENCES auth.users(id)` pero seguiremos las directrices del proyecto de no referenciar `auth.users` directamente. Usaremos UUID sin FK explicitamente a auth.users.
 
 ---
 
-## Flujo completo
+## Fase 2: Hook de Atribucion (`src/hooks/useAdvisorAttribution.ts`)
 
-1. Super Admin hace clic en "Acceder" en el panel admin
-2. Edge function genera token, lo retorna al frontend
-3. Frontend abre nueva pestana: `/impersonate?token_hash=abc123&email=admin@cliente.com`
-4. La pagina Impersonate verifica el token con la API de auth
-5. Session queda establecida en esa pestana, redirige a `/dashboard`
-6. Super Admin opera como el admin del cliente en esa pestana
+Crear un nuevo hook con:
 
+- **`useAdvisors()`**: lista de asesores activos de la organizacion (team_members con roles owner/admin/manager/sales_rep)
+- **`useContactAdvisorHistory(contactId)`**: historial de traspasos de un contacto
+- **`useAssignAdvisor()`**: mutacion para asignar/traspasar asesor con registro en historial
+  - Incluye `bulkTransfer` para traspasos masivos
+- **`useAdvisorMetrics(period)`**: metricas por asesor (unidades vendidas, prospectos, compradores, tasa de conversion)
+
+Diferencias vs documento:
+- No se consultan `auth.users` directamente; se usan datos de `team_members` (full_name, email, avatar_url)
+- Se omiten queries a `portfolio_contracts` y `deals` (no existen como tal)
+
+---
+
+## Fase 3: Modificar `src/hooks/useContacts.ts`
+
+- Agregar auto-asignacion de asesor al crear contacto (capture + assigned)
+- Registrar en `contact_advisor_history` al crear
+
+---
+
+## Fase 4: UI - Componente de Asignacion
+
+### Crear `src/components/contacts/AdvisorAssignmentSection.tsx`
+- Muestra asesor actual con avatar e info
+- Boton "Traspasar" o "Asignar"
+- Dialog con selector de asesor y campo de motivo
+- Historial de traspasos colapsable
+
+### Integrar en `src/pages/ContactDetail.tsx`
+- Agregar seccion "Asesor comercial" en la ficha del contacto
+
+---
+
+## Fase 5: Filtros por Asesor
+
+### En `src/pages/Contacts.tsx`
+- Agregar selector de asesor en los filtros
+- Mostrar nombre del asesor en cada fila
+
+### En `src/pages/Pipeline.tsx`
+- Agregar filtro por asesor en los filtros del pipeline
+
+---
+
+## Fase 6: Dashboard Gerencial
+
+### Crear `src/pages/AdvisorDashboard.tsx`
+- KPIs globales del equipo (unidades vendidas, valor ventas, prospectos activos)
+- Tabla de ranking de asesores por periodo (mes/trimestre/anio)
+- Cards de detalle por asesor
+
+### Ruta y menu
+- Agregar ruta `/gestion-comercial` en `src/App.tsx`
+- Agregar item "Gestion Comercial" con icono Trophy en `src/components/layout/Sidebar.tsx` (visible solo para owner/admin/manager)
+
+---
+
+## Fase 7: AI Tools (4 herramientas)
+
+Agregar en `supabase/functions/chat/index.ts`:
+
+1. **`get_advisor_performance`**: Metricas individuales o ranking completo del equipo
+2. **`get_advisor_contacts`**: Lista prospectos/compradores de un asesor
+3. **`assign_contact_to_advisor`**: Asignar/traspasar contacto con historial
+4. **`bulk_transfer_contacts`**: Traspaso masivo entre asesores
+
+Actualizar system prompt con seccion de gestion comercial.
+
+---
+
+## Archivos a crear/modificar
+
+| Archivo | Accion |
+|---------|--------|
+| Migracion SQL | Crear (3 cols contacts, 2 cols units, tabla historial) |
+| `src/hooks/useAdvisorAttribution.ts` | Crear |
+| `src/hooks/useContacts.ts` | Modificar (auto-asignacion al crear) |
+| `src/components/contacts/AdvisorAssignmentSection.tsx` | Crear |
+| `src/pages/ContactDetail.tsx` | Modificar (agregar seccion asesor) |
+| `src/pages/Contacts.tsx` | Modificar (filtro + columna asesor) |
+| `src/pages/Pipeline.tsx` | Modificar (filtro por asesor) |
+| `src/pages/AdvisorDashboard.tsx` | Crear |
+| `src/App.tsx` | Modificar (nueva ruta) |
+| `src/components/layout/Sidebar.tsx` | Modificar (nuevo item menu) |
+| `supabase/functions/chat/index.ts` | Modificar (4 tools + system prompt) |
