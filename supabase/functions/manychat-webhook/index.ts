@@ -291,10 +291,12 @@ Deno.serve(async (req) => {
 
     console.log(`[manychat-webhook] Channel detected: ${channel}, subscriber: ${subscriberId}`);
 
-    // Build subscriber name with ig_username fallback
-    const subscriberName = payload.name || 
-      [payload.first_name, payload.last_name].filter(Boolean).join(' ') || 
-      payload.ig_username || 'Suscriptor';
+    // Build subscriber name — prioritize ig_username for Instagram channel
+    const subscriberName = channel === 'instagram' && payload.ig_username
+      ? payload.ig_username
+      : (payload.name || 
+         [payload.first_name, payload.last_name].filter(Boolean).join(' ') || 
+         payload.ig_username || 'Suscriptor');
 
     // Auto-create/link contact if we have a CRM user
     let contactId: string | null = null;
