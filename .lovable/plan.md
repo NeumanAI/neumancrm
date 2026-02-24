@@ -1,96 +1,67 @@
 
 
-# Fix: Nombre, foto y contacto en conversaciones de Instagram
+# Fix: Datos de Instagram siguen corruptos y nombre incorrecto
 
-## Problemas encontrados
+## Diagnostico
 
-Hay 3 problemas distintos visibles en la imagen:
+La imagen muestra que los 4 mensajes nuevos de "hola" se guardaron con `sender_name: "JG"` y la conversacion aun tiene `external_avatar: "{{profile pic url}}"`. Hay 3 problemas:
 
-### 1. El campo `profile_pic` no se sanitiza
-ManyChat envia `{{profile pic url}}` cuando Instagram no provee foto. Este campo NO esta incluido en la sanitizacion del webhook, asi que se guarda literalmente en `external_avatar` y `avatar_url`. Por eso no se muestra foto.
+### 1. La limpieza SQL anterior NO se aplico
+Los datos en la base de datos siguen exactamente igual que antes:
+- `conversations.a8a02b79.external_avatar` = `{{profile pic url}}` (debia ser NULL)
+- `conversations.a8a02b79.external_name` = `JG` (debia ser `tatangeorge`)
+- `conversations.05976d07.last_message_preview` = `{{last text input}}`
 
-### 2. El nombre no se muestra correctamente en el header
-La logica en `ConversationView.tsx` y `ConversationItem.tsx` busca `contacts.first_name` + `contacts.last_name`. El contacto `16db4d67` tiene ambos en `NULL`, asi que cae al fallback `external_name` que es "JG" (nombre parcial). Pero el `instagram_username` ("tatangeorge") existe y seria mejor identificador.
-
-La logica actual:
+### 2. ManyChat envia `name: "JG"` que pasa la sanitizacion
+La funcion `sanitize()` solo detecta `{{...}}`. Pero ManyChat envia `name: "JG"` (nombre parcial abreviado de Instagram) que es un string valido. La logica actual:
 ```
-displayName = contacts.first_name + contacts.last_name || external_name || 'Sin nombre'
+subscriberName = payload.name || [...first, last].join(' ') || ig_username
 ```
+Prioriza `"JG"` sobre `"tatangeorge"`. Para Instagram, el `ig_username` es mejor identificador.
 
-Deberia incluir `instagram_username` como fallback:
-```
-displayName = contacts.first_name + contacts.last_name || contacts.instagram_username || external_name || 'Sin nombre'
-```
-
-### 3. La segunda conversacion (05976d07) sigue con datos corruptos
-Tiene un mensaje con contenido `{{last text input}}` y sender_name `{{full name}}` — estos se crearon ANTES del fix de sanitizacion. Tambien su contacto asociado (`4fba8556`) tiene `avatar_url: {{profile pic url}}` y metadata corrupta.
+### 3. Los mensajes usan `subscriberName` como `sender_name`
+Linea 417: `sender_name: subscriberName` → guarda "JG" en cada mensaje.
 
 ## Plan de implementacion
 
-### Paso 1: Sanitizar `profile_pic` en el webhook
-En `supabase/functions/manychat-webhook/index.ts`, agregar despues de la linea que sanitiza `last_widget_input`:
-```typescript
-payload.profile_pic = sanitize(payload.profile_pic) as any;
-```
-
-### Paso 2: Mejorar displayName en ConversationItem.tsx y ConversationView.tsx
-Actualizar la logica de `displayName` en ambos componentes para incluir `instagram_username` y `metadata.ig_username` como fallbacks:
+### Paso 1: Cambiar prioridad de nombre para canal Instagram
+En `supabase/functions/manychat-webhook/index.ts`, linea 294-297, cambiar la logica para que en canal Instagram se priorice `ig_username`:
 
 ```typescript
-const displayName = conversation.contacts 
-  ? [conversation.contacts.first_name, conversation.contacts.last_name].filter(Boolean).join(' ') 
-    || conversation.contacts.instagram_username
-    || conversation.external_name 
-    || 'Sin nombre'
-  : conversation.external_name || 'Sin nombre';
+const subscriberName = channel === 'instagram' && payload.ig_username
+  ? payload.ig_username
+  : (payload.name || 
+     [payload.first_name, payload.last_name].filter(Boolean).join(' ') || 
+     payload.ig_username || 'Suscriptor');
 ```
 
-Esto requiere que el query en `useConversations.ts` tambien traiga `instagram_username`:
-```typescript
-contacts:contact_id (id, first_name, last_name, email, avatar_url, instagram_username)
-```
+### Paso 2: Limpiar datos corruptos (de nuevo)
+Ejecutar SQL para corregir los registros existentes:
 
-### Paso 3: Filtrar avatares con template strings en el frontend
-En ambos componentes, validar que `avatarUrl` no contenga `{{`:
-```typescript
-const avatarUrl = (() => {
-  const url = conversation.contacts?.avatar_url || conversation.external_avatar;
-  return url && !url.includes('{{') ? url : undefined;
-})();
-```
+| Tabla | ID | Cambio |
+|---|---|---|
+| conversations | a8a02b79 | external_avatar=NULL, external_name='tatangeorge' |
+| conversations | 05976d07 | external_avatar=NULL, last_message_preview='Mensaje de Instagram' |
+| conversation_messages (4 nuevos) | bf114c2a, 5538df1a, 6a45949d, ae6f882e | sender_name='tatangeorge' |
+| conversation_messages | 264d78fc | content='Mensaje de Instagram', sender_name='tatangeorge' |
 
-### Paso 4: Limpiar datos corruptos existentes (SQL)
-
-| Tabla | ID | Campo | Accion |
-|---|---|---|---|
-| conversations | a8a02b79 | external_avatar | SET NULL |
-| conversations | a8a02b79 | external_name | SET 'tatangeorge' |
-| conversations | 05976d07 | external_avatar | SET NULL |
-| contacts | 16db4d67 | avatar_url | SET NULL |
-| contacts | 4fba8556 | avatar_url | SET NULL |
-| contacts | 4fba8556 | source_id | SET NULL (era `{{subscriber id}}`) |
-| conversation_messages | 264d78fc | content | SET 'Mensaje de Instagram' |
-| conversation_messages | 264d78fc | sender_name | SET 'Contacto Instagram' |
+### Paso 3: Actualizar first_name del contacto como fallback
+El contacto `16db4d67` tiene `first_name: NULL` y `instagram_username: tatangeorge`. Actualizar `first_name` a `tatangeorge` para que el UI lo muestre correctamente en todos los contextos.
 
 ### Archivos a modificar
-
-1. `supabase/functions/manychat-webhook/index.ts` — agregar sanitizacion de `profile_pic`
-2. `src/hooks/useConversations.ts` — agregar `instagram_username` al select de contacts
-3. `src/components/conversations/ConversationItem.tsx` — mejorar displayName y filtrar avatar
-4. `src/components/conversations/ConversationView.tsx` — mejorar displayName y filtrar avatar
+1. `supabase/functions/manychat-webhook/index.ts` — priorizar ig_username en canal Instagram (1 cambio, ~3 lineas)
 
 ### Seccion tecnica
 
 ```text
-Flujo actual:
-  ManyChat: { profile_pic: "{{profile pic url}}", first_name: "JG" }
-  → DB: avatar_url = "{{profile pic url}}", first_name = NULL
-  → UI: <AvatarImage src="{{profile pic url}}" /> → imagen rota, nombre "JG"
+Flujo actual (Instagram):
+  ManyChat: { name: "JG", ig_username: "tatangeorge" }
+  → subscriberName = "JG" (name tiene prioridad)
+  → sender_name = "JG", external_name = "JG"
 
 Flujo corregido:
-  ManyChat: { profile_pic: "{{profile pic url}}", ig_username: "tatangeorge" }
-  → sanitize() → profile_pic = undefined, ig_username = "tatangeorge"
-  → DB: avatar_url = NULL, external_name = "tatangeorge"
-  → UI: <AvatarFallback>TA</AvatarFallback>, nombre "tatangeorge"
+  ManyChat: { name: "JG", ig_username: "tatangeorge" }
+  → channel === 'instagram' && ig_username → subscriberName = "tatangeorge"
+  → sender_name = "tatangeorge", external_name = "tatangeorge"
 ```
 
