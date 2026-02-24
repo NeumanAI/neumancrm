@@ -1,67 +1,80 @@
 
 
-# Fix: Datos de Instagram siguen corruptos y nombre incorrecto
+# Plan: Crear miembros del equipo directamente con contraseña
 
-## Diagnostico
+## Resumen
 
-La imagen muestra que los 4 mensajes nuevos de "hola" se guardaron con `sender_name: "JG"` y la conversacion aun tiene `external_avatar: "{{profile pic url}}"`. Hay 3 problemas:
+Crear una edge function `create-team-member` que use la Admin API para crear usuarios con email + contraseña directamente, sin necesidad de enviar invitación por correo. Se añadirá un nuevo diálogo `CreateMemberDialog` que reemplazará/complementará el flujo actual de invitación.
 
-### 1. La limpieza SQL anterior NO se aplico
-Los datos en la base de datos siguen exactamente igual que antes:
-- `conversations.a8a02b79.external_avatar` = `{{profile pic url}}` (debia ser NULL)
-- `conversations.a8a02b79.external_name` = `JG` (debia ser `tatangeorge`)
-- `conversations.05976d07.last_message_preview` = `{{last text input}}`
-
-### 2. ManyChat envia `name: "JG"` que pasa la sanitizacion
-La funcion `sanitize()` solo detecta `{{...}}`. Pero ManyChat envia `name: "JG"` (nombre parcial abreviado de Instagram) que es un string valido. La logica actual:
-```
-subscriberName = payload.name || [...first, last].join(' ') || ig_username
-```
-Prioriza `"JG"` sobre `"tatangeorge"`. Para Instagram, el `ig_username` es mejor identificador.
-
-### 3. Los mensajes usan `subscriberName` como `sender_name`
-Linea 417: `sender_name: subscriberName` → guarda "JG" en cada mensaje.
-
-## Plan de implementacion
-
-### Paso 1: Cambiar prioridad de nombre para canal Instagram
-En `supabase/functions/manychat-webhook/index.ts`, linea 294-297, cambiar la logica para que en canal Instagram se priorice `ig_username`:
-
-```typescript
-const subscriberName = channel === 'instagram' && payload.ig_username
-  ? payload.ig_username
-  : (payload.name || 
-     [payload.first_name, payload.last_name].filter(Boolean).join(' ') || 
-     payload.ig_username || 'Suscriptor');
-```
-
-### Paso 2: Limpiar datos corruptos (de nuevo)
-Ejecutar SQL para corregir los registros existentes:
-
-| Tabla | ID | Cambio |
-|---|---|---|
-| conversations | a8a02b79 | external_avatar=NULL, external_name='tatangeorge' |
-| conversations | 05976d07 | external_avatar=NULL, last_message_preview='Mensaje de Instagram' |
-| conversation_messages (4 nuevos) | bf114c2a, 5538df1a, 6a45949d, ae6f882e | sender_name='tatangeorge' |
-| conversation_messages | 264d78fc | content='Mensaje de Instagram', sender_name='tatangeorge' |
-
-### Paso 3: Actualizar first_name del contacto como fallback
-El contacto `16db4d67` tiene `first_name: NULL` y `instagram_username: tatangeorge`. Actualizar `first_name` a `tatangeorge` para que el UI lo muestre correctamente en todos los contextos.
-
-### Archivos a modificar
-1. `supabase/functions/manychat-webhook/index.ts` — priorizar ig_username en canal Instagram (1 cambio, ~3 lineas)
-
-### Seccion tecnica
+## Arquitectura
 
 ```text
-Flujo actual (Instagram):
-  ManyChat: { name: "JG", ig_username: "tatangeorge" }
-  → subscriberName = "JG" (name tiene prioridad)
-  → sender_name = "JG", external_name = "JG"
-
-Flujo corregido:
-  ManyChat: { name: "JG", ig_username: "tatangeorge" }
-  → channel === 'instagram' && ig_username → subscriberName = "tatangeorge"
-  → sender_name = "tatangeorge", external_name = "tatangeorge"
+Admin (UI) → CreateMemberDialog (email, nombre, contraseña, rol)
+  → Edge Function: create-team-member
+    → supabase.auth.admin.createUser(email, password, email_confirm: true)
+    → INSERT team_members (user_id, org_id, role, email, full_name, is_active: true)
+    → Response: { success, user_id }
 ```
+
+## Implementación
+
+### Paso 1: Edge Function `create-team-member`
+
+Archivo: `supabase/functions/create-team-member/index.ts`
+
+- Verifica que el caller sea admin de su organización (via JWT + query a team_members)
+- Recibe: `{ email, password, fullName, role }`
+- Usa `adminClient.auth.admin.createUser()` con `email_confirm: true` para crear el usuario sin enviar email
+- Inserta en `team_members` con `is_active: true`, `user_id` del usuario creado, y la `organization_id` del caller
+- Maneja el caso donde el email ya existe: vincula el usuario existente al equipo
+- Valida que no se exceda `max_users` de la organización
+
+Config en `supabase/config.toml`:
+```toml
+[functions.create-team-member]
+verify_jwt = false
+```
+
+### Paso 2: Componente `CreateMemberDialog`
+
+Archivo: `src/components/team/CreateMemberDialog.tsx`
+
+- Formulario con: Email, Nombre completo, Contraseña, Confirmar contraseña, Rol (select)
+- Validación de contraseña mínima (6 caracteres) y que coincidan
+- Llama a la edge function via `supabase.functions.invoke('create-team-member', ...)`
+- Invalida queries de `team_members` al completar
+
+### Paso 3: Actualizar página Team
+
+En `src/pages/Team.tsx`:
+- Importar `CreateMemberDialog`
+- Añadir estado para el nuevo diálogo
+- Cambiar el botón "Invitar Miembro" por un dropdown con dos opciones:
+  - "Crear Miembro" (nuevo flujo directo)
+  - "Invitar por Email" (flujo existente)
+
+### Archivos a crear/modificar
+
+1. **Crear**: `supabase/functions/create-team-member/index.ts`
+2. **Crear**: `src/components/team/CreateMemberDialog.tsx`
+3. **Modificar**: `src/pages/Team.tsx` — añadir dropdown y nuevo diálogo
+4. **Modificar**: `supabase/config.toml` — añadir config de la nueva función
+
+### Sección técnica
+
+La edge function usa `supabase.auth.admin.createUser` con `email_confirm: true` para que el usuario pueda iniciar sesión inmediatamente sin verificación por correo. El trigger existente `handle_new_user_organization` podría interferir creando una organización duplicada, así que la edge function primero crea el usuario con la Admin API, luego elimina cualquier organización/team_member auto-creado por el trigger, y finalmente inserta el team_member correcto vinculado a la organización del admin que lo invita.
+
+Alternativa más limpia: crear el `team_member` con `pending_email` ANTES de crear el usuario auth — así el trigger `link_team_member_on_registration` lo vincula automáticamente y `handle_new_user_organization` detecta que ya tiene team_member y no crea org duplicada. Sin embargo, `handle_new_user_organization` no hace esa verificación actualmente — siempre crea una org nueva si no hay `pending_admin_email`. Por lo tanto, la edge function deberá:
+
+1. Insertar `team_member` con `pending_email` y sin `user_id`
+2. Crear usuario auth con `admin.createUser`
+3. El trigger `link_team_member_on_registration` vincula el team_member
+4. El trigger `handle_new_user_organization` crea una org extra → la edge function la elimina después
+5. O mejor: la edge function borra la org auto-creada y el team_member auto-creado, dejando solo el correcto
+
+Para evitar complejidad, el approach más seguro es:
+1. Crear usuario auth
+2. Esperar a que los triggers se ejecuten
+3. Limpiar: borrar el team_member y org auto-creados
+4. Insertar el team_member correcto
 
