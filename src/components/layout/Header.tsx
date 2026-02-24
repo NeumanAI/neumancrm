@@ -38,6 +38,7 @@ const PAGE_NAMES: Record<string, string> = {
   '/team': 'Equipo',
   '/settings': 'Configuración',
   '/admin': 'Administración',
+  '/cartera': 'Cartera',
 };
 
 function getGreeting(user: { email?: string; user_metadata?: { full_name?: string } } | null) {

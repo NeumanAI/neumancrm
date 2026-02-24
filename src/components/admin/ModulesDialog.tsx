@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Building2 } from 'lucide-react';
+import { Building2, Wallet } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -58,6 +58,19 @@ export function ModulesDialog({ open, onOpenChange, organizationId, organization
             <Switch
               checked={!!modules.real_estate}
               onCheckedChange={(checked) => setModules({ ...modules, real_estate: checked })}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Wallet className="h-5 w-5 text-primary" />
+              <div>
+                <Label className="text-base">Cartera Inmobiliaria</Label>
+                <p className="text-sm text-muted-foreground">Contratos de financiamiento, plan de pagos y gestión de cobro</p>
+              </div>
+            </div>
+            <Switch
+              checked={!!modules.real_estate_portfolio}
+              onCheckedChange={(checked) => setModules({ ...modules, real_estate_portfolio: checked })}
             />
           </div>
         </div>

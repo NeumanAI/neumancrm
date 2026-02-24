@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useHasModule } from '@/hooks/useHasModule';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,7 +20,7 @@ import {
 } from '@/components/ui/table';
 import {
   ArrowLeft, Building2, MapPin, Home, Users, Plus, Trash2, MoreHorizontal, Calendar,
-  Pencil, FileSpreadsheet, Image,
+  Pencil, FileSpreadsheet, Image, Wallet,
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -35,6 +36,7 @@ import { BuyerContactSearch } from '@/components/realestate/BuyerContactSearch';
 import { ImportUnitsDialog } from '@/components/realestate/ImportUnitsDialog';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { CreateContractDialog } from '@/components/portfolio/CreateContractDialog';
 
 const formatCurrency = (value: number, currency = 'MXN') =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency, minimumFractionDigits: 0 }).format(value);
@@ -63,6 +65,8 @@ export default function RealEstateProjectDetail() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [editingImage, setEditingImage] = useState(false);
   const [newImageUrl, setNewImageUrl] = useState('');
+  const [carteraLead, setCarteraLead] = useState<{ contactId: string; contactName: string } | null>(null);
+  const hasPortfolio = useHasModule('real_estate_portfolio');
 
   const { data: project, isLoading } = useRealEstateProject(projectId);
   const { updateProject } = useRealEstateProjects();
@@ -414,6 +418,11 @@ export default function RealEstateProjectDetail() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => navigate(`/contacts/${contact.id}`)}>Ver contacto</DropdownMenuItem>
+                              {hasPortfolio && ['signed', 'reserved', 'delivered'].includes(lead.status) && (
+                                <DropdownMenuItem onClick={() => setCarteraLead({ contactId: contact.id, contactName: `${contact.first_name} ${contact.last_name}` })}>
+                                  <Wallet className="h-4 w-4 mr-2" />Crear contrato cartera
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem onClick={() => deleteLead.mutate(lead.id)} className="text-destructive">
                                 <Trash2 className="h-4 w-4 mr-2" />Eliminar
                               </DropdownMenuItem>
@@ -469,6 +478,17 @@ export default function RealEstateProjectDetail() {
         onOpenChange={setImportUnitsOpen}
         projectId={projectId!}
       />
+
+      {/* Create Contract Dialog */}
+      {carteraLead && (
+        <CreateContractDialog
+          open={!!carteraLead}
+          onOpenChange={(o) => { if (!o) setCarteraLead(null); }}
+          projectId={projectId!}
+          contactId={carteraLead.contactId}
+          contactName={carteraLead.contactName}
+        />
+      )}
     </div>
   );
 }

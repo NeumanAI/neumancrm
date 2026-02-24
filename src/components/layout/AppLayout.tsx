@@ -29,6 +29,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { isSuperAdmin } = useSuperAdmin();
   const { isResellerAdmin } = useResellerAdmin();
   const hasRealEstate = useHasModule('real_estate');
+  const hasPortfolio = useHasModule('real_estate_portfolio');
   const isMobile = useIsMobile();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -120,6 +121,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           isSuperAdmin={isSuperAdmin}
           isResellerAdmin={isResellerAdmin}
           hasRealEstate={hasRealEstate}
+          hasPortfolio={hasPortfolio}
           isMobileOpen={mobileMenuOpen}
           onMobileClose={() => setMobileMenuOpen(false)}
         />
