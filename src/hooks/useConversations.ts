@@ -25,7 +25,7 @@ export function useConversations(filters?: ConversationFilters) {
         .from('conversations')
         .select(`
           *,
-          contacts:contact_id (id, first_name, last_name, email, avatar_url)
+          contacts:contact_id (id, first_name, last_name, email, avatar_url, instagram_username)
         `)
         .order('last_message_at', { ascending: false, nullsFirst: false });
 
