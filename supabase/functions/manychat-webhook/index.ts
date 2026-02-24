@@ -28,6 +28,12 @@ interface ManyChatPayload {
   crm_organization_id?: string;
 }
 
+// Sanitize ManyChat template strings (e.g. "{{email}}", "{{last_name}}")
+function sanitize(val?: string): string | undefined {
+  if (!val || val.includes('{{')) return undefined;
+  return val.trim() || undefined;
+}
+
 // Normalize phone number to standard format
 function normalizePhone(phone: string): string {
   let normalized = phone.replace(/[\s\-\(\)\.]/g, '');
@@ -251,9 +257,21 @@ Deno.serve(async (req) => {
     console.log('[manychat-webhook] Received payload:', JSON.stringify(payload, null, 2));
 
     const subscriberId = payload.id;
-    const message = payload.last_input_text || payload.last_widget_input;
     const crmUserId = payload.crm_user_id;
     const crmOrgId = payload.crm_organization_id;
+
+    // Sanitize all payload fields to remove ManyChat template strings
+    payload.first_name = sanitize(payload.first_name) as any;
+    payload.last_name = sanitize(payload.last_name) as any;
+    payload.name = sanitize(payload.name) as any;
+    payload.email = sanitize(payload.email) as any;
+    payload.phone = sanitize(payload.phone) as any;
+    payload.wa_phone = sanitize(payload.wa_phone) as any;
+    payload.ig_username = sanitize(payload.ig_username) as any;
+    payload.last_input_text = sanitize(payload.last_input_text) as any;
+    payload.last_widget_input = sanitize(payload.last_widget_input) as any;
+
+    const message = payload.last_input_text || payload.last_widget_input;
 
     if (!subscriberId) {
       return new Response(
@@ -272,10 +290,10 @@ Deno.serve(async (req) => {
 
     console.log(`[manychat-webhook] Channel detected: ${channel}, subscriber: ${subscriberId}`);
 
-    // Build subscriber name
+    // Build subscriber name with ig_username fallback
     const subscriberName = payload.name || 
       [payload.first_name, payload.last_name].filter(Boolean).join(' ') || 
-      'Suscriptor';
+      payload.ig_username || 'Suscriptor';
 
     // Auto-create/link contact if we have a CRM user
     let contactId: string | null = null;
