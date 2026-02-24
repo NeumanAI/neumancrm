@@ -374,14 +374,6 @@ export default function Pipeline() {
 
   const isLoading = oppsLoading || pipelineLoading;
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   const advisors = teamMembers.filter(m => m.is_active && ['admin', 'manager', 'sales_rep'].includes(m.role));
 
   const openOpportunities = useMemo(() => {
@@ -392,7 +384,6 @@ export default function Pipeline() {
     return result;
   }, [opportunities, advisorFilter]);
 
-  // Calculate total pipeline value
   const totalValue = openOpportunities.reduce((sum, o) => sum + Number(o.value || 0), 0);
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-ES', {
@@ -402,6 +393,14 @@ export default function Pipeline() {
       maximumFractionDigits: 1,
     }).format(value);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <motion.div
