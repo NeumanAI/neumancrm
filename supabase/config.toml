@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.impersonate-user]
 verify_jwt = false
+
+[functions.create-team-member]
+verify_jwt = false
