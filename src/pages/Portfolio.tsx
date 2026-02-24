@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Wallet, Search, FileText, AlertTriangle, CheckCircle2, TrendingUp } from 'lucide-react';
+import { Wallet, Search, FileText, AlertTriangle, CheckCircle2, TrendingUp, Plus } from 'lucide-react';
+import { NewContractWizard } from '@/components/portfolio/NewContractWizard';
 import { usePortfolioContracts, CONTRACT_STATUS_LABELS, CONTRACT_STATUS_COLORS } from '@/hooks/usePortfolioContracts';
 import { useRealEstateProjects } from '@/hooks/useRealEstateProjects';
 import { cn } from '@/lib/utils';
@@ -18,6 +20,7 @@ export default function Portfolio() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [showNewContract, setShowNewContract] = useState(false);
   const [projectFilter, setProjectFilter] = useState('all');
   const { contracts, isLoading } = usePortfolioContracts();
   const { projects } = useRealEstateProjects();
@@ -58,10 +61,17 @@ export default function Portfolio() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Wallet className="h-7 w-7 text-primary" />
-        <h1 className="text-2xl font-bold">Cartera Inmobiliaria</h1>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Wallet className="h-7 w-7 text-primary" />
+          <h1 className="text-2xl font-bold">Cartera Inmobiliaria</h1>
+        </div>
+        <Button onClick={() => setShowNewContract(true)}>
+          <Plus className="h-4 w-4 mr-1" /> Nuevo contrato
+        </Button>
       </div>
+
+      <NewContractWizard open={showNewContract} onOpenChange={setShowNewContract} />
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
