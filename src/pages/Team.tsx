@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTeam, TeamMember, TeamRole } from '@/hooks/useTeam';
 import { useActivityFeed } from '@/hooks/useActivityFeed';
 import { InviteMemberDialog } from '@/components/team/InviteMemberDialog';
+import { CreateMemberDialog } from '@/components/team/CreateMemberDialog';
 import { SetQuotaDialog } from '@/components/team/SetQuotaDialog';
 import { ActivityFeedList } from '@/components/team/ActivityFeedList';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,7 +50,9 @@ import {
   Users,
   Activity,
   Building2,
-  RefreshCw
+  RefreshCw,
+  ChevronDown,
+  Mail
 } from 'lucide-react';
 
 const roleConfig: Record<TeamRole, { label: string; icon: React.ReactNode; color: string }> = {
@@ -72,6 +75,7 @@ export default function Team() {
   } = useTeam();
   
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [quotaDialogOpen, setQuotaDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [removeMemberDialog, setRemoveMemberDialog] = useState<TeamMember | null>(null);
@@ -143,10 +147,25 @@ export default function Team() {
         </div>
         
         {isAdmin && (
-          <Button onClick={() => setInviteDialogOpen(true)}>
-            <UserPlus className="h-4 w-4 mr-2" />
-            Invitar Miembro
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Agregar Miembro
+                <ChevronDown className="h-4 w-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setCreateDialogOpen(true)}>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Crear Miembro
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setInviteDialogOpen(true)}>
+                <Mail className="h-4 w-4 mr-2" />
+                Invitar por Email
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 
@@ -334,6 +353,11 @@ export default function Team() {
       </Tabs>
 
       {/* Dialogs */}
+      <CreateMemberDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+      />
+
       <InviteMemberDialog 
         open={inviteDialogOpen} 
         onOpenChange={setInviteDialogOpen} 
