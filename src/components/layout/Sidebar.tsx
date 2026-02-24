@@ -23,6 +23,7 @@ import {
   User,
   LogOut,
   Trophy,
+  Wallet,
   X } from
 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -52,6 +53,7 @@ interface SidebarProps {
   isMobileOpen?: boolean;
   onMobileClose?: () => void;
   hasRealEstate?: boolean;
+  hasPortfolio?: boolean;
 }
 
 const navItems = [
@@ -84,7 +86,7 @@ const resellerNavItems = [
 { to: '/reseller-admin', icon: Store, label: 'Mis Clientes', isReseller: true }];
 
 
-export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerAdmin = false, isMobileOpen = false, onMobileClose, hasRealEstate = false }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerAdmin = false, isMobileOpen = false, onMobileClose, hasRealEstate = false, hasPortfolio = false }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -94,12 +96,18 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
   const { organization } = useTeam();
 
   const realEstateNavItem = { to: '/proyectos', icon: Building2, label: 'Proyectos', isRealEstate: true };
+  const portfolioNavItem = { to: '/cartera', icon: Wallet, label: 'Cartera', isRealEstate: true };
 
   let allNavItems = [...navItems];
   // Insert real estate after Pipeline if enabled
   if (hasRealEstate) {
     const pipelineIdx = allNavItems.findIndex(i => i.to === '/pipeline');
     allNavItems.splice(pipelineIdx + 1, 0, realEstateNavItem);
+  }
+  if (hasPortfolio) {
+    const projIdx = allNavItems.findIndex(i => i.to === '/proyectos');
+    const insertIdx = projIdx >= 0 ? projIdx + 1 : allNavItems.findIndex(i => i.to === '/pipeline') + 1;
+    allNavItems.splice(insertIdx, 0, portfolioNavItem);
   }
   if (isResellerAdmin) {
     allNavItems = [...allNavItems, ...resellerNavItems];

@@ -2121,6 +2121,303 @@ export type Database = {
         }
         Relationships: []
       }
+      portfolio_collection_actions: {
+        Row: {
+          action_type: string
+          contract_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          organization_id: string
+          performed_at: string
+          performed_by: string | null
+          promise_amount: number | null
+          promise_date: string | null
+          result: string | null
+        }
+        Insert: {
+          action_type?: string
+          contract_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id: string
+          performed_at?: string
+          performed_by?: string | null
+          promise_amount?: number | null
+          promise_date?: string | null
+          result?: string | null
+        }
+        Update: {
+          action_type?: string
+          contract_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          performed_at?: string
+          performed_by?: string | null
+          promise_amount?: number | null
+          promise_date?: string | null
+          result?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_collection_actions_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_collection_actions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portfolio_contracts: {
+        Row: {
+          contact_id: string
+          contract_number: string
+          created_at: string
+          created_by: string | null
+          down_payment: number
+          fiducia_number: string | null
+          financed_amount: number
+          first_payment_date: string | null
+          id: string
+          interest_rate: number
+          monthly_payment: number
+          notes: string | null
+          organization_id: string
+          payment_day: number
+          project_id: string
+          separation_amount: number
+          signing_date: string
+          status: string
+          subsidy_amount: number
+          term_months: number
+          total_price: number
+          unit_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          contact_id: string
+          contract_number: string
+          created_at?: string
+          created_by?: string | null
+          down_payment?: number
+          fiducia_number?: string | null
+          financed_amount?: number
+          first_payment_date?: string | null
+          id?: string
+          interest_rate?: number
+          monthly_payment?: number
+          notes?: string | null
+          organization_id: string
+          payment_day?: number
+          project_id: string
+          separation_amount?: number
+          signing_date?: string
+          status?: string
+          subsidy_amount?: number
+          term_months?: number
+          total_price?: number
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          contact_id?: string
+          contract_number?: string
+          created_at?: string
+          created_by?: string | null
+          down_payment?: number
+          fiducia_number?: string | null
+          financed_amount?: number
+          first_payment_date?: string | null
+          id?: string
+          interest_rate?: number
+          monthly_payment?: number
+          notes?: string | null
+          organization_id?: string
+          payment_day?: number
+          project_id?: string
+          separation_amount?: number
+          signing_date?: string
+          status?: string
+          subsidy_amount?: number
+          term_months?: number
+          total_price?: number
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_contracts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_contracts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_contracts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_contracts_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_unit_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portfolio_payment_schedule: {
+        Row: {
+          contract_id: string
+          created_at: string
+          due_date: string
+          id: string
+          installment_number: number
+          interest_amount: number
+          late_fee: number
+          organization_id: string
+          paid_amount: number
+          paid_at: string | null
+          principal_amount: number
+          remaining_balance: number
+          status: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          due_date: string
+          id?: string
+          installment_number: number
+          interest_amount?: number
+          late_fee?: number
+          organization_id: string
+          paid_amount?: number
+          paid_at?: string | null
+          principal_amount?: number
+          remaining_balance?: number
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          due_date?: string
+          id?: string
+          installment_number?: number
+          interest_amount?: number
+          late_fee?: number
+          organization_id?: string
+          paid_amount?: number
+          paid_at?: string | null
+          principal_amount?: number
+          remaining_balance?: number
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_payment_schedule_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_payment_schedule_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portfolio_payments: {
+        Row: {
+          amount: number
+          bank_reference: string | null
+          contract_id: string
+          created_at: string
+          id: string
+          installment_id: string | null
+          notes: string | null
+          organization_id: string
+          payment_date: string
+          payment_method: string
+          recorded_by: string | null
+        }
+        Insert: {
+          amount?: number
+          bank_reference?: string | null
+          contract_id: string
+          created_at?: string
+          id?: string
+          installment_id?: string | null
+          notes?: string | null
+          organization_id: string
+          payment_date?: string
+          payment_method?: string
+          recorded_by?: string | null
+        }
+        Update: {
+          amount?: number
+          bank_reference?: string | null
+          contract_id?: string
+          created_at?: string
+          id?: string
+          installment_id?: string | null
+          notes?: string | null
+          organization_id?: string
+          payment_date?: string
+          payment_method?: string
+          recorded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_payments_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_payments_installment_id_fkey"
+            columns: ["installment_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_payment_schedule"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_payments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_members: {
         Row: {
           created_at: string

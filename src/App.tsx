@@ -43,6 +43,8 @@ import RealEstateProjects from "./pages/RealEstateProjects";
 import RealEstateProjectDetail from "./pages/RealEstateProjectDetail";
 import Impersonate from "./pages/Impersonate";
 import AdvisorDashboard from "./pages/AdvisorDashboard";
+import Portfolio from "./pages/Portfolio";
+import PortfolioContractDetail from "./pages/PortfolioContractDetail";
 
 // Redirect helper
 function ProjectRedirect() {
@@ -125,6 +127,8 @@ const App = () => (
               <Route path="/gestion-comercial" element={<AppLayout><AdvisorDashboard /></AppLayout>} />
               <Route path="/proyectos" element={<AppLayout><RealEstateProjects /></AppLayout>} />
               <Route path="/proyectos/:projectId" element={<AppLayout><RealEstateProjectDetail /></AppLayout>} />
+              <Route path="/cartera" element={<AppLayout><Portfolio /></AppLayout>} />
+              <Route path="/cartera/:contractId" element={<AppLayout><PortfolioContractDetail /></AppLayout>} />
               <Route path="/calendar" element={<AppLayout><CalendarPage /></AppLayout>} />
               <Route path="/documents" element={<AppLayout><Documents /></AppLayout>} />
               <Route path="/shared/:token" element={<SharedDocument />} />
