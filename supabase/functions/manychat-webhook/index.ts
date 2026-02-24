@@ -270,6 +270,7 @@ Deno.serve(async (req) => {
     payload.ig_username = sanitize(payload.ig_username) as any;
     payload.last_input_text = sanitize(payload.last_input_text) as any;
     payload.last_widget_input = sanitize(payload.last_widget_input) as any;
+    payload.profile_pic = sanitize(payload.profile_pic) as any;
 
     const message = payload.last_input_text || payload.last_widget_input;
 

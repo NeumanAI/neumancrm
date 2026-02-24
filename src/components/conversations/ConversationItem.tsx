@@ -53,6 +53,9 @@ export function ConversationItem({ conversation, isSelected, onClick }: Conversa
 
   const displayName = conversation.contacts 
     ? [conversation.contacts.first_name, conversation.contacts.last_name].filter(Boolean).join(' ') 
+      || (conversation.contacts as any)?.instagram_username
+      || conversation.external_name 
+      || 'Sin nombre'
     : conversation.external_name || 'Sin nombre';
 
   const initials = displayName
@@ -62,7 +65,10 @@ export function ConversationItem({ conversation, isSelected, onClick }: Conversa
     .toUpperCase()
     .slice(0, 2);
 
-  const avatarUrl = conversation.contacts?.avatar_url || conversation.external_avatar;
+  const avatarUrl = (() => {
+    const url = conversation.contacts?.avatar_url || conversation.external_avatar;
+    return url && !url.includes('{{') ? url : undefined;
+  })();
 
   return (
     <div
