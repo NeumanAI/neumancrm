@@ -98,12 +98,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if email already exists as a team member in this org
+    // Check if email already exists as an ACTIVE team member in this org
     const { data: existingMember } = await adminClient
       .from("team_members")
       .select("id, is_active")
       .eq("organization_id", orgId)
       .eq("email", email.toLowerCase())
+      .eq("is_active", true)
       .maybeSingle();
 
     if (existingMember) {
@@ -112,6 +113,14 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Delete any pending/inactive invitations for this email so we can create fresh
+    await adminClient
+      .from("team_members")
+      .delete()
+      .eq("organization_id", orgId)
+      .eq("email", email.toLowerCase())
+      .eq("is_active", false);
 
     // Step 1: Create auth user
     const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
