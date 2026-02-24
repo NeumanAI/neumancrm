@@ -1,29 +1,28 @@
 
 
-# Fix: Los segmentos no se abren al hacer clic
+# Fix: Error en Pipeline por violacion de reglas de Hooks
 
-## Problema detectado
+## Problema
 
-En el componente `ProjectCard.tsx`, al hacer clic en una tarjeta de segmento, navega a `/projects/{id}`. Sin embargo, en `App.tsx` esa ruta esta configurada como un redirect generico a `/segmentos` (sin conservar el ID), por lo que nunca se llega al detalle del segmento.
+En `src/pages/Pipeline.tsx`, el hook `useMemo` (linea ~280) se llama DESPUES de un `return` condicional por `isLoading` (linea ~268). Esto viola las reglas de React Hooks que exigen que todos los hooks se llamen siempre en el mismo orden, sin importar condiciones.
+
+```text
+Pipeline component
+  ├── useState, useSensor, useEffect  ← OK
+  ├── if (isLoading) return <Loader/>  ← EARLY RETURN
+  └── useMemo(openOpportunities)       ← ERROR: hook despues de return condicional
+```
 
 ## Solucion
 
-### Archivo: `src/components/projects/ProjectCard.tsx`
+### Archivo: `src/pages/Pipeline.tsx`
 
-Cambiar las 2 referencias de navegacion de `/projects/${project.id}` a `/segmentos/${project.id}`:
+Mover el `useMemo` de `openOpportunities` ANTES del bloque `if (isLoading)`. Tambien mover las variables derivadas (`totalValue`, `advisors`, `formatCurrency`) que no dependen de hooks para que esten antes del return condicional.
 
-- **Linea 80**: `onClick={() => navigate('/segmentos/${project.id}'))`
-- **Linea 116**: `navigate('/segmentos/${project.id}')`
+Cambios concretos:
+1. Mover `const advisors = ...` antes del `if (isLoading)`
+2. Mover `const openOpportunities = useMemo(...)` antes del `if (isLoading)`
+3. Mover `const totalValue = ...` y `formatCurrency` antes del `if (isLoading)`
 
-### Archivo: `src/App.tsx` (opcional, mejora)
-
-Actualizar el redirect de `/projects/:projectId` para que conserve el parametro:
-
-- Cambiar `<Navigate to="/segmentos" replace />` por un componente que extraiga el `projectId` y redirija a `/segmentos/:projectId`
-
----
-
-## Resumen tecnico
-
-Solo se necesita cambiar 2 lineas en `ProjectCard.tsx` para corregir la navegacion. Opcionalmente se mejora el redirect en `App.tsx` para que enlaces antiguos con `/projects/:id` tambien funcionen correctamente.
+Esto garantiza que todos los hooks se ejecuten en cada render, independientemente del estado de carga.
 
