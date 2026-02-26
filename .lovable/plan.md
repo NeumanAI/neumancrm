@@ -1,65 +1,27 @@
 
 
-## Diagnóstico: Por qué el fetch de Bitancorp no llega al CRM
+## Alcance actual de la integración Bitancorp
 
-### El código compartido es correcto
-El fetch que pegaste tiene la URL, apikey, headers y payload correctos. El endpoint funciona (acabo de verificarlo con una prueba directa exitosa).
+La integración con Bitancorp está configurada **exclusivamente para una cuenta específica**, no para todo el CRM.
 
-### Causa más probable: el código no se está ejecutando
+### Evidencia en el código del fetch de Bitancorp
 
-Dado que hay **cero solicitudes** en los logs del servidor (ni siquiera un OPTIONS preflight), las posibilidades son:
+El fetch tiene valores hardcodeados:
 
-1. **El código no está desplegado**: El cambio aún no se publicó en producción en Bitancorp
-2. **Error JavaScript antes del fetch**: Algún error en el código previo impide que se llegue a ejecutar el `fetch`
-3. **La variable `sessionId` o `userMessage.content` es undefined**: Si `sessionId` es `undefined`, el `JSON.stringify` producirá un payload inválido o el fetch fallará silenciosamente
-
-### Verificación necesaria (lado Bitancorp)
-
-Necesitas abrir la consola del navegador (F12 → Console) en el sitio de Bitancorp, enviar un mensaje en el webchat, y buscar:
-- Errores JavaScript en rojo
-- El mensaje `"CRM Neuman sync error:"` (que indica que el `.catch` capturó un error)
-- Si no aparece nada, significa que el código no se está ejecutando
-
-### Plan de acción
-
-**Paso 1: Agregar un log visible antes del fetch en Bitancorp**
-
-Modificar el código en Bitancorp para agregar un `console.log` antes del fetch:
-
-```javascript
-console.log(">>> CRM Neuman: enviando mensaje", { sessionId, message: userMessage.content });
-
-fetch("https://vzqjoiapwgsbvsknrlqk.supabase.co/functions/v1/n8n-chat", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "apikey": "eyJ...",
-  },
-  body: JSON.stringify({
-    session_id: sessionId,
-    message: userMessage.content,
-    visitor_name: "Visitante Web",
-    visitor_email: "",
-    user_id: "e595967d-a0cc-4cf2-ba94-32aa81d3eee0",
-    organization_id: "5179d17c-7107-46ea-ba1a-88a029bf74d9",
-  }),
-})
-.then(res => console.log(">>> CRM Neuman: respuesta", res.status))
-.catch((err) => console.error("CRM Neuman sync error:", err));
+```text
+user_id:         "e595967d-a0cc-4cf2-ba94-32aa81d3eee0"
+organization_id: "5179d17c-7107-46ea-ba1a-88a029bf74d9"
 ```
 
-**Paso 2: Verificar que el código esté en producción**
+Esto significa que **todos los mensajes** que lleguen desde el webchat de Bitancorp se asignarán a ese usuario y organización específicos. Las conversaciones, contactos y notificaciones se crean bajo esa cuenta.
 
-Confirmar que el archivo con el fetch fue desplegado/publicado en el sitio web de Bitancorp.
+### Implicaciones
 
-**Paso 3: Verificar las variables**
+- **Otros usuarios del CRM no verán** los mensajes de Bitancorp (a menos que pertenezcan a la misma organización y tengan permisos)
+- Si en el futuro se quiere conectar otro sitio web (de otro cliente del CRM), se necesitaría un fetch separado con su propio `user_id` y `organization_id`
+- El endpoint `n8n-chat` es genérico y soporta cualquier cuenta; lo que determina el destino es el payload que envía cada sitio externo
 
-Asegurarse de que `sessionId` y `userMessage.content` tengan valores válidos en el momento del fetch. Si alguna es `undefined`, el endpoint rechazará la solicitud con un 400.
+### ¿Se podría hacer para todo el CRM?
 
-### Detalle técnico
-
-- El endpoint `n8n-chat` responde correctamente (HTTP 200, crea conversación y contacto)
-- Los CORS están configurados con `Access-Control-Allow-Origin: *` y aceptan el header `apikey`
-- El `verify_jwt = false` está configurado en `config.toml`
-- No hay ningún problema del lado del CRM; el bloqueo está en que el fetch nunca se ejecuta desde el navegador del visitante
+Sí, el endpoint ya lo soporta. Cada cliente del CRM podría tener su propio widget webchat apuntando al mismo endpoint pero con sus propios credenciales (`user_id` y `organization_id`). Esto ya está contemplado en la arquitectura actual — solo falta una interfaz en el CRM donde cada usuario pueda copiar su snippet personalizado con sus IDs.
 
