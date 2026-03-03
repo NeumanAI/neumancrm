@@ -1,5 +1,6 @@
 import { lazy, Suspense, useMemo } from 'react';
 import { useContacts } from '@/hooks/useContacts';
+import { useVertical } from '@/hooks/useVertical';
 import { useCompanies } from '@/hooks/useCompanies';
 import { useOpportunities } from '@/hooks/useOpportunities';
 import { useActivities } from '@/hooks/useActivities';
@@ -82,6 +83,7 @@ export default function Dashboard() {
   const { companiesCount } = useCompanies({ countOnly: true });
   const { opportunities } = useOpportunities();
   const { activities, toggleComplete } = useActivities({ limit: 15, onlyPending: true });
+  const { verticalId, icon, brandName, brandTagline } = useVertical();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-ES', {
@@ -261,6 +263,17 @@ export default function Dashboard() {
       animate="show"
       className="bg-muted/30 min-h-screen space-y-6 md:space-y-8"
     >
+      {/* Vertical Banner */}
+      {verticalId !== 'general' && (
+        <motion.div variants={item} className="rounded-xl border bg-card p-4 flex items-center gap-3">
+          <span className="text-2xl">{icon}</span>
+          <div>
+            <p className="font-semibold text-sm">{brandName}</p>
+            <p className="text-xs text-muted-foreground">{brandTagline}</p>
+          </div>
+        </motion.div>
+      )}
+
       {/* Title and Filters */}
       <motion.div variants={item} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

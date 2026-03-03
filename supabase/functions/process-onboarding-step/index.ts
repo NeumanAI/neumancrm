@@ -159,6 +159,43 @@ serve(async (req) => {
       progress = newProgress;
     }
 
+    // ── Handle __vertical: internal command ──────────────────
+    if (user_input && typeof user_input === 'string' && user_input.startsWith('__vertical:')) {
+      const verticalId = user_input.replace('__vertical:', '').trim();
+      const collectedData: Record<string, string> = progress.collected_data || {};
+      collectedData.industry_vertical = verticalId;
+
+      // Vertical-specific welcome messages
+      const welcomeMessages: Record<string, string> = {
+        general: '👋 ¡Hola! Soy tu asistente de StarterCRM. Voy a ayudarte a configurar tu CRM en minutos. ¿Cuál es tu nombre?',
+        real_estate: '🏗 ¡Hola! Soy tu asistente de BitanAI. Voy a ayudarte a configurar tu CRM para constructoras en minutos. ¿Cuál es tu nombre?',
+        health: '🏥 ¡Hola! Soy tu asistente de Openmedic. Voy a ayudarte a configurar tu CRM médico en minutos. ¿Cuál es tu nombre?',
+      };
+
+      const welcomeMessage = welcomeMessages[verticalId] || welcomeMessages.general;
+
+      await supabase
+        .from("onboarding_progress")
+        .update({
+          collected_data: collectedData,
+          last_interaction_at: new Date().toISOString(),
+        })
+        .eq("id", progress.id);
+
+      return new Response(JSON.stringify({
+        message: welcomeMessage,
+        current_step: 0,
+        completed: false,
+        suggestions: [],
+        collected_data: collectedData,
+        setup_steps: [],
+        first_goal: null,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    // ── End __vertical: handler ──────────────────────────────
+
     const stepConfig = STEPS[current_step] ?? STEPS[0];
     const collectedData: Record<string, string> = progress.collected_data || {};
     const conversationHistory = progress.conversation_history || [];

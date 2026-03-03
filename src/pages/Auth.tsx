@@ -69,7 +69,18 @@ export default function Auth() {
         if (error) {
           if (error.message.includes('User already registered')) toast.error('Este email ya está registrado. Intenta iniciar sesión.');
           else toast.error(error.message);
-        } else { toast.success('¡Cuenta creada exitosamente!'); navigate('/dashboard'); }
+        } else {
+          // Detect vertical from branded auth slug
+          const path = window.location.pathname.toLowerCase();
+          const slugMap: Record<string, string> = { bitanai: 'real_estate', openmedic: 'health', startercrm: 'general' };
+          for (const [slug, vertical] of Object.entries(slugMap)) {
+            if (path.includes(slug)) {
+              sessionStorage.setItem('onboarding_vertical', vertical);
+              break;
+            }
+          }
+          toast.success('¡Cuenta creada exitosamente!'); navigate('/dashboard');
+        }
       }
     } finally { setIsLoading(false); }
   };

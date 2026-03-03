@@ -28,12 +28,14 @@ import { toast } from 'sonner';
 import { ConversationalForm } from '@/components/ai/ConversationalForm';
 import { useActionTracking } from '@/hooks/useActionTracking';
 import { useAdvisors } from '@/hooks/useAdvisorAttribution';
+import { useVertical } from '@/hooks/useVertical';
 
 export default function Contacts() {
   const navigate = useNavigate();
   const { contacts, isLoading, createContact, updateContact, deleteContact } = useContacts();
   const { companies } = useCompanies();
   const { advisors } = useAdvisors();
+  const { vocabulary } = useVertical();
   const [searchQuery, setSearchQuery] = useState('');
   const [advisorFilter, setAdvisorFilter] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -115,12 +117,12 @@ export default function Contacts() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Contactos</h1>
-          <p className="text-muted-foreground">Gestiona tus contactos y relaciones</p>
+          <h1 className="text-3xl font-bold tracking-tight">{vocabulary.contacts}</h1>
+          <p className="text-muted-foreground">Gestiona tus {vocabulary.contacts.toLowerCase()} y relaciones</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={openCreateDialog} className="gradient-primary">
-            <Plus className="mr-2 h-4 w-4" />Nuevo Contacto
+            <Plus className="mr-2 h-4 w-4" />Nuevo {vocabulary.contact}
           </Button>
           <Button onClick={() => setShowNLI(true)} className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white">
             <Sparkles className="mr-2 h-4 w-4" />Crear con IA
@@ -143,7 +145,7 @@ export default function Contacts() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative max-w-md flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar contactos..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
+          <Input placeholder={`Buscar ${vocabulary.contacts.toLowerCase()}...`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
         </div>
         {advisors.length > 0 && (
           <Select value={advisorFilter} onValueChange={setAdvisorFilter}>
@@ -163,7 +165,7 @@ export default function Contacts() {
 
       {/* Table */}
       {filteredContacts.length === 0 && !isLoading ? (
-        <EmptyState icon={<Users className="h-8 w-8" />} title="No hay contactos" description="Añade tu primer contacto para comenzar a gestionar tus relaciones comerciales." actionLabel="Crear Contacto" onAction={openCreateDialog} />
+        <EmptyState icon={<Users className="h-8 w-8" />} title={`No hay ${vocabulary.contacts.toLowerCase()}`} description={`Añade tu primer ${vocabulary.contact.toLowerCase()} para comenzar a gestionar tus relaciones comerciales.`} actionLabel={`Crear ${vocabulary.contact}`} onAction={openCreateDialog} />
       ) : (
         <div className="rounded-lg border bg-card">
           <Table>
@@ -239,8 +241,8 @@ export default function Contacts() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingContact ? 'Editar Contacto' : 'Nuevo Contacto'}</DialogTitle>
-            <DialogDescription>{editingContact ? 'Actualiza la información del contacto' : 'Añade un nuevo contacto a tu CRM'}</DialogDescription>
+            <DialogTitle>{editingContact ? `Editar ${vocabulary.contact}` : `Nuevo ${vocabulary.contact}`}</DialogTitle>
+            <DialogDescription>{editingContact ? `Actualiza la información del ${vocabulary.contact.toLowerCase()}` : `Añade un nuevo ${vocabulary.contact.toLowerCase()} a tu CRM`}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">

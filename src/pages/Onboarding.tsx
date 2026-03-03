@@ -1,53 +1,128 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useBrandingContext } from '@/contexts/BrandingContext';
 import { useOnboarding, SetupStep } from '@/hooks/useOnboarding';
+import { getAvailableVerticals, VerticalConfig } from '@/config/verticals';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import {
-  Sparkles, Send, Loader2, CheckCircle2, Circle,
+  Sparkles, Send, Loader2, CheckCircle2, Circle, ArrowRight, Clock,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// ── Goal → Action mapping ─────────────────────────────────────
-const GOAL_TO_ACTION: Record<string, {
-  emoji: string;
-  title: string;
-  description: string;
-  cta: string;
-  route: string;
-}> = {
-  "📋 Organizar mis contactos": {
-    emoji: "👥",
-    title: "Agrega tu primer contacto",
-    description: "Empieza guardando a un cliente o prospecto. Puedes pedirle al asistente que lo haga por ti.",
-    cta: "Agregar primer contacto",
-    route: "/contacts",
-  },
-  "📈 Hacer seguimiento a ventas": {
-    emoji: "📈",
-    title: "Crea tu primer deal",
-    description: "Agrega una oportunidad de venta al pipeline. El asistente puede ayudarte.",
-    cta: "Ir al pipeline",
-    route: "/pipeline",
-  },
-  "🤖 Automatizar comunicaciones": {
-    emoji: "💬",
-    title: "Conecta tu primer canal",
-    description: "Integra WhatsApp o email para empezar a automatizar tus conversaciones.",
-    cta: "Ver conversaciones",
-    route: "/conversations",
-  },
-  "📊 Ver mis métricas": {
-    emoji: "📊",
-    title: "Explora tu dashboard",
-    description: "Tu dashboard personalizado está listo. Ve tus métricas en tiempo real.",
-    cta: "Ir al dashboard",
-    route: "/dashboard",
-  },
-};
+// ── Vertical Selector Panel ───────────────────────────────────
+function VerticalSelectorPanel({
+  onSelect,
+}: {
+  onSelect: (vertical: VerticalConfig) => void;
+}) {
+  const verticals = getAvailableVerticals();
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-6 py-4"
+    >
+      <div className="text-center mb-8">
+        <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
+          <Sparkles className="h-7 w-7 text-primary" />
+        </div>
+        <h2 className="font-bold text-xl">¿Qué tipo de negocio tienes?</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Selecciona tu industria para personalizar tu experiencia
+        </p>
+      </div>
+
+      <div className="grid gap-3 max-w-md mx-auto">
+        {verticals.map((v) => (
+          <motion.button
+            key={v.id}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => onSelect(v)}
+            className="relative flex items-start gap-4 p-4 rounded-2xl border bg-card text-left transition-colors hover:border-primary/40 hover:bg-muted/50"
+          >
+            <div
+              className="h-12 w-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+              style={{ backgroundColor: `${v.color}15` }}
+            >
+              {v.icon}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="font-semibold">{v.brandName}</p>
+                {v.comingSoon && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    Próximamente
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">{v.description}</p>
+            </div>
+            <ArrowRight className="h-4 w-4 text-muted-foreground mt-1 flex-shrink-0" />
+          </motion.button>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Coming Soon Panel (Openmedic) ─────────────────────────────
+function ComingSoonPanel({
+  vertical,
+  onBack,
+}: {
+  vertical: VerticalConfig;
+  onBack: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="text-center space-y-6 py-8"
+    >
+      <div
+        className="h-20 w-20 rounded-2xl flex items-center justify-center text-4xl mx-auto"
+        style={{ backgroundColor: `${vertical.color}15` }}
+      >
+        {vertical.icon}
+      </div>
+      <div>
+        <h2 className="font-bold text-xl">{vertical.brandName}</h2>
+        <p className="text-muted-foreground text-sm mt-1">{vertical.brandTagline}</p>
+      </div>
+      <div className="rounded-2xl border bg-muted/30 p-5 text-left max-w-sm mx-auto space-y-3">
+        <p className="text-sm font-medium">Próximas funcionalidades:</p>
+        <ul className="text-sm text-muted-foreground space-y-2">
+          <li className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
+            Gestión de {vertical.vocabulary.contacts.toLowerCase()}
+          </li>
+          <li className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
+            {vertical.vocabulary.pipeline}
+          </li>
+          <li className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
+            Vocabulario especializado para {vertical.brandName}
+          </li>
+        </ul>
+      </div>
+      <div className="space-y-2">
+        <p className="text-xs text-muted-foreground">
+          Mientras tanto, puedes usar StarterCRM con todas las funciones base.
+        </p>
+        <Button variant="outline" onClick={onBack}>
+          ← Elegir otro tipo de negocio
+        </Button>
+      </div>
+    </motion.div>
+  );
+}
 
 // ── Setup Panel ────────────────────────────────────────────────
 function SetupPanel({ steps }: { steps: SetupStep[] }) {
@@ -93,12 +168,39 @@ function SetupPanel({ steps }: { steps: SetupStep[] }) {
   );
 }
 
+// ── Goal → Action mapping ─────────────────────────────────────
+const GOAL_TO_ACTION: Record<string, {
+  emoji: string;
+  title: string;
+  description: string;
+  cta: string;
+  route: string;
+}> = {
+  "📋 Organizar mis contactos": {
+    emoji: "👥", title: "Agrega tu primer contacto",
+    description: "Empieza guardando a un cliente o prospecto. Puedes pedirle al asistente que lo haga por ti.",
+    cta: "Agregar primer contacto", route: "/contacts",
+  },
+  "📈 Hacer seguimiento a ventas": {
+    emoji: "📈", title: "Crea tu primer deal",
+    description: "Agrega una oportunidad de venta al pipeline. El asistente puede ayudarte.",
+    cta: "Ir al pipeline", route: "/pipeline",
+  },
+  "🤖 Automatizar comunicaciones": {
+    emoji: "💬", title: "Conecta tu primer canal",
+    description: "Integra WhatsApp o email para empezar a automatizar tus conversaciones.",
+    cta: "Ver conversaciones", route: "/conversations",
+  },
+  "📊 Ver mis métricas": {
+    emoji: "📊", title: "Explora tu dashboard",
+    description: "Tu dashboard personalizado está listo. Ve tus métricas en tiempo real.",
+    cta: "Ir al dashboard", route: "/dashboard",
+  },
+};
+
 // ── First Action Panel ─────────────────────────────────────────
 function FirstActionPanel({
-  firstGoal,
-  onAction,
-  onSkip,
-  userName,
+  firstGoal, onAction, onSkip, userName,
 }: {
   firstGoal: string | null;
   onAction: (route: string) => void;
@@ -151,11 +253,38 @@ function FirstActionPanel({
 // ── Main Page ──────────────────────────────────────────────────
 export default function Onboarding() {
   const [input, setInput] = useState('');
+  const [onboardingPhase, setOnboardingPhase] = useState<'vertical' | 'chat'>('vertical');
+  const [selectedVertical, setSelectedVertical] = useState<VerticalConfig | null>(null);
+  const [showComingSoon, setShowComingSoon] = useState(false);
   const { user } = useAuth();
   const { branding } = useBrandingContext();
+  const location = useLocation();
   const { messages, isLoading, state, sendMessage, finishOnboarding } = useOnboarding();
   const navigate = useNavigate();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-detect vertical from branded auth URL or sessionStorage
+  useEffect(() => {
+    const stored = sessionStorage.getItem('onboarding_vertical');
+    const fromState = (location.state as any)?.vertical;
+    const verticalHint = stored || fromState;
+    
+    if (verticalHint) {
+      const verticals = getAvailableVerticals();
+      const found = verticals.find(v => v.id === verticalHint);
+      if (found) {
+        if (found.comingSoon) {
+          setSelectedVertical(found);
+          setShowComingSoon(true);
+        } else {
+          setSelectedVertical(found);
+          setOnboardingPhase('chat');
+          sendMessage(`__vertical:${found.id}`);
+        }
+        sessionStorage.removeItem('onboarding_vertical');
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -172,6 +301,17 @@ export default function Onboarding() {
     return null;
   }
 
+  const handleVerticalSelect = (vertical: VerticalConfig) => {
+    if (vertical.comingSoon) {
+      setSelectedVertical(vertical);
+      setShowComingSoon(true);
+      return;
+    }
+    setSelectedVertical(vertical);
+    setOnboardingPhase('chat');
+    sendMessage(`__vertical:${vertical.id}`);
+  };
+
   const handleSend = () => {
     if (!input.trim() || isLoading) return;
     sendMessage(input.trim());
@@ -183,9 +323,16 @@ export default function Onboarding() {
     sendMessage(text);
   };
 
-  const progressPercent = Math.min((state.currentStep / 6) * 100, 100);
-  const stepLabel = state.phase === 'chat'
-    ? `Paso ${Math.min(state.currentStep + 1, 6)} de 6`
+  const totalSteps = 7; // 1 vertical + 6 chat steps
+  const currentProgress = onboardingPhase === 'vertical'
+    ? 0
+    : Math.min(state.currentStep + 1, 6);
+  const progressPercent = (currentProgress / totalSteps) * 100;
+
+  const stepLabel = onboardingPhase === 'vertical'
+    ? 'Paso 1 de 7'
+    : state.phase === 'chat'
+    ? `Paso ${Math.min(state.currentStep + 2, 7)} de 7`
     : state.phase === 'setup' ? 'Configurando...'
     : state.phase === 'action' ? '¡Listo!'
     : '';
@@ -198,7 +345,9 @@ export default function Onboarding() {
           {branding.logo_url
             ? <img src={branding.logo_url} alt={branding.name} className="w-8 h-8 rounded-lg object-contain" />
             : <img src="/neuman-logo.png" alt="Neuman CRM" className="w-8 h-8 rounded-lg object-contain" />}
-          <span className="font-semibold text-foreground">{branding.name}</span>
+          <span className="font-semibold text-foreground">
+            {selectedVertical ? selectedVertical.brandName : branding.name}
+          </span>
         </div>
         <span className="text-sm text-muted-foreground">{stepLabel}</span>
       </header>
@@ -211,8 +360,25 @@ export default function Onboarding() {
       {/* Main content */}
       <div className="flex-1 overflow-auto px-4 py-6 max-w-xl mx-auto w-full">
 
+        {/* Phase: vertical selection */}
+        {onboardingPhase === 'vertical' && !showComingSoon && (
+          <VerticalSelectorPanel onSelect={handleVerticalSelect} />
+        )}
+
+        {/* Coming soon screen */}
+        {showComingSoon && selectedVertical && (
+          <ComingSoonPanel
+            vertical={selectedVertical}
+            onBack={() => {
+              setShowComingSoon(false);
+              setSelectedVertical(null);
+              setOnboardingPhase('vertical');
+            }}
+          />
+        )}
+
         {/* Phase: chat */}
-        {state.phase === 'chat' && (
+        {onboardingPhase === 'chat' && state.phase === 'chat' && (
           <AnimatePresence initial={false}>
             {messages.map((msg, i) => (
               <motion.div
@@ -240,7 +406,7 @@ export default function Onboarding() {
         )}
 
         {/* Typing indicator */}
-        {isLoading && state.phase === 'chat' && (
+        {isLoading && onboardingPhase === 'chat' && state.phase === 'chat' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start mb-3">
             <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center mr-2 flex-shrink-0">
               <Sparkles className="h-3.5 w-3.5 text-primary" />
@@ -282,7 +448,7 @@ export default function Onboarding() {
       </div>
 
       {/* Suggestions */}
-      {state.phase === 'chat' && state.suggestions.length > 0 && (
+      {onboardingPhase === 'chat' && state.phase === 'chat' && state.suggestions.length > 0 && (
         <div className="px-4 pb-2 max-w-xl mx-auto w-full flex-shrink-0">
           <div className="flex flex-wrap gap-2">
             {state.suggestions.map((s, i) => (
@@ -300,7 +466,7 @@ export default function Onboarding() {
       )}
 
       {/* Input */}
-      {state.phase === 'chat' && (
+      {onboardingPhase === 'chat' && state.phase === 'chat' && (
         <div className="border-t border-border px-4 py-4 max-w-xl mx-auto w-full flex-shrink-0">
           <form onSubmit={e => { e.preventDefault(); handleSend(); }} className="flex gap-2">
             <Input

@@ -35,6 +35,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { ConversationalForm } from '@/components/ai/ConversationalForm';
 import { useActionTracking } from '@/hooks/useActionTracking';
+import { useVertical } from '@/hooks/useVertical';
 import {
   DndContext,
   DragEndEvent,
@@ -247,6 +248,7 @@ export default function Pipeline() {
   const { companies } = useCompanies();
   const { contacts, convertContactType } = useContacts();
   const { teamMembers } = useTeam();
+  const { vocabulary } = useVertical();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showNLI, setShowNLI] = useState(false);
@@ -411,15 +413,15 @@ export default function Pipeline() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Pipeline</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{vocabulary.pipeline}</h1>
           <p className="text-muted-foreground">
-            {formatCurrency(totalValue)} total · {openOpportunities.length} oportunidades
+            {formatCurrency(totalValue)} total · {openOpportunities.length} {vocabulary.deals.toLowerCase()}
           </p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => stages[0] && openCreateDialog(stages[0].id)} className="gradient-primary">
             <Plus className="mr-2 h-4 w-4" />
-            Nueva Oportunidad
+            Nueva {vocabulary.deal}
           </Button>
           <Button
             onClick={() => setShowNLI(true)}
@@ -491,9 +493,9 @@ export default function Pipeline() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Nueva Oportunidad</DialogTitle>
+            <DialogTitle>Nueva {vocabulary.deal}</DialogTitle>
             <DialogDescription>
-              Añade una nueva oportunidad a tu pipeline
+              Añade una nueva {vocabulary.deal.toLowerCase()} a tu {vocabulary.pipeline.toLowerCase()}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
