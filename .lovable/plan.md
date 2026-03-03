@@ -1,83 +1,133 @@
 
 
-# Plan: Prompts 2 y 3 — Onboarding con Selector de Vertical + Personalización por Vertical
+# Plan: Módulo "Nota Clínica IA" para OpenMedic
 
-Ambos prompts se implementan juntos ya que Prompt 1 (arquitectura base) ya está completo.
-
----
-
-## Prompt 2: Onboarding con Selector de Vertical
-
-### Cambio 2.1: Onboarding.tsx — Fase de selección de vertical
-- Add `VerticalSelectorPanel` component before the chat phase
-- Add `selectedVertical` state and `phase` state (`'vertical' | 'chat'`)
-- Add `useLocation` import to detect `location.state?.vertical` from branded auth URLs
-- Add `sessionStorage` check for `onboarding_vertical` on mount
-- When vertical selected, send `__vertical:{id}` as internal message to trigger vertical-specific welcome
-- Add "coming soon" screen for Openmedic (health) vertical
-- Update progress calculation to show "Paso 1 de 7" for vertical selection
-
-### Cambio 2.2: process-onboarding-step edge function
-- Detect `__vertical:` prefix in `user_input`
-- Save `industry_vertical` to `collected_data` in `onboarding_progress`
-- Return vertical-specific welcome message without showing the internal command as user message
-- Early return before normal step processing
-
-### Cambio 2.3: Auth.tsx — Slug-to-vertical detection
-- After successful signup, check URL path for `/auth/bitanai`, `/auth/openmedic`, `/auth/startercrm`
-- Save vertical to `sessionStorage` as `onboarding_vertical`
-
-### Cambio 2.4: useOnboarding.ts — Handle internal messages
-- When `sendMessage` receives `__vertical:*`, don't add it to visible messages (or filter it out)
+Módulo de AI Medical Scribe que permite grabar, dictar o escribir consultas médicas y generar notas clínicas estructuradas (SOAP/narrativo) con IA. Se implementa en fases.
 
 ---
 
-## Prompt 3: Personalización por Vertical
+## Fase 1: Base de datos y Storage
 
-### Cambio 3.1: chat/index.ts — Dynamic AI context
-- Add `verticalId` and `verticalContext` to `buildSystemPrompt` parameter type (line ~1690)
-- Add `verticalIntro` variable before the return (line ~1740)
-- Replace hardcoded first line with `${verticalIntro}` + vertical context block
-- Before `buildSystemPrompt` call (line ~3985), query organization's `industry_vertical` and build context
-- Pass `crmContextFinal` to `buildSystemPrompt`
-
-### Cambio 3.2: Dashboard.tsx — Vertical banner
-- Import `useVertical`, add banner at top of content showing vertical icon and name
-
-### Cambio 3.3: Contacts.tsx — Dynamic vocabulary
-- Import `useVertical`, replace hardcoded "Contactos" title, "Nuevo Contacto" button, search placeholder, and empty state with `vocabulary.contacts`/`vocabulary.contact`
-
-### Cambio 3.4: Pipeline.tsx — Dynamic vocabulary
-- Import `useVertical`, replace "Pipeline" title and "Nueva Oportunidad" button with vocabulary terms
-
-### Cambio 3.5: Sidebar.tsx — Dynamic labels + Openmedic item
-- Import `useVertical`, map nav items to use vocabulary for contacts/pipeline labels
-- Add Openmedic nav item when `isHealth`
-
-### Cambio 3.6: Create Openmedic.tsx placeholder page
-- Coming soon page with features list and back button
-
-### Cambio 3.7: App.tsx — Register `/openmedic` route
-
-### Cambio 3.8: Settings.tsx — Vertical info card
-- Import `useVertical`, show card with vertical icon, brand name, tagline, and vocabulary in Account tab
+**Migración SQL** — Crear tabla `clinical_notes` con:
+- Campos: organization_id, contact_id, created_by, consultation_date, input_mode, raw_transcript, campos SOAP (subjective/objective/analysis/plan), full_note, template_used, audio_url, status, is_signed, tags
+- Usar validation triggers en lugar de CHECK constraints para `input_mode`, `template_used` y `status`
+- Índices en org, contact, created_by, consultation_date, status
+- RLS: SELECT/INSERT para org members, UPDATE para creator o admin/manager, DELETE solo admin
+- Trigger `updated_at`
+- Storage bucket `clinical-audio` (privado) con policies para upload/view por usuario
 
 ---
 
-## Files affected
+## Fase 2: Edge Functions (2 funciones)
 
-| File | Action |
-|------|--------|
-| `src/pages/Onboarding.tsx` | Major rewrite (vertical selector phase) |
-| `src/hooks/useOnboarding.ts` | Edit (filter internal messages) |
-| `src/pages/Auth.tsx` | Edit (slug-to-vertical sessionStorage) |
-| `supabase/functions/process-onboarding-step/index.ts` | Edit (detect __vertical: prefix) |
-| `supabase/functions/chat/index.ts` | Edit (dynamic system prompt) |
-| `src/pages/Dashboard.tsx` | Edit (add banner) |
-| `src/pages/Contacts.tsx` | Edit (vocabulary) |
-| `src/pages/Pipeline.tsx` | Edit (vocabulary) |
-| `src/components/layout/Sidebar.tsx` | Edit (vocabulary + openmedic item) |
-| `src/pages/Openmedic.tsx` | **Create** |
-| `src/App.tsx` | Edit (add route) |
-| `src/pages/Settings.tsx` | Edit (vertical card) |
+### `generate-clinical-note/index.ts`
+- Recibe: transcript, template (soap|narrative), contact_id, patient_context opcional
+- Usa Lovable AI (`google/gemini-3-flash-preview`) con system prompts especializados SOAP y narrativo
+- Retorna JSON con campos SOAP o full_note
+
+### `transcribe-audio/index.ts`
+- Recibe: audio_base64, mime_type
+- Usa Gemini multimodal para transcribir audio médico
+- Identifica hablantes (Médico/Paciente)
+- Retorna { transcript }
+
+Ambas funciones usan LOVABLE_API_KEY (ya configurado) y CORS headers estándar.
+
+---
+
+## Fase 3: React Hooks (2 nuevos)
+
+### `src/hooks/useClinicalNotes.ts`
+- `useClinicalNotes(contactId)` — listar notas de un paciente
+- `useCreateClinicalNote()` — crear borrador
+- `useUpdateClinicalNote()` — actualizar nota
+- `useSignClinicalNote()` — firmar (bloquear edición)
+- `useGenerateClinicalNote()` — invocar edge function de generación
+- `useTranscribeAudio()` — invocar edge function de transcripción
+- `useUploadClinicalAudio()` — subir audio a storage
+- `useClinicalNote(noteId)` — obtener nota individual
+
+### `src/hooks/useAudioRecorder.ts`
+- Hook de grabación con MediaRecorder API
+- Start/stop/pause/resume, timer, conversión blob→base64
+
+---
+
+## Fase 4: Componentes React (2 nuevos)
+
+### `src/components/clinical-notes/ClinicalNoteRecorder.tsx`
+- Flujo de 3 pasos: Captura → Transcripción → Revisión
+- 3 modos de input: Grabación en vivo, Dictado, Texto libre
+- Selector SOAP/Narrativo
+- Botón "Generar Nota con IA"
+- Secciones SOAP editables con colores por sección
+- Acciones: Copiar, Guardar borrador, Firmar
+
+### `src/components/clinical-notes/ClinicalNoteViewer.tsx`
+- Lista de notas clínicas de un paciente
+- Búsqueda, expandir/colapsar
+- Badges de estado (firmada/borrador), modo de input, template
+- Botón "Nueva Nota Clínica"
+- Empty state
+
+---
+
+## Fase 5: Integración en páginas existentes
+
+### `src/pages/ContactDetail.tsx`
+- Agregar tab "Notas Clínicas" condicional (`hasModule('clinical_notes')`)
+- Mostrar ClinicalNoteViewer o ClinicalNoteRecorder según estado
+
+### `src/pages/Consulta.tsx` (nueva)
+- Página independiente `/consulta`
+- Selector de paciente → ClinicalNoteRecorder
+
+### `src/App.tsx`
+- Agregar ruta `/consulta` dentro de AppLayout
+
+### `src/components/layout/Sidebar.tsx`
+- Agregar item "Nueva Consulta" (icono Stethoscope) condicional para vertical health o módulo clinical_notes
+
+### `src/config/verticals.ts`
+- Agregar `'clinical_notes'` al array `modules` de la vertical `health`
+
+### `src/components/admin/ModulesDialog.tsx`
+- Agregar toggle para módulo `clinical_notes` ("Notas Clínicas IA")
+
+---
+
+## Fase 6: Integración AI Assistant (chat)
+
+### `supabase/functions/chat/index.ts`
+- Agregar 2 tools al array de herramientas:
+  - `get_patient_clinical_notes` — consultar historial de notas clínicas
+  - `create_clinical_note_draft` — generar y guardar nota desde el chat
+- Agregar handlers correspondientes
+
+---
+
+## Archivos nuevos (8)
+
+| Archivo | Tipo |
+|---------|------|
+| Migración SQL | DB |
+| `supabase/functions/generate-clinical-note/index.ts` | Edge Function |
+| `supabase/functions/transcribe-audio/index.ts` | Edge Function |
+| `src/hooks/useClinicalNotes.ts` | Hook |
+| `src/hooks/useAudioRecorder.ts` | Hook |
+| `src/components/clinical-notes/ClinicalNoteRecorder.tsx` | Componente |
+| `src/components/clinical-notes/ClinicalNoteViewer.tsx` | Componente |
+| `src/pages/Consulta.tsx` | Página |
+
+## Archivos modificados (5)
+
+| Archivo | Cambio |
+|---------|--------|
+| `src/pages/ContactDetail.tsx` | Tab "Notas Clínicas" condicional |
+| `src/App.tsx` | Ruta `/consulta` |
+| `src/components/layout/Sidebar.tsx` | Item "Nueva Consulta" |
+| `src/config/verticals.ts` | Módulo clinical_notes en health |
+| `src/components/admin/ModulesDialog.tsx` | Toggle clinical_notes |
+
+Se omite la integración en `chat/index.ts` por complejidad — se puede agregar en una segunda iteración si se desea. El módulo es 100% aditivo, no modifica funcionalidad existente.
 
