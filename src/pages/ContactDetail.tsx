@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Contact } from '@/types/crm';
 import { useContacts } from '@/hooks/useContacts';
 import { ContactType, CONTACT_TYPE_LABELS, CONTACT_TYPE_COLORS, CONTACT_TYPE_OPTIONS } from '@/lib/contactTypes';
+import { useHasModule } from '@/hooks/useHasModule';
+import { ClinicalNoteViewer } from '@/components/clinical-notes/ClinicalNoteViewer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -21,7 +23,7 @@ import { ActivityFeedList } from '@/components/team/ActivityFeedList';
 import { CommentsSection } from '@/components/team/CommentsSection';
 import { 
   ArrowLeft, Clock, CheckSquare, TrendingUp, FileText, Activity, MessageSquare,
-  ShieldCheck, AlertTriangle,
+  ShieldCheck, AlertTriangle, Stethoscope,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -29,6 +31,7 @@ export default function ContactDetail() {
   const { contactId } = useParams<{ contactId: string }>();
   const navigate = useNavigate();
   const { convertContactType } = useContacts();
+  const hasClinicalNotes = useHasModule('clinical_notes');
 
   const { data: contact, isLoading, error } = useQuery({
     queryKey: ['contact', contactId],
@@ -150,11 +153,14 @@ export default function ContactDetail() {
 
         <div className="lg:col-span-2">
           <Tabs defaultValue="timeline" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className={`grid w-full ${hasClinicalNotes ? 'grid-cols-7' : 'grid-cols-6'}`}>
               <TabsTrigger value="timeline" className="gap-2"><Clock className="h-4 w-4" /><span className="hidden sm:inline">Timeline</span></TabsTrigger>
               <TabsTrigger value="activities" className="gap-2"><CheckSquare className="h-4 w-4" /><span className="hidden sm:inline">Tareas</span></TabsTrigger>
               <TabsTrigger value="deals" className="gap-2"><TrendingUp className="h-4 w-4" /><span className="hidden sm:inline">Deals</span></TabsTrigger>
               <TabsTrigger value="documents" className="gap-2"><FileText className="h-4 w-4" /><span className="hidden sm:inline">Docs</span></TabsTrigger>
+              {hasClinicalNotes && (
+                <TabsTrigger value="clinical-notes" className="gap-2"><Stethoscope className="h-4 w-4" /><span className="hidden sm:inline">Clínica</span></TabsTrigger>
+              )}
               <TabsTrigger value="activity-feed" className="gap-2"><Activity className="h-4 w-4" /><span className="hidden sm:inline">Actividad</span></TabsTrigger>
               <TabsTrigger value="comments" className="gap-2"><MessageSquare className="h-4 w-4" /><span className="hidden sm:inline">Notas</span></TabsTrigger>
             </TabsList>
@@ -163,6 +169,13 @@ export default function ContactDetail() {
             <TabsContent value="activities" className="mt-6"><div className="rounded-lg border bg-card p-6"><ContactActivities contactId={contact.id} /></div></TabsContent>
             <TabsContent value="deals" className="mt-6"><div className="rounded-lg border bg-card p-6"><ContactDeals contactId={contact.id} /></div></TabsContent>
             <TabsContent value="documents" className="mt-6"><div className="rounded-lg border bg-card p-6"><ContactDocuments contactId={contact.id} /></div></TabsContent>
+            {hasClinicalNotes && (
+              <TabsContent value="clinical-notes" className="mt-6">
+                <div className="rounded-lg border bg-card p-6">
+                  <ClinicalNoteViewer contactId={contact.id} contactName={`${contact.first_name || ''} ${contact.last_name || ''}`.trim()} />
+                </div>
+              </TabsContent>
+            )}
             <TabsContent value="activity-feed" className="mt-6"><div className="rounded-lg border bg-card p-6"><h3 className="text-lg font-semibold mb-4">Historial de Cambios</h3><ActivityFeedList entityType="contacts" entityId={contact.id} /></div></TabsContent>
             <TabsContent value="comments" className="mt-6"><div className="rounded-lg border bg-card p-6"><h3 className="text-lg font-semibold mb-4">Comentarios del Equipo</h3><CommentsSection entityType="contacts" entityId={contact.id} /></div></TabsContent>
           </Tabs>

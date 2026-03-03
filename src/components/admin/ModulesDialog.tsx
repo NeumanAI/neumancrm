@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Building2, Wallet, Settings2 } from 'lucide-react';
+import { Building2, Wallet, Settings2, Stethoscope } from 'lucide-react';
 import { VERTICALS, getVerticalModules, VerticalId, getAvailableVerticals } from '@/config/verticals';
 import { cn } from '@/lib/utils';
 
@@ -132,6 +132,19 @@ export function ModulesDialog({
                 <Switch
                   checked={!!modules.real_estate_portfolio}
                   onCheckedChange={(checked) => setModules({ ...modules, real_estate_portfolio: checked })}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Stethoscope className="h-5 w-5 text-primary" />
+                  <div>
+                    <Label className="text-base">Notas Clínicas IA</Label>
+                    <p className="text-sm text-muted-foreground">Grabación, transcripción y generación de notas clínicas con IA</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={!!modules.clinical_notes}
+                  onCheckedChange={(checked) => setModules({ ...modules, clinical_notes: checked })}
                 />
               </div>
             </div>
