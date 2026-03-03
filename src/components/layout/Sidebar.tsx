@@ -54,6 +54,7 @@ interface SidebarProps {
   onMobileClose?: () => void;
   hasRealEstate?: boolean;
   hasPortfolio?: boolean;
+  verticalId?: string;
 }
 
 const navItems = [
@@ -86,7 +87,7 @@ const resellerNavItems = [
 { to: '/reseller-admin', icon: Store, label: 'Mis Clientes', isReseller: true }];
 
 
-export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerAdmin = false, isMobileOpen = false, onMobileClose, hasRealEstate = false, hasPortfolio = false }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerAdmin = false, isMobileOpen = false, onMobileClose, hasRealEstate = false, hasPortfolio = false, verticalId }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -356,8 +357,13 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <div className="text-center">
+            <div className="text-center space-y-1">
               <p className="text-[10px] text-sidebar-foreground/40">{branding.name} v1.0</p>
+              {verticalId && verticalId !== 'general' && (
+                <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+                  {verticalId === 'real_estate' ? '🏗 BitanAI' : '🏥 Openmedic'}
+                </Badge>
+              )}
             </div>
           </div>
       }

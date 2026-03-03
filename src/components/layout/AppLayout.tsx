@@ -7,6 +7,7 @@ import { useResellerAdmin } from '@/hooks/useResellerAdmin';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sidebar } from './Sidebar';
 import { useHasModule } from '@/hooks/useHasModule';
+import { useVertical } from '@/hooks/useVertical';
 import { Header } from './Header';
 import { DailyBriefModal } from './DailyBriefModal';
 import { Loader2, RefreshCw, LogOut, AlertCircle } from 'lucide-react';
@@ -30,6 +31,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { isResellerAdmin } = useResellerAdmin();
   const hasRealEstate = useHasModule('real_estate');
   const hasPortfolio = useHasModule('real_estate_portfolio');
+  const { verticalId } = useVertical();
   const isMobile = useIsMobile();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -122,6 +124,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           isResellerAdmin={isResellerAdmin}
           hasRealEstate={hasRealEstate}
           hasPortfolio={hasPortfolio}
+          verticalId={verticalId}
           isMobileOpen={mobileMenuOpen}
           onMobileClose={() => setMobileMenuOpen(false)}
         />

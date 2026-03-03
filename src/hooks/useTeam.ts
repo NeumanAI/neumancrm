@@ -34,6 +34,7 @@ export interface Organization {
   is_approved: boolean;
   approved_at: string | null;
   approved_by: string | null;
+  industry_vertical: 'general' | 'real_estate' | 'health' | null;
   settings: {
     timezone: string;
     currency: string;
