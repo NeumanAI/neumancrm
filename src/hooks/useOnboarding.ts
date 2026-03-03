@@ -70,7 +70,11 @@ export function useOnboarding() {
   const sendMessage = useCallback(async (input: string) => {
     if (!user || isLoading) return;
 
-    setMessages(prev => [...prev, { role: 'user', content: input }]);
+    const isInternalCommand = input.startsWith('__vertical:');
+    
+    if (!isInternalCommand) {
+      setMessages(prev => [...prev, { role: 'user', content: input }]);
+    }
     setIsLoading(true);
 
     try {

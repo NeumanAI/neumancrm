@@ -10,17 +10,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { Settings as SettingsIcon, Palette, User, Shield, Bell, Globe, CreditCard } from 'lucide-react';
+import { Settings as SettingsIcon, Palette, User, Shield, Bell, Globe, CreditCard, Building2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { IntegrationsTab } from '@/components/settings/IntegrationsTab';
 import { NotificationPreferences } from '@/components/notifications/NotificationPreferences';
 import { BillingTab } from '@/components/billing';
+import { useVertical } from '@/hooks/useVertical';
 
 export default function Settings() {
   const { user, signOut } = useAuth();
   const { organization, isAdmin, updateOrganization } = useTeam();
   const queryClient = useQueryClient();
+  const { verticalId, icon, brandName, brandTagline, vocabulary } = useVertical();
 
   const [brandingForm, setBrandingForm] = useState({
     name: '',
@@ -169,6 +171,26 @@ export default function Settings() {
                 </div>
 
                 <Separator />
+
+                {/* Vertical Info Card */}
+                {verticalId !== 'general' && (
+                  <Card className="border bg-muted/30">
+                    <CardContent className="p-4 flex items-start gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-xl flex-shrink-0">
+                        {icon}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm">{brandName}</p>
+                        <p className="text-xs text-muted-foreground">{brandTagline}</p>
+                        <div className="flex gap-2 mt-2 flex-wrap">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                            {vocabulary.contacts} · {vocabulary.deals} · {vocabulary.pipeline}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 <div className="space-y-4">
                   <div className="space-y-2">

@@ -1699,6 +1699,8 @@ const buildSystemPrompt = (crmContext: {
   recentOpportunities: Array<{ title: string; value: number; stage?: string }>;
   upcomingTasks: Array<{ title: string; dueDate?: string; priority?: string }>;
   teamContext: TeamContext;
+  verticalId?: string;
+  verticalContext?: string;
 }, currentRoute?: string) => {
   const roleLabels: Record<string, string> = { admin: 'Administrador', manager: 'Manager', sales_rep: 'Representante de Ventas', viewer: 'Visor' };
   const rolePermissions: Record<string, { can: string[]; cannot: string[] }> = {
@@ -1737,7 +1739,16 @@ const buildSystemPrompt = (crmContext: {
     else routeContext = routeMap[currentRoute] || '';
   }
 
-  return `Eres un copiloto de CRM inteligente y proactivo con 91 herramientas avanzadas.
+  // Vertical-specific intro
+  const verticalIntros: Record<string, string> = {
+    real_estate: 'Eres el copiloto comercial de BitanAI, un CRM especializado para constructoras e inmobiliarias.',
+    health: 'Eres el copiloto de Openmedic, un CRM especializado para clínicas y consultorios médicos.',
+  };
+  const verticalIntro = verticalIntros[crmContext.verticalId || ''] || 'Eres un copiloto de CRM inteligente y proactivo con 91 herramientas avanzadas.';
+  const verticalBlock = crmContext.verticalContext ? `\n## 🏢 Contexto de Vertical:\n${crmContext.verticalContext}\n` : '';
+
+  return `${verticalIntro}
+${verticalBlock}
 
 ## 📊 Estado del CRM:
 - Contactos: ${crmContext.contactsCount} | Empresas: ${crmContext.companiesCount} | Oportunidades: ${crmContext.opportunitiesCount}
@@ -3982,6 +3993,36 @@ serve(async (req) => {
 
     // Chat request processing
     const crmContext = await fetchCRMContext(supabase, userId);
+
+    // Inject vertical context
+    try {
+      const { data: teamMember } = await supabase
+        .from("team_members")
+        .select("organization_id")
+        .eq("user_id", userId)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (teamMember?.organization_id) {
+        const { data: org } = await supabase
+          .from("organizations")
+          .select("industry_vertical, industry")
+          .eq("id", teamMember.organization_id)
+          .single();
+
+        if (org?.industry_vertical && org.industry_vertical !== 'general') {
+          (crmContext as any).verticalId = org.industry_vertical;
+          const verticalContextMap: Record<string, string> = {
+            real_estate: `Esta es una constructora/inmobiliaria. Usa vocabulario inmobiliario: "prospectos" en vez de "contactos", "separaciones" en vez de "deals", "embudo comercial" en vez de "pipeline", "constructora" en vez de "empresa". Industria: ${org.industry || 'Construcción'}.`,
+            health: `Esta es una clínica/consultorio médico. Usa vocabulario médico: "pacientes" en vez de "contactos", "consultas" en vez de "deals", "agenda de atención" en vez de "pipeline", "clínica" en vez de "empresa". Industria: ${org.industry || 'Salud'}.`,
+          };
+          (crmContext as any).verticalContext = verticalContextMap[org.industry_vertical] || '';
+        }
+      }
+    } catch (e) {
+      console.warn("Vertical context error (non-blocking):", e);
+    }
+
     const systemPrompt = buildSystemPrompt(crmContext, currentRoute);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

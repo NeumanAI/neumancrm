@@ -44,6 +44,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTeam } from '@/hooks/useTeam';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useVertical } from '@/hooks/useVertical';
+import { Stethoscope } from 'lucide-react';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -95,11 +97,20 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
   const { branding } = useBrandingContext();
   const { user, signOut } = useAuth();
   const { organization } = useTeam();
+  const { vocabulary, isHealth } = useVertical();
 
   const realEstateNavItem = { to: '/proyectos', icon: Building2, label: 'Proyectos', isRealEstate: true };
   const portfolioNavItem = { to: '/cartera', icon: Wallet, label: 'Cartera', isRealEstate: true };
+  const openmedicNavItem = { to: '/openmedic', icon: Stethoscope, label: 'Openmedic', isHealth: true };
 
-  let allNavItems = [...navItems];
+  // Apply dynamic vocabulary to nav items
+  let allNavItems = navItems.map(item => {
+    if (item.to === '/contacts') return { ...item, label: vocabulary.contacts };
+    if (item.to === '/pipeline') return { ...item, label: vocabulary.pipeline };
+    if (item.to === '/companies') return { ...item, label: vocabulary.companies };
+    return item;
+  });
+
   // Insert real estate after Pipeline if enabled
   if (hasRealEstate) {
     const pipelineIdx = allNavItems.findIndex(i => i.to === '/pipeline');
@@ -109,6 +120,11 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
     const projIdx = allNavItems.findIndex(i => i.to === '/proyectos');
     const insertIdx = projIdx >= 0 ? projIdx + 1 : allNavItems.findIndex(i => i.to === '/pipeline') + 1;
     allNavItems.splice(insertIdx, 0, portfolioNavItem);
+  }
+  // Add Openmedic nav item for health vertical
+  if (isHealth) {
+    const settingsIdx = allNavItems.findIndex(i => i.to === '/settings');
+    allNavItems.splice(settingsIdx, 0, openmedicNavItem);
   }
   if (isResellerAdmin) {
     allNavItems = [...allNavItems, ...resellerNavItems];
