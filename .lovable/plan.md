@@ -1,71 +1,83 @@
 
 
-# Plan: Arquitectura Base de Verticales para NeumanCRM
+# Plan: Prompts 2 y 3 — Onboarding con Selector de Vertical + Personalización por Vertical
 
-Este prompt implementa la infraestructura para soportar 3 verticales de negocio (StarterCRM, BitanAI, Openmedic) sin modificar funcionalidad existente.
-
----
-
-## Cambios a implementar
-
-### 1. Migración SQL
-- Agregar columna `industry_vertical` (TEXT, default `'general'`) a la tabla `organizations` con CHECK constraint
-- Crear índice sobre `industry_vertical`
-- Marcar organizaciones existentes con módulo `real_estate` activo como `industry_vertical = 'real_estate'`
-
-### 2. Crear `src/config/verticals.ts`
-- Archivo central con tipos `VerticalId`, `VerticalConfig`, `VerticalVocabulary`
-- Configuración completa de las 3 verticales: `general` (StarterCRM), `real_estate` (BitanAI), `health` (Openmedic)
-- Funciones helper: `getVerticalConfig()`, `getVerticalModules()`, `getAvailableVerticals()`
-
-### 3. Crear `src/hooks/useVertical.ts`
-- Hook que lee `industry_vertical` de la organización actual via `useTeam()`
-- Retorna config de la vertical, vocabulario, brand name, flags (`isRealEstate`, `isHealth`, `isGeneral`)
-
-### 4. Actualizar `src/hooks/useTeam.ts`
-- Agregar `industry_vertical` a la interfaz `Organization` (línea ~37, entre `approved_by` y `settings`)
-
-### 5. Actualizar `src/components/layout/AppLayout.tsx`
-- Importar `useVertical`, obtener `verticalId`
-- Pasar `verticalId` como prop al componente `Sidebar`
-
-### 6. Actualizar `src/components/layout/Sidebar.tsx`
-- Agregar `verticalId` a `SidebarProps`
-- Mostrar badge de vertical en el footer del sidebar cuando no es `general`
-
-### 7. Reemplazar `src/components/admin/ModulesDialog.tsx`
-- Agregar selector visual de vertical (3 tarjetas: StarterCRM, BitanAI, Openmedic)
-- Al cambiar vertical, auto-activar módulos correspondientes
-- Guardar `industry_vertical` junto con `enabled_modules`
-- Nueva prop `currentVertical`
-
-### 8. Actualizar `src/pages/Admin.tsx`
-- Agregar `vertical` al estado `modulesOrg` (línea 293)
-- En `handleOpenModules`, leer `industry_vertical` de la org (línea 302-304)
-- Pasar `currentVertical` al `ModulesDialog` (línea 644-651)
-
-### 9. Actualizar `supabase/functions/process-onboarding-step/index.ts`
-- En el bloque de actualización de organización (línea 292-302), agregar `industry_vertical`
-- Después del update, si la vertical es `real_estate`, auto-activar módulos inmobiliarios
+Ambos prompts se implementan juntos ya que Prompt 1 (arquitectura base) ya está completo.
 
 ---
 
-## Archivos afectados
+## Prompt 2: Onboarding con Selector de Vertical
 
-| Archivo | Acción |
-|---------|--------|
-| Migración SQL | Crear (via herramienta de migración) |
-| `src/config/verticals.ts` | **Crear** |
-| `src/hooks/useVertical.ts` | **Crear** |
-| `src/hooks/useTeam.ts` | Editar (agregar campo a interfaz) |
-| `src/components/layout/AppLayout.tsx` | Editar (import + prop) |
-| `src/components/layout/Sidebar.tsx` | Editar (prop + footer badge) |
-| `src/components/admin/ModulesDialog.tsx` | Reemplazar completo |
-| `src/pages/Admin.tsx` | Editar (3 puntos) |
-| `supabase/functions/process-onboarding-step/index.ts` | Editar (2 puntos) |
+### Cambio 2.1: Onboarding.tsx — Fase de selección de vertical
+- Add `VerticalSelectorPanel` component before the chat phase
+- Add `selectedVertical` state and `phase` state (`'vertical' | 'chat'`)
+- Add `useLocation` import to detect `location.state?.vertical` from branded auth URLs
+- Add `sessionStorage` check for `onboarding_vertical` on mount
+- When vertical selected, send `__vertical:{id}` as internal message to trigger vertical-specific welcome
+- Add "coming soon" screen for Openmedic (health) vertical
+- Update progress calculation to show "Paso 1 de 7" for vertical selection
+
+### Cambio 2.2: process-onboarding-step edge function
+- Detect `__vertical:` prefix in `user_input`
+- Save `industry_vertical` to `collected_data` in `onboarding_progress`
+- Return vertical-specific welcome message without showing the internal command as user message
+- Early return before normal step processing
+
+### Cambio 2.3: Auth.tsx — Slug-to-vertical detection
+- After successful signup, check URL path for `/auth/bitanai`, `/auth/openmedic`, `/auth/startercrm`
+- Save vertical to `sessionStorage` as `onboarding_vertical`
+
+### Cambio 2.4: useOnboarding.ts — Handle internal messages
+- When `sendMessage` receives `__vertical:*`, don't add it to visible messages (or filter it out)
 
 ---
 
-## Nota importante
-Este prompt solo crea la infraestructura. No cambia ninguna pantalla visible del usuario final. Los prompts 2 y 3 usarán esta base para personalizar cada vertical.
+## Prompt 3: Personalización por Vertical
+
+### Cambio 3.1: chat/index.ts — Dynamic AI context
+- Add `verticalId` and `verticalContext` to `buildSystemPrompt` parameter type (line ~1690)
+- Add `verticalIntro` variable before the return (line ~1740)
+- Replace hardcoded first line with `${verticalIntro}` + vertical context block
+- Before `buildSystemPrompt` call (line ~3985), query organization's `industry_vertical` and build context
+- Pass `crmContextFinal` to `buildSystemPrompt`
+
+### Cambio 3.2: Dashboard.tsx — Vertical banner
+- Import `useVertical`, add banner at top of content showing vertical icon and name
+
+### Cambio 3.3: Contacts.tsx — Dynamic vocabulary
+- Import `useVertical`, replace hardcoded "Contactos" title, "Nuevo Contacto" button, search placeholder, and empty state with `vocabulary.contacts`/`vocabulary.contact`
+
+### Cambio 3.4: Pipeline.tsx — Dynamic vocabulary
+- Import `useVertical`, replace "Pipeline" title and "Nueva Oportunidad" button with vocabulary terms
+
+### Cambio 3.5: Sidebar.tsx — Dynamic labels + Openmedic item
+- Import `useVertical`, map nav items to use vocabulary for contacts/pipeline labels
+- Add Openmedic nav item when `isHealth`
+
+### Cambio 3.6: Create Openmedic.tsx placeholder page
+- Coming soon page with features list and back button
+
+### Cambio 3.7: App.tsx — Register `/openmedic` route
+
+### Cambio 3.8: Settings.tsx — Vertical info card
+- Import `useVertical`, show card with vertical icon, brand name, tagline, and vocabulary in Account tab
+
+---
+
+## Files affected
+
+| File | Action |
+|------|--------|
+| `src/pages/Onboarding.tsx` | Major rewrite (vertical selector phase) |
+| `src/hooks/useOnboarding.ts` | Edit (filter internal messages) |
+| `src/pages/Auth.tsx` | Edit (slug-to-vertical sessionStorage) |
+| `supabase/functions/process-onboarding-step/index.ts` | Edit (detect __vertical: prefix) |
+| `supabase/functions/chat/index.ts` | Edit (dynamic system prompt) |
+| `src/pages/Dashboard.tsx` | Edit (add banner) |
+| `src/pages/Contacts.tsx` | Edit (vocabulary) |
+| `src/pages/Pipeline.tsx` | Edit (vocabulary) |
+| `src/components/layout/Sidebar.tsx` | Edit (vocabulary + openmedic item) |
+| `src/pages/Openmedic.tsx` | **Create** |
+| `src/App.tsx` | Edit (add route) |
+| `src/pages/Settings.tsx` | Edit (vertical card) |
 
