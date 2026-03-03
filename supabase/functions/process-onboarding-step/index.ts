@@ -288,7 +288,16 @@ REGLAS:
         const orgId = teamMember.organization_id;
         const industry = collectedData.industry ?? "";
 
-        // 3. Update organization
+        // 3. Determine vertical from industry
+        const industryLower = industry.toLowerCase();
+        let industryVertical = 'general';
+        if (industryLower.includes('inmobi') || industryLower.includes('construc')) {
+          industryVertical = 'real_estate';
+        } else if (industryLower.includes('salud') || industryLower.includes('médic') || industryLower.includes('clinic') || industryLower.includes('clínic')) {
+          industryVertical = 'health';
+        }
+
+        // 4. Update organization
         await supabase
           .from("organizations")
           .update({
@@ -298,8 +307,19 @@ REGLAS:
             country_code: collectedData.country_code ?? null,
             team_size: collectedData.team_size ?? null,
             first_goal: collectedData.first_goal ?? null,
+            industry_vertical: industryVertical,
           })
           .eq("id", orgId);
+
+        // 5. Auto-activate modules for real_estate vertical
+        if (industryVertical === 'real_estate') {
+          await supabase
+            .from("organizations")
+            .update({
+              enabled_modules: { real_estate: true, real_estate_portfolio: true },
+            })
+            .eq("id", orgId);
+        }
 
         // 4. Update team member
         await supabase

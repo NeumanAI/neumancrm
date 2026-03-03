@@ -290,7 +290,7 @@ export default function Admin() {
   const [editingOrg, setEditingOrg] = useState<OrganizationWithAdmin | null>(null);
   const [createDialogType, setCreateDialogType] = useState<OrganizationType | null>(null);
   const [assigningAdminOrg, setAssigningAdminOrg] = useState<OrganizationWithAdmin | null>(null);
-  const [modulesOrg, setModulesOrg] = useState<{ id: string; name: string; modules: Record<string, boolean> } | null>(null);
+  const [modulesOrg, setModulesOrg] = useState<{ id: string; name: string; modules: Record<string, boolean>; vertical?: string } | null>(null);
 
   // Redirect if not super-admin
   useEffect(() => {
@@ -301,7 +301,8 @@ export default function Admin() {
 
   const handleOpenModules = (org: OrganizationWithAdmin) => {
     const modules = ((org as any).enabled_modules as Record<string, boolean>) || {};
-    setModulesOrg({ id: org.id, name: org.name, modules });
+    const vertical = (org as any).industry_vertical as string | undefined;
+    setModulesOrg({ id: org.id, name: org.name, modules, vertical });
   };
 
   const handleSaveOrg = async (data: any) => {
@@ -647,6 +648,7 @@ export default function Admin() {
           organizationId={modulesOrg.id}
           organizationName={modulesOrg.name}
           enabledModules={modulesOrg.modules}
+          currentVertical={modulesOrg.vertical}
           onSaved={() => refetchOrgs()}
         />
       )}
