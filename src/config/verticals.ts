@@ -80,7 +80,7 @@ export const VERTICALS: Record<VerticalId, VerticalConfig> = {
     description: 'Para clínicas, consultorios médicos y centros de salud',
     icon: '🏥',
     color: '#10b981',
-    modules: [],
+    modules: ['clinical_notes'],
     vocabulary: {
       contact: 'Paciente',
       contacts: 'Pacientes',

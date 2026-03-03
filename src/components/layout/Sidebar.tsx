@@ -102,6 +102,7 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
   const realEstateNavItem = { to: '/proyectos', icon: Building2, label: 'Proyectos', isRealEstate: true };
   const portfolioNavItem = { to: '/cartera', icon: Wallet, label: 'Cartera', isRealEstate: true };
   const openmedicNavItem = { to: '/openmedic', icon: Stethoscope, label: 'Openmedic', isHealth: true };
+  const consultaNavItem = { to: '/consulta', icon: Stethoscope, label: 'Nueva Consulta', isHealth: true };
 
   // Apply dynamic vocabulary to nav items
   let allNavItems = navItems.map(item => {
@@ -124,7 +125,7 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
   // Add Openmedic nav item for health vertical
   if (isHealth) {
     const settingsIdx = allNavItems.findIndex(i => i.to === '/settings');
-    allNavItems.splice(settingsIdx, 0, openmedicNavItem);
+    allNavItems.splice(settingsIdx, 0, openmedicNavItem, consultaNavItem);
   }
   if (isResellerAdmin) {
     allNavItems = [...allNavItems, ...resellerNavItems];

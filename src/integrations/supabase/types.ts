@@ -457,6 +457,87 @@ export type Database = {
         }
         Relationships: []
       }
+      clinical_notes: {
+        Row: {
+          analysis: string | null
+          audio_url: string | null
+          consultation_date: string
+          contact_id: string
+          created_at: string
+          created_by: string
+          full_note: string | null
+          id: string
+          input_mode: string
+          is_signed: boolean
+          objective: string | null
+          organization_id: string
+          plan: string | null
+          raw_transcript: string | null
+          status: string
+          subjective: string | null
+          tags: string[] | null
+          template_used: string
+          updated_at: string
+        }
+        Insert: {
+          analysis?: string | null
+          audio_url?: string | null
+          consultation_date?: string
+          contact_id: string
+          created_at?: string
+          created_by: string
+          full_note?: string | null
+          id?: string
+          input_mode?: string
+          is_signed?: boolean
+          objective?: string | null
+          organization_id: string
+          plan?: string | null
+          raw_transcript?: string | null
+          status?: string
+          subjective?: string | null
+          tags?: string[] | null
+          template_used?: string
+          updated_at?: string
+        }
+        Update: {
+          analysis?: string | null
+          audio_url?: string | null
+          consultation_date?: string
+          contact_id?: string
+          created_at?: string
+          created_by?: string
+          full_note?: string | null
+          id?: string
+          input_mode?: string
+          is_signed?: boolean
+          objective?: string | null
+          organization_id?: string
+          plan?: string | null
+          raw_transcript?: string | null
+          status?: string
+          subjective?: string | null
+          tags?: string[] | null
+          template_used?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_notes_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_notes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comments: {
         Row: {
           content: string
