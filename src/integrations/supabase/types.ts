@@ -1958,6 +1958,7 @@ export type Database = {
           first_goal: string | null
           id: string
           industry: string | null
+          industry_vertical: string | null
           is_approved: boolean
           logo_url: string | null
           max_users: number
@@ -1985,6 +1986,7 @@ export type Database = {
           first_goal?: string | null
           id?: string
           industry?: string | null
+          industry_vertical?: string | null
           is_approved?: boolean
           logo_url?: string | null
           max_users?: number
@@ -2012,6 +2014,7 @@ export type Database = {
           first_goal?: string | null
           id?: string
           industry?: string | null
+          industry_vertical?: string | null
           is_approved?: boolean
           logo_url?: string | null
           max_users?: number
