@@ -45,6 +45,7 @@ import { useTeam } from '@/hooks/useTeam';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useVertical } from '@/hooks/useVertical';
+import { useHasModule } from '@/hooks/useHasModule';
 import { Stethoscope } from 'lucide-react';
 
 interface SidebarProps {
@@ -98,6 +99,7 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
   const { user, signOut } = useAuth();
   const { organization } = useTeam();
   const { vocabulary, isHealth } = useVertical();
+  const hasClinicalModule = useHasModule('clinical_notes');
 
   const realEstateNavItem = { to: '/proyectos', icon: Building2, label: 'Proyectos', isRealEstate: true };
   const portfolioNavItem = { to: '/cartera', icon: Wallet, label: 'Cartera', isRealEstate: true };
@@ -123,7 +125,7 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
     allNavItems.splice(insertIdx, 0, portfolioNavItem);
   }
   // Add Openmedic nav item for health vertical
-  if (isHealth) {
+  if (isHealth || hasClinicalModule) {
     const settingsIdx = allNavItems.findIndex(i => i.to === '/settings');
     allNavItems.splice(settingsIdx, 0, openmedicNavItem, consultaNavItem);
   }

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import { Building2, Wallet, Settings2, Stethoscope } from 'lucide-react';
 import { VERTICALS, getVerticalModules, VerticalId, getAvailableVerticals } from '@/config/verticals';
 import { cn } from '@/lib/utils';
@@ -34,6 +35,7 @@ export function ModulesDialog({
   const [modules, setModules] = useState<Record<string, boolean>>(enabledModules || {});
   const [vertical, setVertical] = useState<VerticalId>((currentVertical as VerticalId) || 'general');
   const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
 
   const handleVerticalChange = (newVertical: VerticalId) => {
     setVertical(newVertical);
@@ -53,6 +55,8 @@ export function ModulesDialog({
         } as any)
         .eq('id', organizationId);
       if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ['organization'] });
+      await queryClient.invalidateQueries({ queryKey: ['current_team_member'] });
       toast.success('Configuración actualizada');
       onSaved();
       onOpenChange(false);
