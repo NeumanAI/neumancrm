@@ -1656,6 +1656,37 @@ const tools = [
       },
     },
   },
+  // ===== CARTERA INMOBILIARIA =====
+  {
+    type: "function",
+    function: {
+      name: "get_portfolio_summary",
+      description: "Obtiene un resumen global de la cartera inmobiliaria: contratos activos, monto financiado, recaudo total, mora, cuotas próximas.",
+      parameters: { type: "object", properties: {}, required: [] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_overdue_installments",
+      description: "Lista los compradores con cuotas en mora, agrupados por contrato, con montos y días de mora.",
+      parameters: { type: "object", properties: {}, required: [] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_contact_portfolio",
+      description: "Obtiene el estado completo del contrato y pagos de un comprador específico por email o nombre.",
+      parameters: {
+        type: "object",
+        properties: {
+          contact_email_or_name: { type: "string", description: "Email o nombre del comprador" },
+        },
+        required: ["contact_email_or_name"],
+      },
+    },
+  },
 ];
 
 // ===== TYPES =====
@@ -1732,10 +1763,12 @@ const buildSystemPrompt = (crmContext: {
       '/conversations': 'Conversaciones. Prioriza mensajes omnicanal.',
       '/calendar': 'Calendario. Prioriza eventos, agenda, metas y time blocking.',
       '/settings': 'Configuración.',
+      '/cartera': 'Cartera inmobiliaria. Prioriza contratos, pagos, mora y cobranza.',
     };
     if (currentRoute.startsWith('/contacts/')) routeContext = '📍 Viendo contacto específico.';
     else if (currentRoute.startsWith('/companies/')) routeContext = '📍 Viendo empresa específica.';
     else if (currentRoute.startsWith('/projects/')) routeContext = '📍 Viendo proyecto específico.';
+    else if (currentRoute.startsWith('/cartera/')) routeContext = '📍 Viendo detalle de contrato de cartera.';
     else routeContext = routeMap[currentRoute] || '';
   }
 
@@ -1774,6 +1807,7 @@ ${routeContext ? `## 📍 Contexto: ${routeContext}\n` : ''}
 ### 🏗️ Inmobiliario mejorado: cambiar etapa proyecto, inventario por proyecto, buscar unidades por nomenclatura/tipo/piso/precio/estado, detalle de unidad, cambiar estado comercial, asignar comprador
 ### 📋 Documentos de compradores: listar documentos con filtro por tipo, verificar carpeta completa (cédula + promesa + soporte)
 ### 📊 Reporte maestro: resumen ejecutivo de todo el negocio inmobiliario en una llamada
+### 💰 Cartera inmobiliaria: resumen de cartera (get_portfolio_summary), compradores en mora (get_overdue_installments), estado de cuenta por comprador (get_contact_portfolio)
 ### Proyectos, Omnicanal, Inteligencia
 
 ## Reglas semánticas de contactos:
@@ -1790,6 +1824,14 @@ ${routeContext ? `## 📍 Contexto: ${routeContext}\n` : ''}
 - Cuando pregunten "¿cómo vamos?" o "dame un resumen" → usa get_real_estate_master_report
 - Cuando pregunten por una unidad específica → usa get_unit_detail con la nomenclatura
 - Cuando pregunten por disponibilidad → usa search_units con commercial_status="Disponible"
+
+## 💰 Cartera Inmobiliaria:
+- Usa get_portfolio_summary para resumen global de cartera (contratos activos, recaudo, mora)
+- Usa get_overdue_installments para listar compradores en mora con detalle de cuotas vencidas
+- Usa get_contact_portfolio para ver estado de cuenta completo de un comprador específico
+- Cuando pregunten "¿quién está en mora?" o "morosos" → usa get_overdue_installments
+- Cuando pregunten "¿cómo va la cartera?" → usa get_portfolio_summary
+- Cuando pregunten por un comprador + pagos → usa get_contact_portfolio
 
 ## 👨‍💼 Gestión Comercial (Asesores):
 - Cada contacto tiene un asesor asignado (assigned_advisor_id) y un asesor de captura (capture_advisor_id)
@@ -3845,7 +3887,82 @@ async function executeTool(supabase: any, userId: string, toolName: string, args
           const contactsWithDocs = new Set((docContacts || []).map((d: any) => d.contact_id));
           sinDocumentos = ids.filter((id: string) => !contactsWithDocs.has(id)).length;
         }
-        return { success: true, message: '📊 Reporte Maestro Inmobiliario', data: { resumen: { proyectos_activos: (projects || []).length, inventario_total: totalUnits, vendidas_y_separadas: vendidas + separadas, disponibles, pct_comercializado: totalUnits > 0 ? `${Math.round(((vendidas + separadas) / totalUnits) * 100)}%` : '0%', valor_inventario_disponible: fmt(valorDisponible) }, cartera: { nota: 'Módulo de cartera no disponible aún' }, comercial: { prospectos_en_pipeline: prospectos, compradores_activos: compradores, compradores_sin_documentos: sinDocumentos > 0 ? `⚠ ${sinDocumentos} compradores sin documentación` : '✅ Todos con documentos' }, por_proyecto: (projects || []).map((p: any) => { const unitsProj = (allUnits || []).filter((u: any) => u.project_id === p.id); const vend = unitsProj.filter((u: any) => u.commercial_status === 'Vendido').length; const sep = unitsProj.filter((u: any) => u.commercial_status === 'Separado').length; const total = unitsProj.length; return { proyecto: p.name, etapa: STAGE_LABELS[p.status] || p.status, unidades: total, comercializadas: `${vend + sep}/${total} (${total > 0 ? Math.round(((vend + sep) / total) * 100) : 0}%)` }; }) } };
+        // Cartera data for master report
+        const { data: activeContracts } = await supabase.from('portfolio_contracts').select('id, financed_amount, status').eq('organization_id', orgId);
+        const { data: overdueInst } = await supabase.from('portfolio_payment_schedule').select('contract_id, total_amount, paid_amount').eq('status', 'overdue').eq('organization_id', orgId);
+        const activeC = (activeContracts || []).filter((c: any) => c.status === 'active');
+        const montoCartera = activeC.reduce((s: number, c: any) => s + (c.financed_amount || 0), 0);
+        const montoMora = (overdueInst || []).reduce((s: number, i: any) => s + ((i.total_amount || 0) - (i.paid_amount || 0)), 0);
+        const contratosEnMora = new Set((overdueInst || []).map((i: any) => i.contract_id)).size;
+
+        return { success: true, message: '📊 Reporte Maestro Inmobiliario', data: { resumen: { proyectos_activos: (projects || []).length, inventario_total: totalUnits, vendidas_y_separadas: vendidas + separadas, disponibles, pct_comercializado: totalUnits > 0 ? `${Math.round(((vendidas + separadas) / totalUnits) * 100)}%` : '0%', valor_inventario_disponible: fmt(valorDisponible) }, cartera: { contratos_activos: activeC.length, monto_financiado: fmt(montoCartera), contratos_en_mora: contratosEnMora, monto_en_mora: fmt(montoMora) }, comercial: { prospectos_en_pipeline: prospectos, compradores_activos: compradores, compradores_sin_documentos: sinDocumentos > 0 ? `⚠ ${sinDocumentos} compradores sin documentación` : '✅ Todos con documentos' }, por_proyecto: (projects || []).map((p: any) => { const unitsProj = (allUnits || []).filter((u: any) => u.project_id === p.id); const vend = unitsProj.filter((u: any) => u.commercial_status === 'Vendido').length; const sep = unitsProj.filter((u: any) => u.commercial_status === 'Separado').length; const total = unitsProj.length; return { proyecto: p.name, etapa: STAGE_LABELS[p.status] || p.status, unidades: total, comercializadas: `${vend + sep}/${total} (${total > 0 ? Math.round(((vend + sep) / total) * 100) : 0}%)` }; }) } };
+      }
+
+      // ===== CARTERA INMOBILIARIA =====
+      case "get_portfolio_summary": {
+        const orgId = await getOrgId(supabase, userId);
+        if (!orgId) return { success: false, message: '❌ No perteneces a ninguna organización' };
+        const fmt = (v: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
+        // Update overdue first
+        await supabase.rpc('update_overdue_installments').catch(() => {});
+        const { data: contracts } = await supabase.from('portfolio_contracts').select('id, financed_amount, status, term_months').eq('organization_id', orgId);
+        const { data: installments } = await supabase.from('portfolio_payment_schedule').select('status, total_amount, paid_amount, due_date, contract_id').eq('organization_id', orgId);
+        const active = (contracts || []).filter((c: any) => c.status === 'active');
+        const overdue = (installments || []).filter((i: any) => i.status === 'overdue');
+        const paid = (installments || []).filter((i: any) => i.status === 'paid');
+        const overdueAmount = overdue.reduce((s: number, i: any) => s + ((i.total_amount || 0) - (i.paid_amount || 0)), 0);
+        const paidAmount = paid.reduce((s: number, i: any) => s + (i.total_amount || 0), 0);
+        const today = new Date();
+        const nextWeek = new Date(); nextWeek.setDate(nextWeek.getDate() + 7);
+        const upcoming = (installments || []).filter((i: any) => i.status === 'pending' && new Date(i.due_date) >= today && new Date(i.due_date) <= nextWeek);
+        return { success: true, message: `💰 **Resumen de Cartera**\n- Contratos activos: ${active.length}\n- Monto financiado: ${fmt(active.reduce((s: number, c: any) => s + (c.financed_amount || 0), 0))}\n- Recaudado: ${fmt(paidAmount)}\n- En mora: ${new Set(overdue.map((i: any) => i.contract_id)).size} contratos (${fmt(overdueAmount)})\n- Próximos 7 días: ${upcoming.length} cuotas`, data: { contratos_activos: active.length, total_financiado: fmt(active.reduce((s: number, c: any) => s + (c.financed_amount || 0), 0)), total_recaudado: fmt(paidAmount), contratos_en_mora: new Set(overdue.map((i: any) => i.contract_id)).size, monto_en_mora: fmt(overdueAmount), cuotas_proximas_7_dias: upcoming.length } };
+      }
+
+      case "get_overdue_installments": {
+        const orgId = await getOrgId(supabase, userId);
+        if (!orgId) return { success: false, message: '❌ No perteneces a ninguna organización' };
+        const fmt = (v: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
+        await supabase.rpc('update_overdue_installments').catch(() => {});
+        const { data } = await supabase.from('portfolio_payment_schedule').select('installment_number, due_date, total_amount, paid_amount, contract_id, portfolio_contracts(contract_number, contacts(first_name, last_name, email, mobile, whatsapp_number), real_estate_projects(name))').eq('status', 'overdue').eq('organization_id', orgId).order('due_date');
+        if (!data?.length) return { success: true, message: '✅ No hay cuotas en mora. ¡Todo al día!' };
+        const grouped = new Map<string, any>();
+        for (const row of data as any[]) {
+          const c = row.portfolio_contracts;
+          const contact = c?.contacts;
+          const key = row.contract_id;
+          if (!grouped.has(key)) {
+            grouped.set(key, { comprador: `${contact?.first_name || ''} ${contact?.last_name || ''}`.trim(), email: contact?.email, whatsapp: contact?.whatsapp_number || contact?.mobile, contrato: c?.contract_number, proyecto: c?.real_estate_projects?.name, cuotas: [], total: 0 });
+          }
+          const g = grouped.get(key)!;
+          const pending = (row.total_amount || 0) - (row.paid_amount || 0);
+          const daysOverdue = Math.floor((Date.now() - new Date(row.due_date).getTime()) / 86400000);
+          g.cuotas.push({ numero: row.installment_number, vencimiento: row.due_date, pendiente: fmt(pending), dias_mora: daysOverdue });
+          g.total += pending;
+        }
+        const list = Array.from(grouped.values()).map(g => ({ ...g, total_pendiente: fmt(g.total) }));
+        return { success: true, message: `⚠️ **${list.length} compradores en mora**\n${list.map(l => `• **${l.comprador}** (${l.contrato}): ${l.total_pendiente} — ${l.cuotas.length} cuota(s)`).join('\n')}`, data: list };
+      }
+
+      case "get_contact_portfolio": {
+        const orgId = await getOrgId(supabase, userId);
+        if (!orgId) return { success: false, message: '❌ No perteneces a ninguna organización' };
+        const fmt = (v: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
+        const search = args.contact_email_or_name;
+        const { data: contacts } = await supabase.from('contacts').select('id, first_name, last_name, email').eq('organization_id', orgId).or(`email.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%`).limit(1);
+        if (!contacts?.length) return { success: false, message: `❌ No encontré al comprador "${search}"` };
+        const c = contacts[0] as any;
+        const name = `${c.first_name || ''} ${c.last_name || ''}`.trim();
+        const { data: contractData } = await supabase.from('portfolio_contracts').select('*, real_estate_projects(name), real_estate_unit_types(name, nomenclature)').eq('contact_id', c.id).eq('organization_id', orgId);
+        if (!contractData?.length) return { success: true, message: `ℹ️ ${name} no tiene contratos de cartera` };
+        const results = [];
+        for (const ct of contractData as any[]) {
+          const { data: schedule } = await supabase.from('portfolio_payment_schedule').select('installment_number, due_date, total_amount, paid_amount, status').eq('contract_id', ct.id).order('installment_number');
+          const paid = (schedule || []).filter((s: any) => s.status === 'paid');
+          const overdue = (schedule || []).filter((s: any) => s.status === 'overdue');
+          const pending = (schedule || []).filter((s: any) => ['pending', 'partial'].includes(s.status));
+          results.push({ contrato: ct.contract_number, proyecto: ct.real_estate_projects?.name, unidad: ct.real_estate_unit_types?.nomenclature || ct.real_estate_unit_types?.name, estado: ct.status, monto_financiado: fmt(ct.financed_amount), cuota_mensual: fmt(ct.monthly_payment), plazo: `${ct.term_months} meses`, cuotas_pagadas: paid.length, cuotas_en_mora: overdue.length, monto_en_mora: fmt(overdue.reduce((s: number, i: any) => s + ((i.total_amount || 0) - (i.paid_amount || 0)), 0)), cuotas_pendientes: pending.length, proxima_cuota: pending.length > 0 ? { numero: pending[0].installment_number, vencimiento: pending[0].due_date, monto: fmt(pending[0].total_amount - pending[0].paid_amount) } : null });
+        }
+        return { success: true, message: `💰 **Cartera de ${name}**\n${results.map(r => `• **${r.contrato}** (${r.proyecto}): ${r.estado} — Financiado: ${r.monto_financiado} — Pagadas: ${r.cuotas_pagadas}/${r.cuotas_pagadas + r.cuotas_en_mora + r.cuotas_pendientes}${r.cuotas_en_mora > 0 ? ` ⚠️ ${r.cuotas_en_mora} en mora (${r.monto_en_mora})` : ''}`).join('\n')}`, data: results };
       }
 
       // ===== GESTIÓN COMERCIAL =====

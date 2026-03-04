@@ -5,11 +5,13 @@ import { Contact } from '@/types/crm';
 import { useContacts } from '@/hooks/useContacts';
 import { ContactType, CONTACT_TYPE_LABELS, CONTACT_TYPE_COLORS, CONTACT_TYPE_OPTIONS } from '@/lib/contactTypes';
 import { useHasModule } from '@/hooks/useHasModule';
+import { usePortfolioContracts, CONTRACT_STATUS_LABELS, CONTRACT_STATUS_COLORS } from '@/hooks/usePortfolioContracts';
 import { ClinicalNoteViewer } from '@/components/clinical-notes/ClinicalNoteViewer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -23,15 +25,17 @@ import { ActivityFeedList } from '@/components/team/ActivityFeedList';
 import { CommentsSection } from '@/components/team/CommentsSection';
 import { 
   ArrowLeft, Clock, CheckSquare, TrendingUp, FileText, Activity, MessageSquare,
-  ShieldCheck, AlertTriangle, Stethoscope,
+  ShieldCheck, AlertTriangle, Stethoscope, Wallet,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 export default function ContactDetail() {
   const { contactId } = useParams<{ contactId: string }>();
   const navigate = useNavigate();
   const { convertContactType } = useContacts();
   const hasClinicalNotes = useHasModule('clinical_notes');
+  const { contracts: allContracts } = usePortfolioContracts();
 
   const { data: contact, isLoading, error } = useQuery({
     queryKey: ['contact', contactId],
@@ -49,6 +53,10 @@ export default function ContactDetail() {
   });
 
   const contactType = ((contact as any)?.contact_type || 'prospecto') as ContactType;
+  const isComprador = contactType === 'comprador';
+  const contactContracts = allContracts.filter(c => c.contact_id === contactId);
+  const hasCartera = isComprador && contactContracts.length > 0;
+  const tabCount = 6 + (hasClinicalNotes ? 1 : 0) + (hasCartera ? 1 : 0);
 
   const handleTypeChange = (newType: string) => {
     if (!contact) return;
@@ -153,13 +161,16 @@ export default function ContactDetail() {
 
         <div className="lg:col-span-2">
           <Tabs defaultValue="timeline" className="space-y-6">
-            <TabsList className={`grid w-full ${hasClinicalNotes ? 'grid-cols-7' : 'grid-cols-6'}`}>
+            <TabsList className={`grid w-full grid-cols-${tabCount}`}>
               <TabsTrigger value="timeline" className="gap-2"><Clock className="h-4 w-4" /><span className="hidden sm:inline">Timeline</span></TabsTrigger>
               <TabsTrigger value="activities" className="gap-2"><CheckSquare className="h-4 w-4" /><span className="hidden sm:inline">Tareas</span></TabsTrigger>
               <TabsTrigger value="deals" className="gap-2"><TrendingUp className="h-4 w-4" /><span className="hidden sm:inline">Deals</span></TabsTrigger>
               <TabsTrigger value="documents" className="gap-2"><FileText className="h-4 w-4" /><span className="hidden sm:inline">Docs</span></TabsTrigger>
               {hasClinicalNotes && (
                 <TabsTrigger value="clinical-notes" className="gap-2"><Stethoscope className="h-4 w-4" /><span className="hidden sm:inline">Clínica</span></TabsTrigger>
+              )}
+              {hasCartera && (
+                <TabsTrigger value="cartera" className="gap-2"><Wallet className="h-4 w-4" /><span className="hidden sm:inline">Cartera</span></TabsTrigger>
               )}
               <TabsTrigger value="activity-feed" className="gap-2"><Activity className="h-4 w-4" /><span className="hidden sm:inline">Actividad</span></TabsTrigger>
               <TabsTrigger value="comments" className="gap-2"><MessageSquare className="h-4 w-4" /><span className="hidden sm:inline">Notas</span></TabsTrigger>
@@ -173,6 +184,34 @@ export default function ContactDetail() {
               <TabsContent value="clinical-notes" className="mt-6">
                 <div className="rounded-lg border bg-card p-6">
                   <ClinicalNoteViewer contactId={contact.id} contactName={`${contact.first_name || ''} ${contact.last_name || ''}`.trim()} />
+                </div>
+              </TabsContent>
+            )}
+            {hasCartera && (
+              <TabsContent value="cartera" className="mt-6">
+                <div className="rounded-lg border bg-card p-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Wallet className="h-5 w-5" />Contratos de Cartera</h3>
+                  <div className="space-y-3">
+                    {contactContracts.map(c => {
+                      const fmt = (v: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(v);
+                      return (
+                        <Card key={c.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate(`/cartera/${c.id}`)}>
+                          <CardContent className="flex items-center justify-between py-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium text-sm">N° {c.contract_number}</p>
+                                <Badge variant="outline" className={cn('text-xs', CONTRACT_STATUS_COLORS[c.status])}>
+                                  {CONTRACT_STATUS_LABELS[c.status]}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-0.5">{c.real_estate_projects?.name} · {c.term_months} cuotas</p>
+                            </div>
+                            <p className="font-bold text-sm">{fmt(c.financed_amount)}</p>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
                 </div>
               </TabsContent>
             )}

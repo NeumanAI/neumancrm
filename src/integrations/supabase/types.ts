@@ -3311,7 +3311,29 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      portfolio_kpis: {
+        Row: {
+          active_contracts: number | null
+          active_portfolio_amount: number | null
+          completed_contracts: number | null
+          contracts_with_overdue: number | null
+          defaulted_contracts: number | null
+          organization_id: string | null
+          overdue_installments_count: number | null
+          total_collected: number | null
+          total_contracts: number | null
+          total_overdue_amount: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_contracts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       get_admin_registrations: {
@@ -3422,6 +3444,7 @@ export type Database = {
       }
       is_reseller_admin: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      update_overdue_installments: { Args: never; Returns: undefined }
       user_has_role: {
         Args: { _role: Database["public"]["Enums"]["team_role"] }
         Returns: boolean

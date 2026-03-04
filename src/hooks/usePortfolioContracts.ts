@@ -29,7 +29,7 @@ export interface PortfolioContract {
   created_at: string;
   updated_at: string;
   // Joins
-  contacts?: { id: string; first_name: string | null; last_name: string | null; email: string; phone: string | null; mobile: string | null };
+  contacts?: { id: string; first_name: string | null; last_name: string | null; email: string; phone: string | null; mobile: string | null; whatsapp_number: string | null };
   real_estate_projects?: { id: string; name: string };
   real_estate_unit_types?: { id: string; name: string; nomenclature: string | null };
 }
@@ -109,9 +109,12 @@ export function usePortfolioContracts(projectId?: string) {
   const query = useQuery({
     queryKey: ['portfolio-contracts', orgId, projectId],
     queryFn: async () => {
+      // Trigger overdue detection
+      await (supabase.rpc as any)('update_overdue_installments').catch(() => {});
+
       let q = supabase
         .from('portfolio_contracts')
-        .select('*, contacts(id, first_name, last_name, email, phone, mobile), real_estate_projects(id, name), real_estate_unit_types(id, name, nomenclature)')
+        .select('*, contacts(id, first_name, last_name, email, phone, mobile, whatsapp_number), real_estate_projects(id, name), real_estate_unit_types(id, name, nomenclature)')
         .order('created_at', { ascending: false });
       if (projectId) q = q.eq('project_id', projectId);
       const { data, error } = await q;
@@ -180,7 +183,7 @@ export function usePortfolioContract(contractId?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('portfolio_contracts')
-        .select('*, contacts(id, first_name, last_name, email, phone, mobile), real_estate_projects(id, name), real_estate_unit_types(id, name, nomenclature)')
+        .select('*, contacts(id, first_name, last_name, email, phone, mobile, whatsapp_number), real_estate_projects(id, name), real_estate_unit_types(id, name, nomenclature)')
         .eq('id', contractId!)
         .single();
       if (error) throw error;
