@@ -43,6 +43,9 @@ export function usePortfolioSchedule(contractId?: string) {
   const query = useQuery({
     queryKey: ['portfolio-schedule', contractId],
     queryFn: async () => {
+      // Trigger overdue detection
+      await (supabase.rpc as any)('update_overdue_installments').catch(() => {});
+
       const { data, error } = await supabase
         .from('portfolio_payment_schedule')
         .select('*')

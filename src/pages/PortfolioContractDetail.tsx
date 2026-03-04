@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Wallet, Phone, Mail, Calendar, DollarSign, Plus, CreditCard } from 'lucide-react';
+import { ArrowLeft, Wallet, Phone, Mail, Calendar, DollarSign, Plus, CreditCard, MessageCircle, Download } from 'lucide-react';
 import { usePortfolioContract, CONTRACT_STATUS_LABELS, CONTRACT_STATUS_COLORS } from '@/hooks/usePortfolioContracts';
 import { usePortfolioSchedule, INSTALLMENT_STATUS_LABELS, INSTALLMENT_STATUS_COLORS, PortfolioInstallment } from '@/hooks/usePortfolioSchedule';
 import { usePortfolioPayments, PAYMENT_METHOD_LABELS } from '@/hooks/usePortfolioPayments';
@@ -109,6 +109,35 @@ export default function PortfolioContractDetail() {
     setActionPromiseAmount('');
   };
 
+  const exportScheduleCSV = () => {
+    const headers = ['N°', 'Vencimiento', 'Capital', 'Intereses', 'Cuota', 'Saldo', 'Estado', 'Pagado'];
+    const rows = installments.map(i => [
+      i.installment_number,
+      i.due_date,
+      i.principal_amount,
+      i.interest_amount,
+      i.total_amount,
+      i.remaining_balance,
+      INSTALLMENT_STATUS_LABELS[i.status] || i.status,
+      i.paid_amount,
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `plan_pagos_${contract.contract_number}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const openWhatsApp = () => {
+    const phone = contact?.whatsapp_number || contact?.mobile || contact?.phone;
+    if (!phone) return;
+    const msg = encodeURIComponent(`Hola ${contact?.first_name || ''}, nos comunicamos respecto a tu contrato N° ${contract.contract_number}. ¿Podemos ayudarte con tu plan de pagos?`);
+    window.open(`https://wa.me/${phone.replace(/\D/g, '')}?text=${msg}`, '_blank');
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -134,6 +163,18 @@ export default function PortfolioContractDetail() {
             <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{new Date(contract.signing_date).toLocaleDateString('es-CO')}</span>
             <span>{contract.real_estate_projects?.name}</span>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {(contact?.phone || contact?.mobile) && (
+            <Button variant="outline" size="sm" asChild>
+              <a href={`tel:${contact.mobile || contact.phone}`}><Phone className="h-4 w-4 mr-1" />Llamar</a>
+            </Button>
+          )}
+          {(contact?.whatsapp_number || contact?.mobile || contact?.phone) && (
+            <Button variant="outline" size="sm" className="text-green-600" onClick={openWhatsApp}>
+              <MessageCircle className="h-4 w-4 mr-1" />WhatsApp
+            </Button>
+          )}
         </div>
       </div>
 
@@ -181,11 +222,16 @@ export default function PortfolioContractDetail() {
 
       {/* Tabs */}
       <Tabs defaultValue="schedule">
-        <TabsList>
-          <TabsTrigger value="schedule">Plan de pagos ({installments.length})</TabsTrigger>
-          <TabsTrigger value="payments">Pagos ({payments.length})</TabsTrigger>
-          <TabsTrigger value="actions">Gestión de cobro ({actions.length})</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="schedule">Plan de pagos ({installments.length})</TabsTrigger>
+            <TabsTrigger value="payments">Pagos ({payments.length})</TabsTrigger>
+            <TabsTrigger value="actions">Gestión de cobro ({actions.length})</TabsTrigger>
+          </TabsList>
+          <Button variant="outline" size="sm" onClick={exportScheduleCSV}>
+            <Download className="h-4 w-4 mr-1" />Exportar CSV
+          </Button>
+        </div>
 
         {/* Schedule Tab */}
         <TabsContent value="schedule" className="mt-4">
