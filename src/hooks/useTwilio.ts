@@ -110,7 +110,7 @@ export function useTwilio() {
       const { data: newCampaign, error: campError } = await supabase
         .from('broadcast_campaigns')
         .insert([{
-          organization_id: teamMember.organization_id,
+          organization_id: orgId,
           created_by: currentUser.id,
           name: campaign.name,
           message_template: campaign.message_template,
