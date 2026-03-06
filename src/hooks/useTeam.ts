@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
+import { useState, useEffect, useCallback } from 'react';
 
 export type TeamRole = 'admin' | 'manager' | 'sales_rep' | 'viewer';
 
@@ -51,38 +52,58 @@ export interface Organization {
   updated_at: string;
 }
 
+const ACTIVE_ORG_KEY = 'active_organization_id';
+
 export function useTeam() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Step 1: Get current user's team membership to get their organization_id
+  // Get stored active org from localStorage
+  const [activeOrgId, setActiveOrgId] = useState<string | null>(() => {
+    return localStorage.getItem(ACTIVE_ORG_KEY);
+  });
+
+  // Step 1: Get ALL active memberships for the user
   const { 
-    data: currentMember, 
+    data: allMemberships = [], 
     isLoading: memberLoading,
     error: memberError,
     isError: memberIsError,
   } = useQuery({
-    queryKey: ['current_team_member', user?.id],
+    queryKey: ['all_team_memberships', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('team_members')
         .select('*')
         .eq('user_id', user!.id)
         .eq('is_active', true)
-        .maybeSingle();
+        .order('created_at', { ascending: true });
       
       if (error) throw error;
-      return data as TeamMember | null;
+      return data as TeamMember[];
     },
     enabled: !!user,
-    staleTime: 5 * 60 * 1000, // 5 minutes - membership doesn't change often
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
-    retry: 1, // Only retry once to avoid long waits
+    retry: 1,
   });
+
+  // Determine current member based on activeOrgId or fallback to first
+  const currentMember = allMemberships.find(m => m.organization_id === activeOrgId) 
+    || allMemberships[0] 
+    || null;
+
+  // Sync activeOrgId when memberships load
+  useEffect(() => {
+    if (currentMember && currentMember.organization_id !== activeOrgId) {
+      setActiveOrgId(currentMember.organization_id);
+      localStorage.setItem(ACTIVE_ORG_KEY, currentMember.organization_id);
+    }
+  }, [currentMember, activeOrgId]);
 
   const organizationId = currentMember?.organization_id;
 
-  // Step 2: Fetch organization by ID (deterministic - single row)
+  // Step 2: Fetch organization by ID
   const { 
     data: organization, 
     isLoading: orgLoading,
@@ -134,7 +155,26 @@ export function useTeam() {
     retry: 1,
   });
 
-  // Combined loading state - only member + org are critical for initial render
+  // Switch organization function
+  const switchOrganization = useCallback(async (orgId: string) => {
+    setActiveOrgId(orgId);
+    localStorage.setItem(ACTIVE_ORG_KEY, orgId);
+
+    // Update the server-side active org for RLS
+    try {
+      const { error } = await supabase
+        .from('user_active_organization' as any)
+        .upsert({ user_id: user!.id, organization_id: orgId, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+      if (error) console.warn('Failed to update active org on server:', error);
+    } catch (e) {
+      console.warn('Failed to update active org:', e);
+    }
+
+    // Invalidate everything
+    queryClient.invalidateQueries();
+  }, [user, queryClient]);
+
+  // Combined loading state
   const isLoading = memberLoading || (!!organizationId && orgLoading);
   
   // Combined error state
@@ -151,7 +191,7 @@ export function useTeam() {
 
   // Refetch all team-related data
   const refetchAll = () => {
-    queryClient.invalidateQueries({ queryKey: ['current_team_member'] });
+    queryClient.invalidateQueries({ queryKey: ['all_team_memberships'] });
     queryClient.invalidateQueries({ queryKey: ['organization'] });
     queryClient.invalidateQueries({ queryKey: ['team_members'] });
   };
@@ -331,10 +371,12 @@ export function useTeam() {
     organization,
     teamMembers,
     currentMember,
+    allMemberships,
     isLoading,
     error,
     isError,
     refetchAll,
+    switchOrganization,
     
     // Permissions
     isAdmin,
