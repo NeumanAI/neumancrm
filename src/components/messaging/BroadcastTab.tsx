@@ -202,7 +202,7 @@ export function BroadcastTab() {
                     <TableCell className="text-muted-foreground text-sm">
                       {format(new Date(c.created_at), 'dd MMM yyyy', { locale: es })}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="flex items-center gap-1">
                       {c.status === 'draft' && (
                         <Button
                           size="sm"
@@ -213,6 +213,30 @@ export function BroadcastTab() {
                           <Send className="h-3 w-3 mr-1" /> Lanzar
                         </Button>
                       )}
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Eliminar campaña?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Se eliminará "{c.name}" y todos sus mensajes asociados. Esta acción no se puede deshacer.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteCampaign.mutate(c.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Eliminar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </TableCell>
                   </TableRow>
                 ))}
