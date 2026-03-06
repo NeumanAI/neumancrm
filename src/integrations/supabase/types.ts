@@ -303,6 +303,122 @@ export type Database = {
         }
         Relationships: []
       }
+      broadcast_campaigns: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          failed_count: number
+          id: string
+          message_template: string
+          name: string
+          organization_id: string
+          scheduled_at: string | null
+          sent_count: number
+          started_at: string | null
+          status: string
+          target_filters: Json | null
+          target_type: string
+          total_recipients: number
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          failed_count?: number
+          id?: string
+          message_template: string
+          name: string
+          organization_id: string
+          scheduled_at?: string | null
+          sent_count?: number
+          started_at?: string | null
+          status?: string
+          target_filters?: Json | null
+          target_type?: string
+          total_recipients?: number
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          failed_count?: number
+          id?: string
+          message_template?: string
+          name?: string
+          organization_id?: string
+          scheduled_at?: string | null
+          sent_count?: number
+          started_at?: string | null
+          status?: string
+          target_filters?: Json | null
+          target_type?: string
+          total_recipients?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broadcast_campaigns_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      broadcast_messages: {
+        Row: {
+          campaign_id: string
+          contact_id: string
+          created_at: string
+          error_message: string | null
+          id: string
+          phone_number: string
+          sent_at: string | null
+          status: string
+          twilio_sid: string | null
+        }
+        Insert: {
+          campaign_id: string
+          contact_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          phone_number: string
+          sent_at?: string | null
+          status?: string
+          twilio_sid?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          contact_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          phone_number?: string
+          sent_at?: string | null
+          status?: string
+          twilio_sid?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broadcast_messages_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "broadcast_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broadcast_messages_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendar_events: {
         Row: {
           all_day: boolean
@@ -3335,6 +3451,50 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_templates: {
+        Row: {
+          body: string
+          category: string
+          created_at: string
+          id: string
+          is_approved: boolean
+          name: string
+          organization_id: string
+          updated_at: string
+          variables: string[] | null
+        }
+        Insert: {
+          body: string
+          category?: string
+          created_at?: string
+          id?: string
+          is_approved?: boolean
+          name: string
+          organization_id: string
+          updated_at?: string
+          variables?: string[] | null
+        }
+        Update: {
+          body?: string
+          category?: string
+          created_at?: string
+          id?: string
+          is_approved?: boolean
+          name?: string
+          organization_id?: string
+          updated_at?: string
+          variables?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       portfolio_kpis: {
@@ -3467,6 +3627,10 @@ export type Database = {
       increment_ai_usage: {
         Args: { p_org_id: string; p_user_id?: string }
         Returns: boolean
+      }
+      increment_campaign_sent: {
+        Args: { campaign_id_param: string }
+        Returns: undefined
       }
       is_reseller_admin: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
