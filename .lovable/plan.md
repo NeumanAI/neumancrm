@@ -1,48 +1,99 @@
 
-Objetivo: corregir definitivamente que /cartera siga vacío aunque sí existen contratos y cuotas.
 
-Diagnóstico confirmado (con evidencia)
-- En backend sí hay datos para tu organización: `3` contratos y `30` cuotas.
-- El frontend está recibiendo `PGRST201` en `/portfolio_payment_schedule?...select=...,portfolio_contracts(...)`.
-- El error actual sigue diciendo relación ambigua entre:
-  - `fk_portfolio_schedule_contract`
-  - `portfolio_payment_schedule_contract_id_fkey`
-- En esquema actual, por SQL solo aparece la FK original (`portfolio_payment_schedule_contract_id_fkey`), por lo que el problema activo es caché de relaciones del API + queries sin relación explícita (frágiles ante ambigüedad).
+# Plan: Mejoras al Módulo de Cartera Inmobiliaria
 
-Plan de implementación
-1) Blindar queries de Cartera con relaciones explícitas (fix principal en frontend)
-- Actualizar selects en:
-  - `src/hooks/usePortfolioOverdue.ts`
-  - `src/hooks/usePortfolioContracts.ts`
-- Cambiar joins anidados para usar `!constraint_name` en todas las relaciones de cartera:
-  - `portfolio_contracts!portfolio_payment_schedule_contract_id_fkey(...)`
-  - `contacts!portfolio_contracts_contact_id_fkey(...)`
-  - `real_estate_projects!portfolio_contracts_project_id_fkey(...)`
-  - `real_estate_unit_types!portfolio_contracts_unit_id_fkey(...)`
-- Esto elimina la ambigüedad incluso si el API conserva metadata vieja temporalmente.
+10 cambios aditivos que corrigen KPIs, agregan detección de mora automática, panel de mora, acciones rápidas, exportación CSV, tab de cartera en ContactDetail, e integración con el AI Assistant.
 
-2) Mejorar manejo de errores para no “silenciar vacío”
-- En hooks de cartera, si hay error de query:
-  - registrar `console.error` con código/mensaje
-  - exponer estado `error` al componente
-- En `src/pages/Portfolio.tsx`:
-  - si hay error, mostrar card de error (“No se pudo cargar cartera, reintenta”) en lugar de “No hay contratos”.
+---
 
-3) Refuerzo opcional backend (recomendado)
-- Crear migración mínima para forzar recarga de metadata del API:
-  - `NOTIFY pgrst, 'reload schema';`
-- No toca datos ni RLS; solo evita que persista caché antigua de FKs.
+## Fase 1: Migración SQL
 
-4) Validación funcional (obligatoria)
-- Verificar en `/cartera`:
-  - KPIs con valores > 0
-  - lista de contratos visible
-  - panel de mora visible (si aplica)
-  - alertas de próximos vencimientos visibles
-- Verificar en `/cartera/:id`:
-  - cronograma y pagos cargan correctamente.
+Crear función `update_overdue_installments()` y vista `portfolio_kpis`:
 
-Detalles técnicos
-- No se requieren nuevos datos de prueba (ya existen).
-- No se requiere cambiar políticas RLS para este bug (el fallo observado es de embedding/relaciones, no de permisos).
-- Beneficio del enfoque: queda estable aunque en el futuro alguien vuelva a introducir FKs duplicadas por error; las queries seguirán resolviendo la relación correcta.
+- Función SQL `SECURITY DEFINER` que actualiza cuotas `pending`/`partial` con `due_date < CURRENT_DATE` a `overdue`
+- Vista `portfolio_kpis` con KPIs agregados por organización
+- `GRANT SELECT ON portfolio_kpis TO authenticated`
+
+---
+
+## Fase 2: Nuevo hook `usePortfolioOverdue.ts`
+
+Crear `src/hooks/usePortfolioOverdue.ts` con:
+
+- `usePortfolioOverdue()` — llama `update_overdue_installments` vía RPC, luego consulta cuotas `overdue` con joins a `portfolio_contracts → contacts + real_estate_projects`. Calcula `days_overdue`, `pending_amount`, agrupa por contrato. Refresca cada 5 min.
+- `usePortfolioUpcoming(daysAhead)` — cuotas `pending` en los próximos N días con misma estructura de datos.
+
+---
+
+## Fase 3: Modificar hooks existentes para detectar mora
+
+**`usePortfolioContracts.ts`**: Agregar `await supabase.rpc('update_overdue_installments').catch(() => {})` al inicio del `queryFn`. Agregar `whatsapp_number` al select de `contacts` en ambas queries (lista y detalle).
+
+**`usePortfolioSchedule.ts`**: Agregar misma llamada RPC al inicio del `queryFn`.
+
+---
+
+## Fase 4: Corregir KPIs y agregar Panel de Mora en `Portfolio.tsx`
+
+- Importar `usePortfolioOverdue`, `usePortfolioUpcoming`
+- Reemplazar KPIs: "Al día" = activos sin mora, "En mora" = contratos con cuotas vencidas + monto COP
+- Agregar sección `OverduePanelSection` (colapsable, lista de compradores en mora agrupados por contrato con botones WhatsApp/teléfono)
+- Agregar `UpcomingAlertSection` (alerta de cuotas próximas a vencer en 7 días)
+- Nuevos imports: `Phone, MessageCircle, ChevronDown, ChevronUp, Clock`
+
+---
+
+## Fase 5: Acciones rápidas en `PortfolioContractDetail.tsx`
+
+- Agregar botones "Llamar" y "WhatsApp" con mensaje precargado en el header del contrato
+- Agregar función `exportScheduleCSV` y botón "Exportar CSV" junto a los tabs
+- Imports: `MessageCircle, Download`
+
+---
+
+## Fase 6: Tab "Cartera" en `ContactDetail.tsx`
+
+- Importar `usePortfolioContracts`, `Wallet`, `CONTRACT_STATUS_LABELS/COLORS`
+- Agregar hook para filtrar contratos del contacto actual
+- Agregar `TabsTrigger` y `TabsContent` condicionales para `contactType === 'comprador'`
+- Mostrar lista de contratos con navegación al detalle
+- Actualizar `grid-cols` del TabsList dinámicamente
+
+---
+
+## Fase 7: Integrar cartera al AI Assistant (`chat/index.ts`)
+
+### 7a. Agregar 3 tool definitions (antes de `];` en línea 1659):
+- `get_portfolio_summary` — resumen global de cartera
+- `get_overdue_installments` — lista compradores en mora
+- `get_contact_portfolio` — contrato y pagos de un comprador por email
+
+### 7b. Agregar 3 case handlers (después de `get_real_estate_master_report` en línea 3849):
+- Handler `get_portfolio_summary`: KPIs de cartera + cuotas próximas
+- Handler `get_overdue_installments`: lista detallada de mora
+- Handler `get_contact_portfolio`: estado completo del contrato de un comprador
+
+### 7c. Reemplazar `cartera: { nota: 'Módulo de cartera no disponible aún' }` en el reporte maestro por datos reales de contratos activos y mora.
+
+### 7d. Agregar línea de capacidades de cartera al system prompt y `/cartera` al routeMap.
+
+---
+
+## Archivos nuevos (1)
+
+| Archivo | Tipo |
+|---------|------|
+| `src/hooks/usePortfolioOverdue.ts` | Hook |
+
+## Archivos modificados (6)
+
+| Archivo | Cambio |
+|---------|--------|
+| Migración SQL | Función + vista de mora |
+| `src/hooks/usePortfolioContracts.ts` | RPC mora + whatsapp_number en select |
+| `src/hooks/usePortfolioSchedule.ts` | RPC mora al cargar |
+| `src/pages/Portfolio.tsx` | KPIs corregidos + panel mora + alertas |
+| `src/pages/PortfolioContractDetail.tsx` | Botones contacto + exportar CSV |
+| `src/pages/ContactDetail.tsx` | Tab Cartera condicional |
+| `supabase/functions/chat/index.ts` | 3 tools + handlers + reporte maestro |
+
