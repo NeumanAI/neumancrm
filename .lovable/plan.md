@@ -1,99 +1,68 @@
 
 
-# Plan: Mejoras al Módulo de Cartera Inmobiliaria
+# Plan: Datos de Prueba para Constructora (jogedu@gmail.com)
 
-10 cambios aditivos que corrigen KPIs, agregan detección de mora automática, panel de mora, acciones rápidas, exportación CSV, tab de cartera en ContactDetail, e integración con el AI Assistant.
-
----
-
-## Fase 1: Migración SQL
-
-Crear función `update_overdue_installments()` y vista `portfolio_kpis`:
-
-- Función SQL `SECURITY DEFINER` que actualiza cuotas `pending`/`partial` con `due_date < CURRENT_DATE` a `overdue`
-- Vista `portfolio_kpis` con KPIs agregados por organización
-- `GRANT SELECT ON portfolio_kpis TO authenticated`
+Crear un conjunto completo de datos de prueba realistas para la vertical inmobiliaria, cubriendo todos los módulos.
 
 ---
 
-## Fase 2: Nuevo hook `usePortfolioOverdue.ts`
+## Datos de referencia
 
-Crear `src/hooks/usePortfolioOverdue.ts` con:
-
-- `usePortfolioOverdue()` — llama `update_overdue_installments` vía RPC, luego consulta cuotas `overdue` con joins a `portfolio_contracts → contacts + real_estate_projects`. Calcula `days_overdue`, `pending_amount`, agrupa por contrato. Refresca cada 5 min.
-- `usePortfolioUpcoming(daysAhead)` — cuotas `pending` en los próximos N días con misma estructura de datos.
-
----
-
-## Fase 3: Modificar hooks existentes para detectar mora
-
-**`usePortfolioContracts.ts`**: Agregar `await supabase.rpc('update_overdue_installments').catch(() => {})` al inicio del `queryFn`. Agregar `whatsapp_number` al select de `contacts` en ambas queries (lista y detalle).
-
-**`usePortfolioSchedule.ts`**: Agregar misma llamada RPC al inicio del `queryFn`.
+| Campo | Valor |
+|-------|-------|
+| user_id | `e595967d-a0cc-4cf2-ba94-32aa81d3eee0` |
+| organization_id | `5179d17c-7107-46ea-ba1a-88a029bf74d9` |
+| pipeline_id | `35044588-1e14-44a0-b156-2f2396201673` |
+| Vertical | real_estate |
+| Datos existentes | 8 contactos (prospectos web), 1 actividad, 0 proyectos, 0 empresas, 0 oportunidades, 0 contratos |
 
 ---
 
-## Fase 4: Corregir KPIs y agregar Panel de Mora en `Portfolio.tsx`
+## Datos a insertar (todos via insert tool, no migraciones)
 
-- Importar `usePortfolioOverdue`, `usePortfolioUpcoming`
-- Reemplazar KPIs: "Al día" = activos sin mora, "En mora" = contratos con cuotas vencidas + monto COP
-- Agregar sección `OverduePanelSection` (colapsable, lista de compradores en mora agrupados por contrato con botones WhatsApp/teléfono)
-- Agregar `UpcomingAlertSection` (alerta de cuotas próximas a vencer en 7 días)
-- Nuevos imports: `Phone, MessageCircle, ChevronDown, ChevronUp, Clock`
+### 1. Empresas (3)
+Constructoras colombianas ficticias: "Bitan Corp", "Grupo Edificar", "Torres del Valle SAS"
 
----
+### 2. Contactos nuevos (8 — mezcla de prospectos y compradores)
+4 compradores con datos completos (nombre, teléfono, WhatsApp, email real ficticio) y 4 prospectos calificados. Algunos vinculados a las empresas.
 
-## Fase 5: Acciones rápidas en `PortfolioContractDetail.tsx`
+### 3. Proyectos Inmobiliarios (2)
+- "Torres del Parque" — En venta, 120 unidades, Bogotá
+- "Reserva del Bosque" — Preventa, 80 unidades, Medellín
 
-- Agregar botones "Llamar" y "WhatsApp" con mensaje precargado en el header del contrato
-- Agregar función `exportScheduleCSV` y botón "Exportar CSV" junto a los tabs
-- Imports: `MessageCircle, Download`
+### 4. Unidades (8 por proyecto = 16 total)
+Mix de APTOs y PARQUEADERO con estados: Disponible, Separado, Vendido. Compradores asignados a unidades vendidas/separadas.
 
----
+### 5. Oportunidades (6)
+Distribuidas en diferentes stages del pipeline, valores entre $80M-$350M COP, vinculadas a contactos y proyectos.
 
-## Fase 6: Tab "Cartera" en `ContactDetail.tsx`
+### 6. Actividades (6)
+Mix de calls, meetings, tasks y notes con diferentes prioridades y fechas.
 
-- Importar `usePortfolioContracts`, `Wallet`, `CONTRACT_STATUS_LABELS/COLORS`
-- Agregar hook para filtrar contratos del contacto actual
-- Agregar `TabsTrigger` y `TabsContent` condicionales para `contactType === 'comprador'`
-- Mostrar lista de contratos con navegación al detalle
-- Actualizar `grid-cols` del TabsList dinámicamente
+### 7. Timeline entries (4)
+Notas, llamadas y reuniones vinculadas a contactos.
 
----
+### 8. Contratos de Cartera (3)
+- 2 contratos activos con planes de pago (12 y 24 meses)
+- 1 contrato con cuotas vencidas para probar detección de mora
+- Planes de pago con cuotas pasadas (pagadas + overdue) y futuras (pending)
 
-## Fase 7: Integrar cartera al AI Assistant (`chat/index.ts`)
-
-### 7a. Agregar 3 tool definitions (antes de `];` en línea 1659):
-- `get_portfolio_summary` — resumen global de cartera
-- `get_overdue_installments` — lista compradores en mora
-- `get_contact_portfolio` — contrato y pagos de un comprador por email
-
-### 7b. Agregar 3 case handlers (después de `get_real_estate_master_report` en línea 3849):
-- Handler `get_portfolio_summary`: KPIs de cartera + cuotas próximas
-- Handler `get_overdue_installments`: lista detallada de mora
-- Handler `get_contact_portfolio`: estado completo del contrato de un comprador
-
-### 7c. Reemplazar `cartera: { nota: 'Módulo de cartera no disponible aún' }` en el reporte maestro por datos reales de contratos activos y mora.
-
-### 7d. Agregar línea de capacidades de cartera al system prompt y `/cartera` al routeMap.
+### 9. Pagos registrados (6-8 cuotas pagadas)
+Cuotas pagadas de los contratos activos para simular historial.
 
 ---
 
-## Archivos nuevos (1)
+## Ejecución
 
-| Archivo | Tipo |
-|---------|------|
-| `src/hooks/usePortfolioOverdue.ts` | Hook |
+Se harán múltiples llamadas al insert tool en secuencia:
+1. Empresas → obtener IDs
+2. Contactos → obtener IDs
+3. Proyectos inmobiliarios → obtener IDs
+4. Unidades → vincular a proyectos y compradores
+5. Oportunidades → vincular a contactos y stages
+6. Actividades y timeline
+7. Contratos de cartera → vincular a proyectos y compradores
+8. Plan de pagos → cuotas con estados mixtos (paid/overdue/pending)
 
-## Archivos modificados (6)
-
-| Archivo | Cambio |
-|---------|--------|
-| Migración SQL | Función + vista de mora |
-| `src/hooks/usePortfolioContracts.ts` | RPC mora + whatsapp_number en select |
-| `src/hooks/usePortfolioSchedule.ts` | RPC mora al cargar |
-| `src/pages/Portfolio.tsx` | KPIs corregidos + panel mora + alertas |
-| `src/pages/PortfolioContractDetail.tsx` | Botones contacto + exportar CSV |
-| `src/pages/ContactDetail.tsx` | Tab Cartera condicional |
-| `supabase/functions/chat/index.ts` | 3 tools + handlers + reporte maestro |
+No se requieren migraciones SQL — solo inserciones de datos.
 
