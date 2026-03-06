@@ -47,6 +47,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useVertical } from '@/hooks/useVertical';
 import { useHasModule } from '@/hooks/useHasModule';
 import { Stethoscope } from 'lucide-react';
+import { OrgSwitcher } from '@/components/layout/OrgSwitcher';
 
 interface SidebarProps {
   collapsed: boolean;
