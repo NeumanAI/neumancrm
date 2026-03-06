@@ -28,7 +28,7 @@ export interface PortfolioContract {
   created_by: string | null;
   created_at: string;
   updated_at: string;
-  // Joins
+  // Merged from separate queries
   contacts?: { id: string; first_name: string | null; last_name: string | null; email: string; phone: string | null; mobile: string | null; whatsapp_number: string | null };
   real_estate_projects?: { id: string; name: string };
   real_estate_unit_types?: { id: string; name: string; nomenclature: string | null };
@@ -100,6 +100,31 @@ export function generatePaymentSchedule(
   return schedule;
 }
 
+// Helper: fetch related entities by IDs and return as maps
+async function fetchRelatedEntities(contracts: any[]) {
+  const contactIds = [...new Set(contracts.map(c => c.contact_id).filter(Boolean))];
+  const projectIds = [...new Set(contracts.map(c => c.project_id).filter(Boolean))];
+  const unitIds = [...new Set(contracts.map(c => c.unit_id).filter(Boolean))];
+
+  const [contactsRes, projectsRes, unitsRes] = await Promise.all([
+    contactIds.length > 0
+      ? supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile, whatsapp_number').in('id', contactIds)
+      : { data: [], error: null },
+    projectIds.length > 0
+      ? supabase.from('real_estate_projects').select('id, name').in('id', projectIds)
+      : { data: [], error: null },
+    unitIds.length > 0
+      ? supabase.from('real_estate_unit_types').select('id, name, nomenclature').in('id', unitIds)
+      : { data: [], error: null },
+  ]);
+
+  const contactMap = new Map((contactsRes.data || []).map((c: any) => [c.id, c]));
+  const projectMap = new Map((projectsRes.data || []).map((p: any) => [p.id, p]));
+  const unitMap = new Map((unitsRes.data || []).map((u: any) => [u.id, u]));
+
+  return { contactMap, projectMap, unitMap };
+}
+
 export function usePortfolioContracts(projectId?: string) {
   const { user } = useAuth();
   const { organization } = useTeam();
@@ -112,14 +137,29 @@ export function usePortfolioContracts(projectId?: string) {
       // Trigger overdue detection
       await (supabase.rpc as any)('update_overdue_installments').catch(() => {});
 
+      // Step 1: Fetch base contracts (NO embedded joins)
       let q = supabase
         .from('portfolio_contracts')
-        .select('*, contacts!portfolio_contracts_contact_id_fkey(id, first_name, last_name, email, phone, mobile, whatsapp_number), real_estate_projects!portfolio_contracts_project_id_fkey(id, name), real_estate_unit_types!portfolio_contracts_unit_id_fkey(id, name, nomenclature)')
+        .select('*')
         .order('created_at', { ascending: false });
       if (projectId) q = q.eq('project_id', projectId);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data || []) as unknown as PortfolioContract[];
+      const { data: rawContracts, error } = await q;
+      if (error) {
+        console.error('[usePortfolioContracts] Query error:', error.code, error.message, { orgId });
+        throw error;
+      }
+      if (!rawContracts || rawContracts.length === 0) return [];
+
+      // Step 2: Fetch related entities separately
+      const { contactMap, projectMap, unitMap } = await fetchRelatedEntities(rawContracts);
+
+      // Step 3: Merge
+      return rawContracts.map(c => ({
+        ...c,
+        contacts: contactMap.get(c.contact_id) || undefined,
+        real_estate_projects: projectMap.get(c.project_id) || undefined,
+        real_estate_unit_types: c.unit_id ? unitMap.get(c.unit_id) || undefined : undefined,
+      })) as PortfolioContract[];
     },
     enabled: !!orgId,
   });
@@ -136,7 +176,6 @@ export function usePortfolioContracts(projectId?: string) {
         .single();
       if (error) throw error;
 
-      // Insert schedule in batches of 50
       const batchSize = 50;
       for (let i = 0; i < input.schedule.length; i += batchSize) {
         const batch = input.schedule.slice(i, i + batchSize).map(s => ({
@@ -174,20 +213,41 @@ export function usePortfolioContracts(projectId?: string) {
     onError: (e: any) => toast.error(e.message),
   });
 
-  return { contracts: query.data || [], isLoading: query.isLoading, createContract, updateContract };
+  return {
+    contracts: query.data || [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+    createContract,
+    updateContract,
+  };
 }
 
 export function usePortfolioContract(contractId?: string) {
   return useQuery({
     queryKey: ['portfolio-contract', contractId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Step 1: Fetch base contract
+      const { data: contract, error } = await supabase
         .from('portfolio_contracts')
-        .select('*, contacts!portfolio_contracts_contact_id_fkey(id, first_name, last_name, email, phone, mobile, whatsapp_number), real_estate_projects!portfolio_contracts_project_id_fkey(id, name), real_estate_unit_types!portfolio_contracts_unit_id_fkey(id, name, nomenclature)')
+        .select('*')
         .eq('id', contractId!)
         .single();
-      if (error) throw error;
-      return data as unknown as PortfolioContract;
+      if (error) {
+        console.error('[usePortfolioContract] Query error:', error.code, error.message);
+        throw error;
+      }
+
+      // Step 2: Fetch related entities
+      const { contactMap, projectMap, unitMap } = await fetchRelatedEntities([contract]);
+
+      return {
+        ...contract,
+        contacts: contactMap.get(contract.contact_id) || undefined,
+        real_estate_projects: projectMap.get(contract.project_id) || undefined,
+        real_estate_unit_types: contract.unit_id ? unitMap.get(contract.unit_id) || undefined : undefined,
+      } as PortfolioContract;
     },
     enabled: !!contractId,
   });

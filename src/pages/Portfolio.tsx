@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Wallet, Search, FileText, AlertTriangle, CheckCircle2, TrendingUp, Plus, Phone, MessageCircle, ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import { Wallet, Search, FileText, AlertTriangle, CheckCircle2, TrendingUp, Plus, Phone, MessageCircle, ChevronDown, ChevronUp, Clock, RefreshCw } from 'lucide-react';
 import { NewContractWizard } from '@/components/portfolio/NewContractWizard';
 import { usePortfolioContracts, CONTRACT_STATUS_LABELS, CONTRACT_STATUS_COLORS } from '@/hooks/usePortfolioContracts';
 import { useRealEstateProjects } from '@/hooks/useRealEstateProjects';
@@ -25,7 +25,7 @@ export default function Portfolio() {
   const [showNewContract, setShowNewContract] = useState(false);
   const [projectFilter, setProjectFilter] = useState('all');
   const [overdueOpen, setOverdueOpen] = useState(true);
-  const { contracts, isLoading } = usePortfolioContracts();
+  const { contracts, isLoading, isError, error, refetch } = usePortfolioContracts();
   const { projects } = useRealEstateProjects();
   const { overdueGroups, totalOverdueAmount, overdueContractsCount } = usePortfolioOverdue();
   const { data: upcomingInstallments } = usePortfolioUpcoming(7);
@@ -82,6 +82,22 @@ export default function Portfolio() {
       </div>
 
       <NewContractWizard open={showNewContract} onOpenChange={setShowNewContract} />
+
+      {/* Error State */}
+      {isError && (
+        <Card className="border-destructive">
+          <CardContent className="py-6 text-center">
+            <AlertTriangle className="h-10 w-10 mx-auto mb-3 text-destructive" />
+            <p className="font-semibold text-destructive mb-1">No se pudo cargar la cartera</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              {(error as any)?.message || 'Error desconocido al consultar los contratos.'}
+            </p>
+            <Button variant="outline" onClick={() => refetch()}>
+              <RefreshCw className="h-4 w-4 mr-1" /> Reintentar
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -240,14 +256,14 @@ export default function Portfolio() {
       </div>
 
       {/* Contracts list */}
-      {filtered.length === 0 ? (
+      {!isError && filtered.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
             <Wallet className="h-12 w-12 mx-auto mb-3 text-muted-foreground/30" />
             <p className="text-muted-foreground">No hay contratos de cartera</p>
           </CardContent>
         </Card>
-      ) : (
+      ) : !isError && (
         <div className="grid gap-3">
           {filtered.map(contract => {
             const contact = contract.contacts;
