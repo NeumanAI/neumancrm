@@ -34,7 +34,7 @@ export function TwilioSettingsTab() {
               </CardDescription>
             </div>
             {isConfigured && (
-              <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50">
+              <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50 dark:bg-green-950 dark:text-green-400 dark:border-green-800">
                 <CheckCircle className="h-3 w-3 mr-1" /> Conectado
               </Badge>
             )}

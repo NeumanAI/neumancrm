@@ -116,7 +116,7 @@ export function useTwilio() {
       // Create campaign
       const { data: newCampaign, error: campError } = await supabase
         .from('broadcast_campaigns')
-        .insert({
+        .insert([{
           organization_id: teamMember.organization_id,
           created_by: currentUser.id,
           name: campaign.name,
@@ -124,7 +124,7 @@ export function useTwilio() {
           target_type: campaign.target_type,
           target_filters: campaign.target_filters || {},
           total_recipients: campaign.contact_ids.length,
-        })
+        }])
         .select()
         .single();
 

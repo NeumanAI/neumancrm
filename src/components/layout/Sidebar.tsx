@@ -64,6 +64,7 @@ interface SidebarProps {
 const navItems = [
 { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
 { to: '/conversations', icon: MessageSquare, label: 'Conversaciones', showBadge: true },
+{ to: '/messaging', icon: MessageSquare, label: 'Mensajería' },
 { to: '/contacts', icon: Users, label: 'Contactos' },
 { to: '/companies', icon: Building2, label: 'Empresas' },
 { to: '/pipeline', icon: TrendingUp, label: 'Pipeline' },
