@@ -236,6 +236,7 @@ export function useTwilio() {
     sendMessage,
     createCampaign,
     launchCampaign,
+    deleteCampaign,
     toggleNotificationRule,
   };
 }
