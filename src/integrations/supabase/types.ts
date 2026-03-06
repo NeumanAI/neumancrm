@@ -3273,6 +3273,32 @@ export type Database = {
           },
         ]
       }
+      user_active_organization: {
+        Row: {
+          organization_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          organization_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          organization_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_active_organization_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_behavior_patterns: {
         Row: {
           confidence: number | null

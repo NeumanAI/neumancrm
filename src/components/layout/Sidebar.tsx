@@ -47,6 +47,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useVertical } from '@/hooks/useVertical';
 import { useHasModule } from '@/hooks/useHasModule';
 import { Stethoscope } from 'lucide-react';
+import { OrgSwitcher } from '@/components/layout/OrgSwitcher';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -214,6 +215,9 @@ export function Sidebar({ collapsed, onToggle, isSuperAdmin = false, isResellerA
           </Button>
       }
       </div>
+
+      {/* Org Switcher */}
+      <OrgSwitcher collapsed={isCollapsed} />
 
       {/* Navigation */}
       <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto min-h-0">

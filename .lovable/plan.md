@@ -1,46 +1,99 @@
 
 
-# Plan: Selector de Vertical / Organización para desarrollo paralelo
+# Plan: Mejoras al Módulo de Cartera Inmobiliaria
 
-## Contexto
-Actualmente tu usuario (`jogedu@gmail.com`) pertenece a una sola organización con vertical `real_estate`. Para desarrollar las 3 verticales en paralelo necesitas 3 organizaciones independientes (una por vertical) y un selector para cambiar entre ellas sin cerrar sesión.
+10 cambios aditivos que corrigen KPIs, agregan detección de mora automática, panel de mora, acciones rápidas, exportación CSV, tab de cartera en ContactDetail, e integración con el AI Assistant.
 
-## Cambios
+---
 
-### 1. Crear organizaciones y membresías (backend)
-Ejecutar una migración que:
-- Cree 2 nuevas organizaciones: **StarterCRM Dev** (`general`) y **Openmedic Dev** (`health`)
-- Cree registros `team_members` vinculando tu `user_id` a cada nueva org como `admin`
-- Renombre la org existente a **BitanAI Dev** para claridad
+## Fase 1: Migración SQL
 
-### 2. Actualizar `useTeam` para soportar múltiples organizaciones
-- Cambiar la query de `current_team_member` para traer **todas** las membresías activas del usuario (no solo `.maybeSingle()`)
-- Agregar estado `activeOrgId` persistido en `localStorage`
-- Exponer función `switchOrganization(orgId)` que cambia el `activeOrgId` e invalida todos los queries
-- Mantener compatibilidad: si solo hay 1 org, se usa automáticamente
+Crear función `update_overdue_installments()` y vista `portfolio_kpis`:
 
-### 3. Agregar Selector de Organización en Sidebar
-- Nuevo componente `OrgSwitcher` en la parte superior del Sidebar (debajo del logo)
-- Muestra el icono de la vertical + nombre de la org activa
-- Al hacer clic, despliega dropdown con las otras organizaciones disponibles
-- Al seleccionar otra, llama a `switchOrganization()` y recarga toda la data
+- Función SQL `SECURITY DEFINER` que actualiza cuotas `pending`/`partial` con `due_date < CURRENT_DATE` a `overdue`
+- Vista `portfolio_kpis` con KPIs agregados por organización
+- `GRANT SELECT ON portfolio_kpis TO authenticated`
 
-### 4. Archivos afectados
-- `src/hooks/useTeam.ts` — soporte multi-org
-- `src/components/layout/Sidebar.tsx` — insertar `OrgSwitcher`
-- `src/components/layout/OrgSwitcher.tsx` — nuevo componente
-- Migración SQL — crear orgs y membresías
+---
 
-### Detalles técnicos
-- El `localStorage` key será `active_organization_id`
-- Al cambiar org, se invalidan queries: `current_team_member`, `organization`, `team_members`, y todos los queries de datos (contacts, opportunities, etc.)
-- La función `get_user_organization_id()` de RLS seguirá funcionando porque devuelve la primera org activa; pero para el frontend, el filtro se hará por el `organization_id` del `currentMember` seleccionado
-- **Importante**: `get_user_organization_id()` en RLS usa `LIMIT 1` — esto puede causar que el backend siempre devuelva datos de la misma org. Se necesitará evaluar si las queries del frontend filtran explícitamente por `organization_id` o dependen de la función RLS. Si dependen de RLS, se deberá ajustar la función para aceptar un parámetro o usar un claim.
+## Fase 2: Nuevo hook `usePortfolioOverdue.ts`
 
-### Consideración RLS
-La función `get_user_organization_id()` hace `LIMIT 1` sin orden determinístico. Esto significa que las tablas que dependen de esta función en RLS podrían devolver datos de cualquiera de las 3 orgs. Para resolverlo:
-- Opción A: Agregar una tabla `user_active_organization` que almacene la org activa del usuario, y que `get_user_organization_id()` la consulte
-- Opción B: Usar `set_config` / `current_setting` para pasar el org_id como variable de sesión en cada request
+Crear `src/hooks/usePortfolioOverdue.ts` con:
 
-**Opción A es más estable** — se crea una tabla pequeña y se actualiza la función RLS.
+- `usePortfolioOverdue()` — llama `update_overdue_installments` vía RPC, luego consulta cuotas `overdue` con joins a `portfolio_contracts → contacts + real_estate_projects`. Calcula `days_overdue`, `pending_amount`, agrupa por contrato. Refresca cada 5 min.
+- `usePortfolioUpcoming(daysAhead)` — cuotas `pending` en los próximos N días con misma estructura de datos.
+
+---
+
+## Fase 3: Modificar hooks existentes para detectar mora
+
+**`usePortfolioContracts.ts`**: Agregar `await supabase.rpc('update_overdue_installments').catch(() => {})` al inicio del `queryFn`. Agregar `whatsapp_number` al select de `contacts` en ambas queries (lista y detalle).
+
+**`usePortfolioSchedule.ts`**: Agregar misma llamada RPC al inicio del `queryFn`.
+
+---
+
+## Fase 4: Corregir KPIs y agregar Panel de Mora en `Portfolio.tsx`
+
+- Importar `usePortfolioOverdue`, `usePortfolioUpcoming`
+- Reemplazar KPIs: "Al día" = activos sin mora, "En mora" = contratos con cuotas vencidas + monto COP
+- Agregar sección `OverduePanelSection` (colapsable, lista de compradores en mora agrupados por contrato con botones WhatsApp/teléfono)
+- Agregar `UpcomingAlertSection` (alerta de cuotas próximas a vencer en 7 días)
+- Nuevos imports: `Phone, MessageCircle, ChevronDown, ChevronUp, Clock`
+
+---
+
+## Fase 5: Acciones rápidas en `PortfolioContractDetail.tsx`
+
+- Agregar botones "Llamar" y "WhatsApp" con mensaje precargado en el header del contrato
+- Agregar función `exportScheduleCSV` y botón "Exportar CSV" junto a los tabs
+- Imports: `MessageCircle, Download`
+
+---
+
+## Fase 6: Tab "Cartera" en `ContactDetail.tsx`
+
+- Importar `usePortfolioContracts`, `Wallet`, `CONTRACT_STATUS_LABELS/COLORS`
+- Agregar hook para filtrar contratos del contacto actual
+- Agregar `TabsTrigger` y `TabsContent` condicionales para `contactType === 'comprador'`
+- Mostrar lista de contratos con navegación al detalle
+- Actualizar `grid-cols` del TabsList dinámicamente
+
+---
+
+## Fase 7: Integrar cartera al AI Assistant (`chat/index.ts`)
+
+### 7a. Agregar 3 tool definitions (antes de `];` en línea 1659):
+- `get_portfolio_summary` — resumen global de cartera
+- `get_overdue_installments` — lista compradores en mora
+- `get_contact_portfolio` — contrato y pagos de un comprador por email
+
+### 7b. Agregar 3 case handlers (después de `get_real_estate_master_report` en línea 3849):
+- Handler `get_portfolio_summary`: KPIs de cartera + cuotas próximas
+- Handler `get_overdue_installments`: lista detallada de mora
+- Handler `get_contact_portfolio`: estado completo del contrato de un comprador
+
+### 7c. Reemplazar `cartera: { nota: 'Módulo de cartera no disponible aún' }` en el reporte maestro por datos reales de contratos activos y mora.
+
+### 7d. Agregar línea de capacidades de cartera al system prompt y `/cartera` al routeMap.
+
+---
+
+## Archivos nuevos (1)
+
+| Archivo | Tipo |
+|---------|------|
+| `src/hooks/usePortfolioOverdue.ts` | Hook |
+
+## Archivos modificados (6)
+
+| Archivo | Cambio |
+|---------|--------|
+| Migración SQL | Función + vista de mora |
+| `src/hooks/usePortfolioContracts.ts` | RPC mora + whatsapp_number en select |
+| `src/hooks/usePortfolioSchedule.ts` | RPC mora al cargar |
+| `src/pages/Portfolio.tsx` | KPIs corregidos + panel mora + alertas |
+| `src/pages/PortfolioContractDetail.tsx` | Botones contacto + exportar CSV |
+| `src/pages/ContactDetail.tsx` | Tab Cartera condicional |
+| `supabase/functions/chat/index.ts` | 3 tools + handlers + reporte maestro |
 
