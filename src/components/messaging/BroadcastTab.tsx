@@ -6,8 +6,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Send, Loader2, Users } from 'lucide-react';
+import { Plus, Send, Loader2, Users, Trash2 } from 'lucide-react';
 import { useTwilio } from '@/hooks/useTwilio';
 import { useContacts } from '@/hooks/useContacts';
 import { format } from 'date-fns';
@@ -33,7 +34,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function BroadcastTab() {
-  const { campaigns, isLoadingCampaigns, isConfigured, createCampaign, launchCampaign } = useTwilio();
+  const { campaigns, isLoadingCampaigns, isConfigured, createCampaign, launchCampaign, deleteCampaign } = useTwilio();
   const { contacts = [] } = useContacts();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
@@ -201,7 +202,7 @@ export function BroadcastTab() {
                     <TableCell className="text-muted-foreground text-sm">
                       {format(new Date(c.created_at), 'dd MMM yyyy', { locale: es })}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="flex items-center gap-1">
                       {c.status === 'draft' && (
                         <Button
                           size="sm"
@@ -212,6 +213,30 @@ export function BroadcastTab() {
                           <Send className="h-3 w-3 mr-1" /> Lanzar
                         </Button>
                       )}
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Eliminar campaña?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Se eliminará "{c.name}" y todos sus mensajes asociados. Esta acción no se puede deshacer.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteCampaign.mutate(c.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Eliminar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </TableCell>
                   </TableRow>
                 ))}
