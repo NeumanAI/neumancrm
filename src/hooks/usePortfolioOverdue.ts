@@ -117,7 +117,7 @@ export function usePortfolioUpcoming(daysAhead = 7) {
 
       const { data, error } = await supabase
         .from('portfolio_payment_schedule')
-        .select('*, portfolio_contracts(contract_number, contacts(first_name, last_name, email, mobile, phone))')
+        .select('*, portfolio_contracts!portfolio_payment_schedule_contract_id_fkey(contract_number, contacts!portfolio_contracts_contact_id_fkey(first_name, last_name, email, mobile, phone))')
         .eq('status', 'pending')
         .gte('due_date', today.toISOString().split('T')[0])
         .lte('due_date', future.toISOString().split('T')[0])

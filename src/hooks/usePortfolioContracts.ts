@@ -183,7 +183,7 @@ export function usePortfolioContract(contractId?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('portfolio_contracts')
-        .select('*, contacts(id, first_name, last_name, email, phone, mobile, whatsapp_number), real_estate_projects(id, name), real_estate_unit_types(id, name, nomenclature)')
+        .select('*, contacts!portfolio_contracts_contact_id_fkey(id, first_name, last_name, email, phone, mobile, whatsapp_number), real_estate_projects!portfolio_contracts_project_id_fkey(id, name), real_estate_unit_types!portfolio_contracts_unit_id_fkey(id, name, nomenclature)')
         .eq('id', contractId!)
         .single();
       if (error) throw error;
