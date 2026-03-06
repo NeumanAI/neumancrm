@@ -47,6 +47,7 @@ import Portfolio from "./pages/Portfolio";
 import PortfolioContractDetail from "./pages/PortfolioContractDetail";
 import Openmedic from "./pages/Openmedic";
 import Consulta from "./pages/Consulta";
+import Messaging from "./pages/Messaging";
 
 // Redirect helper
 function ProjectRedirect() {
