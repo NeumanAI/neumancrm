@@ -164,6 +164,29 @@ export function useTwilio() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  // Mutation: delete campaign
+  const deleteCampaign = useMutation({
+    mutationFn: async (campaignId: string) => {
+      // Delete associated messages first
+      const { error: msgError } = await supabase
+        .from('broadcast_messages')
+        .delete()
+        .eq('campaign_id', campaignId);
+      if (msgError) throw msgError;
+
+      const { error } = await supabase
+        .from('broadcast_campaigns')
+        .delete()
+        .eq('id', campaignId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['broadcast-campaigns'] });
+      toast.success('Campaña eliminada');
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   // Query: notification rules
   const { data: notificationRules = [], isLoading: isLoadingRules } = useQuery({
     queryKey: ['whatsapp-notification-rules'],
