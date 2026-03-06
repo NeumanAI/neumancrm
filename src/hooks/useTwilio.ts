@@ -103,21 +103,14 @@ export function useTwilio() {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) throw new Error('No autenticado');
 
-      // Get org id
-      const { data: teamMember } = await supabase
-        .from('team_members')
-        .select('organization_id')
-        .eq('user_id', currentUser.id)
-        .eq('is_active', true)
-        .single();
-
-      if (!teamMember) throw new Error('Sin organización');
+      const { data: orgId } = await supabase.rpc('get_user_organization_id');
+      if (!orgId) throw new Error('Sin organización');
 
       // Create campaign
       const { data: newCampaign, error: campError } = await supabase
         .from('broadcast_campaigns')
         .insert([{
-          organization_id: teamMember.organization_id,
+          organization_id: orgId,
           created_by: currentUser.id,
           name: campaign.name,
           message_template: campaign.message_template,
