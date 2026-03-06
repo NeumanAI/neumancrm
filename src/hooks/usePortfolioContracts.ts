@@ -134,8 +134,8 @@ export function usePortfolioContracts(projectId?: string) {
   const query = useQuery({
     queryKey: ['portfolio-contracts', orgId, projectId],
     queryFn: async () => {
-      // Trigger overdue detection
-      await (supabase.rpc as any)('update_overdue_installments').catch(() => {});
+      // Trigger overdue detection (non-blocking)
+      try { await supabase.rpc('update_overdue_installments'); } catch (e) { console.warn('[usePortfolioContracts] Overdue refresh failed:', e); }
 
       // Step 1: Fetch base contracts (NO embedded joins)
       let q = supabase

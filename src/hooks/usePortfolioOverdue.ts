@@ -35,8 +35,8 @@ export function usePortfolioOverdue() {
   const query = useQuery({
     queryKey: ['portfolio-overdue'],
     queryFn: async () => {
-      // Trigger overdue detection
-      await (supabase.rpc as any)('update_overdue_installments').catch(() => {});
+      // Trigger overdue detection (non-blocking)
+      try { await supabase.rpc('update_overdue_installments'); } catch (e) { console.warn('[usePortfolioOverdue] Overdue refresh failed:', e); }
 
       // Step 1: Fetch overdue installments (NO embedded joins)
       const { data: installments, error } = await supabase
