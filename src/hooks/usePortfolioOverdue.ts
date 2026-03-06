@@ -38,20 +38,51 @@ export function usePortfolioOverdue() {
       // Trigger overdue detection
       await (supabase.rpc as any)('update_overdue_installments').catch(() => {});
 
-      const { data, error } = await supabase
+      // Step 1: Fetch overdue installments (NO embedded joins)
+      const { data: installments, error } = await supabase
         .from('portfolio_payment_schedule')
-        .select('*, portfolio_contracts!portfolio_payment_schedule_contract_id_fkey(id, contract_number, contacts!portfolio_contracts_contact_id_fkey(first_name, last_name, email, phone, mobile, whatsapp_number), real_estate_projects!portfolio_contracts_project_id_fkey(name))')
+        .select('*')
         .eq('status', 'overdue')
         .order('due_date', { ascending: true });
-      if (error) throw error;
+      if (error) {
+        console.error('[usePortfolioOverdue] Query error:', error.code, error.message);
+        throw error;
+      }
+      if (!installments || installments.length === 0) return [];
 
+      // Step 2: Get unique contract IDs and fetch contracts
+      const contractIds = [...new Set(installments.map(i => i.contract_id))];
+      const { data: contracts } = await supabase
+        .from('portfolio_contracts')
+        .select('id, contract_number, contact_id, project_id')
+        .in('id', contractIds);
+
+      const contractMap = new Map((contracts || []).map((c: any) => [c.id, c]));
+
+      // Step 3: Fetch contacts and projects
+      const contactIds = [...new Set((contracts || []).map((c: any) => c.contact_id).filter(Boolean))];
+      const projectIds = [...new Set((contracts || []).map((c: any) => c.project_id).filter(Boolean))];
+
+      const [contactsRes, projectsRes] = await Promise.all([
+        contactIds.length > 0
+          ? supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile, whatsapp_number').in('id', contactIds)
+          : { data: [] },
+        projectIds.length > 0
+          ? supabase.from('real_estate_projects').select('id, name').in('id', projectIds)
+          : { data: [] },
+      ]);
+
+      const contactMap = new Map((contactsRes.data || []).map((c: any) => [c.id, c]));
+      const projectMap = new Map((projectsRes.data || []).map((p: any) => [p.id, p]));
+
+      // Step 4: Merge
       const today = new Date();
-      return (data || []).map((row: any) => {
-        const contract = row.portfolio_contracts;
-        const contact = contract?.contacts;
+      return installments.map((row: any) => {
+        const contract = contractMap.get(row.contract_id);
+        const contact = contract ? contactMap.get(contract.contact_id) : null;
+        const project = contract ? projectMap.get(contract.project_id) : null;
         const dueDate = new Date(row.due_date);
-        const diffTime = today.getTime() - dueDate.getTime();
-        const daysOverdue = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+        const daysOverdue = Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)));
 
         return {
           id: row.id,
@@ -67,11 +98,11 @@ export function usePortfolioOverdue() {
           contact_phone: contact?.mobile || contact?.phone || null,
           contact_whatsapp: contact?.whatsapp_number || contact?.mobile || null,
           contact_email: contact?.email || '',
-          project_name: contract?.real_estate_projects?.name || '',
+          project_name: project?.name || '',
         } as OverdueInstallment;
       });
     },
-    refetchInterval: 5 * 60 * 1000, // refresh every 5 min
+    refetchInterval: 5 * 60 * 1000,
   });
 
   const grouped = useMemo(() => {
@@ -104,6 +135,8 @@ export function usePortfolioOverdue() {
     totalOverdueAmount: grouped.reduce((s, g) => s + g.total_overdue, 0),
     overdueContractsCount: grouped.length,
     isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
   };
 }
 
@@ -115,18 +148,41 @@ export function usePortfolioUpcoming(daysAhead = 7) {
       const future = new Date();
       future.setDate(future.getDate() + daysAhead);
 
-      const { data, error } = await supabase
+      // Step 1: Fetch pending installments (NO embedded joins)
+      const { data: installments, error } = await supabase
         .from('portfolio_payment_schedule')
-        .select('*, portfolio_contracts!portfolio_payment_schedule_contract_id_fkey(contract_number, contacts!portfolio_contracts_contact_id_fkey(first_name, last_name, email, mobile, phone))')
+        .select('*')
         .eq('status', 'pending')
         .gte('due_date', today.toISOString().split('T')[0])
         .lte('due_date', future.toISOString().split('T')[0])
         .order('due_date', { ascending: true });
-      if (error) throw error;
+      if (error) {
+        console.error('[usePortfolioUpcoming] Query error:', error.code, error.message);
+        throw error;
+      }
+      if (!installments || installments.length === 0) return [];
 
-      return (data || []).map((row: any) => {
-        const contract = row.portfolio_contracts;
-        const contact = contract?.contacts;
+      // Step 2: Fetch contracts
+      const contractIds = [...new Set(installments.map(i => i.contract_id))];
+      const { data: contracts } = await supabase
+        .from('portfolio_contracts')
+        .select('id, contract_number, contact_id')
+        .in('id', contractIds);
+
+      const contractMap = new Map((contracts || []).map((c: any) => [c.id, c]));
+
+      // Step 3: Fetch contacts
+      const contactIds = [...new Set((contracts || []).map((c: any) => c.contact_id).filter(Boolean))];
+      const { data: contactsData } = contactIds.length > 0
+        ? await supabase.from('contacts').select('id, first_name, last_name, email, mobile, phone').in('id', contactIds)
+        : { data: [] };
+
+      const contactMap = new Map((contactsData || []).map((c: any) => [c.id, c]));
+
+      // Step 4: Merge
+      return installments.map((row: any) => {
+        const contract = contractMap.get(row.contract_id);
+        const contact = contract ? contactMap.get(contract.contact_id) : null;
         return {
           id: row.id,
           installment_number: row.installment_number,
