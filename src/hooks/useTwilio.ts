@@ -122,7 +122,7 @@ export function useTwilio() {
           name: campaign.name,
           message_template: campaign.message_template,
           target_type: campaign.target_type,
-          target_filters: campaign.target_filters || {},
+          target_filters: (campaign.target_filters || {}) as Record<string, unknown> as any,
           total_recipients: campaign.contact_ids.length,
         }])
         .select()
