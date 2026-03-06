@@ -34,7 +34,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function BroadcastTab() {
-  const { campaigns, isLoadingCampaigns, isConfigured, createCampaign, launchCampaign } = useTwilio();
+  const { campaigns, isLoadingCampaigns, isConfigured, createCampaign, launchCampaign, deleteCampaign } = useTwilio();
   const { contacts = [] } = useContacts();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
