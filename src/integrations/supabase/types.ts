@@ -2340,34 +2340,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_portfolio_contracts_contact"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contacts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_portfolio_contracts_org"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_portfolio_contracts_project"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "real_estate_projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_portfolio_contracts_unit"
-            columns: ["unit_id"]
-            isOneToOne: false
-            referencedRelation: "real_estate_unit_types"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "portfolio_contracts_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
@@ -2451,20 +2423,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_portfolio_schedule_contract"
-            columns: ["contract_id"]
-            isOneToOne: false
-            referencedRelation: "portfolio_contracts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_portfolio_schedule_org"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "portfolio_payment_schedule_contract_id_fkey"
             columns: ["contract_id"]
             isOneToOne: false
@@ -2521,20 +2479,6 @@ export type Database = {
           recorded_by?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "fk_portfolio_payments_contract"
-            columns: ["contract_id"]
-            isOneToOne: false
-            referencedRelation: "portfolio_contracts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_portfolio_payments_org"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "portfolio_payments_contract_id_fkey"
             columns: ["contract_id"]
@@ -3381,13 +3325,6 @@ export type Database = {
           total_overdue_amount: number | null
         }
         Relationships: [
-          {
-            foreignKeyName: "fk_portfolio_contracts_org"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "portfolio_contracts_organization_id_fkey"
             columns: ["organization_id"]
