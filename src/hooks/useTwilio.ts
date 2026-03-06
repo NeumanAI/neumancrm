@@ -164,6 +164,40 @@ export function useTwilio() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  // Query: notification rules
+  const { data: notificationRules = [], isLoading: isLoadingRules } = useQuery({
+    queryKey: ['whatsapp-notification-rules'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('whatsapp_notification_rules')
+        .select('*');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  // Mutation: toggle notification rule
+  const toggleNotificationRule = useMutation({
+    mutationFn: async ({ ruleId, isActive }: { ruleId: string; isActive: boolean }) => {
+      const { data: orgId } = await supabase.rpc('get_user_organization_id');
+      if (!orgId) throw new Error('Sin organización');
+
+      const { error } = await supabase
+        .from('whatsapp_notification_rules')
+        .upsert(
+          { organization_id: orgId, rule_id: ruleId, is_active: isActive, updated_at: new Date().toISOString() },
+          { onConflict: 'organization_id,rule_id' }
+        );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-notification-rules'] });
+      toast.success('Regla actualizada');
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   return {
     twilioIntegration,
     isConfigured,
@@ -173,9 +207,12 @@ export function useTwilio() {
     isLoadingCampaigns,
     templates,
     isLoadingTemplates,
+    notificationRules,
+    isLoadingRules,
     configureTwilio,
     sendMessage,
     createCampaign,
     launchCampaign,
+    toggleNotificationRule,
   };
 }
