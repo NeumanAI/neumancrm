@@ -1,72 +1,99 @@
 
 
-# Plan: Integración Twilio WhatsApp para NeumanCRM
+# Plan: Mejoras al Módulo de Cartera Inmobiliaria
 
-## Resumen
-Implementar mensajería WhatsApp vía Twilio con 3 capacidades: envío individual, campañas masivas (broadcast), y notificaciones automáticas al equipo. Incluye UI completa con página `/messaging` y configuración de credenciales.
+10 cambios aditivos que corrigen KPIs, agregan detección de mora automática, panel de mora, acciones rápidas, exportación CSV, tab de cartera en ContactDetail, e integración con el AI Assistant.
 
-## Cambios a realizar (12 pasos)
+---
 
-### 1. Migración SQL — Nuevas tablas
-Crear 3 tablas con RLS + función auxiliar:
-- `broadcast_campaigns` — campañas masivas con estado, contadores, filtros
-- `broadcast_messages` — mensajes individuales por campaña con tracking de Twilio SID
-- `whatsapp_templates` — templates aprobados por Meta/Twilio
-- Función `increment_campaign_sent(campaign_id_param UUID)` para contadores atómicos
-- RLS basada en `organization_id` vía `team_members`
+## Fase 1: Migración SQL
 
-**Nota**: Se usarán triggers de validación en vez de CHECK constraints para los campos `status`, `target_type` y `category`, evitando problemas de restauración.
+Crear función `update_overdue_installments()` y vista `portfolio_kpis`:
 
-### 2. Edge Function: `twilio-send-message`
-Envío individual de WhatsApp vía API REST de Twilio. Obtiene credenciales de la tabla `integrations` (metadata con `account_sid_hash`, `auth_token_hash`, `whatsapp_number`). Registra en `conversation_messages` si hay `contact_id`.
+- Función SQL `SECURITY DEFINER` que actualiza cuotas `pending`/`partial` con `due_date < CURRENT_DATE` a `overdue`
+- Vista `portfolio_kpis` con KPIs agregados por organización
+- `GRANT SELECT ON portfolio_kpis TO authenticated`
 
-### 3. Edge Function: `twilio-broadcast`
-Procesa una campaña: itera `broadcast_messages` pendientes, envía secuencialmente con delay de 1s, actualiza contadores. Marca campaña como `completed` al terminar.
+---
 
-### 4. Edge Function: `twilio-notify-team`
-Envía notificaciones WhatsApp a asesores. Soporta tipos: `overdue_alert`, `deal_stale`, `quota_warning`, `new_lead`, `task_due`, `custom`. Templates de mensaje hardcodeados en la función.
+## Fase 2: Nuevo hook `usePortfolioOverdue.ts`
 
-### 5. Modificar `save-integration-secret`
-- Agregar `'twilio'` a `validProviders`
-- Lógica especial para Twilio: parsear JSON con `account_sid`, `auth_token`, `whatsapp_number` y guardar cada campo codificado en base64 en metadata
+Crear `src/hooks/usePortfolioOverdue.ts` con:
 
-### 6. Hook `useTwilio`
-React hook con:
-- Query de integración Twilio (estado, número)
-- Query de campañas y templates
-- Mutations: `configureTwilio`, `sendMessage`, `createCampaign`, `launchCampaign`
+- `usePortfolioOverdue()` — llama `update_overdue_installments` vía RPC, luego consulta cuotas `overdue` con joins a `portfolio_contracts → contacts + real_estate_projects`. Calcula `days_overdue`, `pending_amount`, agrupa por contrato. Refresca cada 5 min.
+- `usePortfolioUpcoming(daysAhead)` — cuotas `pending` en los próximos N días con misma estructura de datos.
 
-### 7. Página `Messaging`
-Nueva página `/messaging` con 3 tabs:
-- **Campañas masivas** — crear y lanzar broadcasts
-- **Notificaciones automáticas** — configurar reglas (UI estática por ahora)
-- **Configuración** — formulario de credenciales Twilio
+---
 
-### 8-10. Componentes UI
-- `TwilioSettingsTab` — formulario Account SID / Auth Token / WhatsApp Number
-- `BroadcastTab` — crear campañas con selección de contactos por tags, tabla de historial
-- `NotificationsTab` — 4 reglas de notificación con switches (overdue, deal stale, new lead, task due)
+## Fase 3: Modificar hooks existentes para detectar mora
 
-### 11. Ruta y navegación
-- Agregar ruta `/messaging` en `App.tsx`
-- Agregar item "Mensajería" en `Sidebar.tsx` (después de Conversaciones, con icono `MessageSquare`)
+**`usePortfolioContracts.ts`**: Agregar `await supabase.rpc('update_overdue_installments').catch(() => {})` al inicio del `queryFn`. Agregar `whatsapp_number` al select de `contacts` en ambas queries (lista y detalle).
 
-### Archivos nuevos
-| Archivo | Descripción |
-|---------|-------------|
-| `supabase/functions/twilio-send-message/index.ts` | Envío individual |
-| `supabase/functions/twilio-broadcast/index.ts` | Campañas masivas |
-| `supabase/functions/twilio-notify-team/index.ts` | Notificaciones al equipo |
-| `src/hooks/useTwilio.ts` | Hook de React |
-| `src/pages/Messaging.tsx` | Página principal |
-| `src/components/messaging/TwilioSettingsTab.tsx` | Config UI |
-| `src/components/messaging/BroadcastTab.tsx` | Campañas UI |
-| `src/components/messaging/NotificationsTab.tsx` | Notificaciones UI |
+**`usePortfolioSchedule.ts`**: Agregar misma llamada RPC al inicio del `queryFn`.
 
-### Archivos modificados
+---
+
+## Fase 4: Corregir KPIs y agregar Panel de Mora en `Portfolio.tsx`
+
+- Importar `usePortfolioOverdue`, `usePortfolioUpcoming`
+- Reemplazar KPIs: "Al día" = activos sin mora, "En mora" = contratos con cuotas vencidas + monto COP
+- Agregar sección `OverduePanelSection` (colapsable, lista de compradores en mora agrupados por contrato con botones WhatsApp/teléfono)
+- Agregar `UpcomingAlertSection` (alerta de cuotas próximas a vencer en 7 días)
+- Nuevos imports: `Phone, MessageCircle, ChevronDown, ChevronUp, Clock`
+
+---
+
+## Fase 5: Acciones rápidas en `PortfolioContractDetail.tsx`
+
+- Agregar botones "Llamar" y "WhatsApp" con mensaje precargado en el header del contrato
+- Agregar función `exportScheduleCSV` y botón "Exportar CSV" junto a los tabs
+- Imports: `MessageCircle, Download`
+
+---
+
+## Fase 6: Tab "Cartera" en `ContactDetail.tsx`
+
+- Importar `usePortfolioContracts`, `Wallet`, `CONTRACT_STATUS_LABELS/COLORS`
+- Agregar hook para filtrar contratos del contacto actual
+- Agregar `TabsTrigger` y `TabsContent` condicionales para `contactType === 'comprador'`
+- Mostrar lista de contratos con navegación al detalle
+- Actualizar `grid-cols` del TabsList dinámicamente
+
+---
+
+## Fase 7: Integrar cartera al AI Assistant (`chat/index.ts`)
+
+### 7a. Agregar 3 tool definitions (antes de `];` en línea 1659):
+- `get_portfolio_summary` — resumen global de cartera
+- `get_overdue_installments` — lista compradores en mora
+- `get_contact_portfolio` — contrato y pagos de un comprador por email
+
+### 7b. Agregar 3 case handlers (después de `get_real_estate_master_report` en línea 3849):
+- Handler `get_portfolio_summary`: KPIs de cartera + cuotas próximas
+- Handler `get_overdue_installments`: lista detallada de mora
+- Handler `get_contact_portfolio`: estado completo del contrato de un comprador
+
+### 7c. Reemplazar `cartera: { nota: 'Módulo de cartera no disponible aún' }` en el reporte maestro por datos reales de contratos activos y mora.
+
+### 7d. Agregar línea de capacidades de cartera al system prompt y `/cartera` al routeMap.
+
+---
+
+## Archivos nuevos (1)
+
+| Archivo | Tipo |
+|---------|------|
+| `src/hooks/usePortfolioOverdue.ts` | Hook |
+
+## Archivos modificados (6)
+
 | Archivo | Cambio |
 |---------|--------|
-| `supabase/functions/save-integration-secret/index.ts` | Agregar soporte Twilio |
-| `src/App.tsx` | Agregar ruta `/messaging` |
-| `src/components/layout/Sidebar.tsx` | Agregar nav item "Mensajería" |
+| Migración SQL | Función + vista de mora |
+| `src/hooks/usePortfolioContracts.ts` | RPC mora + whatsapp_number en select |
+| `src/hooks/usePortfolioSchedule.ts` | RPC mora al cargar |
+| `src/pages/Portfolio.tsx` | KPIs corregidos + panel mora + alertas |
+| `src/pages/PortfolioContractDetail.tsx` | Botones contacto + exportar CSV |
+| `src/pages/ContactDetail.tsx` | Tab Cartera condicional |
+| `supabase/functions/chat/index.ts` | 3 tools + handlers + reporte maestro |
 

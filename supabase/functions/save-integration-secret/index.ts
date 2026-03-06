@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const validProviders = ['manychat', 'webchat', 'n8n'];
+    const validProviders = ['manychat', 'webchat', 'n8n', 'twilio'];
     if (!validProviders.includes(provider)) {
       return new Response(
         JSON.stringify({ error: `Provider inválido. Debe ser: ${validProviders.join(', ')}` }),
@@ -59,10 +59,6 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Store the API key in a user-specific format in the integrations table
-    // The actual secret is stored encrypted in the metadata
-    // For production, you'd want to use Vault or a proper secrets manager
-
     // Get existing integration
     const { data: existingIntegration } = await supabaseAdmin
       .from('integrations')
@@ -73,10 +69,30 @@ Deno.serve(async (req) => {
 
     const existingMetadata = existingIntegration?.metadata || {};
 
-    // Encrypt/encode the API key (basic obfuscation - in production use proper encryption)
-    const encodedKey = btoa(api_key);
+    let metadataToSave: Record<string, unknown>;
 
-    // Update the integration with the API key flag and store encrypted key
+    if (provider === 'twilio') {
+      // Twilio: api_key is a JSON string with account_sid, auth_token, whatsapp_number
+      const twilioConfig = typeof api_key === 'string' ? JSON.parse(api_key) : api_key;
+      metadataToSave = {
+        ...existingMetadata,
+        api_key_configured: true,
+        account_sid_hash: btoa(twilioConfig.account_sid),
+        auth_token_hash: btoa(twilioConfig.auth_token),
+        whatsapp_number: twilioConfig.whatsapp_number,
+        updated_at: new Date().toISOString()
+      };
+    } else {
+      const encodedKey = btoa(api_key);
+      metadataToSave = {
+        ...existingMetadata,
+        api_key_configured: true,
+        api_key_hash: encodedKey,
+        updated_at: new Date().toISOString()
+      };
+    }
+
+    // Update the integration
     const { error: updateError } = await supabaseAdmin
       .from('integrations')
       .upsert({
@@ -84,12 +100,7 @@ Deno.serve(async (req) => {
         provider,
         is_active: true,
         sync_status: 'idle',
-        metadata: {
-          ...existingMetadata,
-          api_key_configured: true,
-          api_key_hash: encodedKey, // Store encoded key
-          updated_at: new Date().toISOString()
-        }
+        metadata: metadataToSave
       }, {
         onConflict: 'user_id,provider'
       });

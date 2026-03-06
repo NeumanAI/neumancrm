@@ -65,3 +65,12 @@ verify_jwt = false
 
 [functions.create-team-member]
 verify_jwt = false
+
+[functions.twilio-send-message]
+verify_jwt = false
+
+[functions.twilio-broadcast]
+verify_jwt = false
+
+[functions.twilio-notify-team]
+verify_jwt = false

@@ -47,6 +47,7 @@ import Portfolio from "./pages/Portfolio";
 import PortfolioContractDetail from "./pages/PortfolioContractDetail";
 import Openmedic from "./pages/Openmedic";
 import Consulta from "./pages/Consulta";
+import Messaging from "./pages/Messaging";
 
 // Redirect helper
 function ProjectRedirect() {
@@ -133,6 +134,7 @@ const App = () => (
               <Route path="/cartera/:contractId" element={<AppLayout><PortfolioContractDetail /></AppLayout>} />
               <Route path="/openmedic" element={<AppLayout><Openmedic /></AppLayout>} />
               <Route path="/consulta" element={<AppLayout><Consulta /></AppLayout>} />
+              <Route path="/messaging" element={<AppLayout><Messaging /></AppLayout>} />
               <Route path="/calendar" element={<AppLayout><CalendarPage /></AppLayout>} />
               <Route path="/documents" element={<AppLayout><Documents /></AppLayout>} />
               <Route path="/shared/:token" element={<SharedDocument />} />
