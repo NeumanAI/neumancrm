@@ -145,7 +145,7 @@ export function AIAssistant({ onMinimizedChange }: AIAssistantProps) {
   const [isMinimized, setIsMinimized] = useState<boolean>(() => {
     // Default to minimized
     const stored = sessionStorage.getItem('ai-assistant-minimized');
-    return stored === null ? true : stored === 'true';
+    return stored === null ? false : stored === 'true';
   });
   const [activeTab, setActiveTab] = useState<string>('chat');
   const [showConversations, setShowConversations] = useState(false);
