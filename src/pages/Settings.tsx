@@ -143,6 +143,10 @@ export default function Settings() {
             <CreditCard className="h-4 w-4" />
             Plan & Consumo
           </TabsTrigger>
+          <TabsTrigger value="portal" className="gap-2">
+            <Globe className="h-4 w-4" />
+            Portal
+          </TabsTrigger>
         </TabsList>
 
         {/* Account Tab */}
