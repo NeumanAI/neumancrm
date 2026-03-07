@@ -243,7 +243,7 @@ export function AIAssistant({ onMinimizedChange }: AIAssistantProps) {
             onClick={() => setIsMinimized(false)}
             className="mb-4 text-muted-foreground hover:text-foreground transition-colors"
           >
-            <PanelLeftOpen className="h-4 w-4" />
+            <PanelRightOpen className="h-4 w-4" />
           </button>
         </div>
 
