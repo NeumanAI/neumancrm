@@ -2,7 +2,7 @@ import { useState, useEffect, KeyboardEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Sparkles, ChevronLeft, PanelRightClose, PanelRightOpen,
+  Sparkles, ChevronLeft, PanelLeftClose, PanelLeftOpen,
   Send, Loader2, Plus, RefreshCw, AlertTriangle, Flame, Lightbulb,
   X, CheckCircle, MessageSquare, History,
 } from 'lucide-react';
@@ -145,7 +145,7 @@ export function AIAssistant({ onMinimizedChange }: AIAssistantProps) {
   const [isMinimized, setIsMinimized] = useState<boolean>(() => {
     // Default to minimized
     const stored = sessionStorage.getItem('ai-assistant-minimized');
-    return stored === null ? true : stored === 'true';
+    return stored === null ? false : stored === 'true';
   });
   const [activeTab, setActiveTab] = useState<string>('chat');
   const [showConversations, setShowConversations] = useState(false);
@@ -221,7 +221,7 @@ export function AIAssistant({ onMinimizedChange }: AIAssistantProps) {
     return (
       <>
         {/* Desktop: vertical strip */}
-        <div className="fixed right-0 top-0 bottom-0 w-14 z-30 hidden md:flex flex-col items-center bg-card border-l border-border">
+        <div className="fixed left-0 top-0 bottom-0 w-14 z-30 hidden md:flex flex-col items-center bg-card border-r border-border">
           <button
             onClick={() => setIsMinimized(false)}
             className="mt-4 flex flex-col items-center gap-3 group"
@@ -243,18 +243,18 @@ export function AIAssistant({ onMinimizedChange }: AIAssistantProps) {
             onClick={() => setIsMinimized(false)}
             className="mb-4 text-muted-foreground hover:text-foreground transition-colors"
           >
-            <PanelRightOpen className="h-4 w-4" />
+            <PanelLeftOpen className="h-4 w-4" />
           </button>
         </div>
 
         {/* Mobile: FAB */}
         <button
           onClick={() => setIsMinimized(false)}
-          className="fixed bottom-6 right-6 z-40 md:hidden h-14 w-14 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center shadow-2xl active:scale-95 transition-transform"
+          className="fixed bottom-6 left-6 z-40 md:hidden h-14 w-14 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center shadow-2xl active:scale-95 transition-transform"
         >
           <Sparkles className="h-6 w-6 text-white" />
           {urgentCount > 0 && (
-            <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-white text-[10px] flex items-center justify-center font-bold">
+            <span className="absolute -top-1 -left-1 h-5 w-5 rounded-full bg-destructive text-white text-[10px] flex items-center justify-center font-bold">
               {urgentCount}
             </span>
           )}
@@ -274,9 +274,9 @@ export function AIAssistant({ onMinimizedChange }: AIAssistantProps) {
 
       {/* Panel */}
       <div className={cn(
-        "fixed z-50 flex flex-col bg-card border-l border-border shadow-xl",
+        "fixed z-50 flex flex-col bg-card border-r border-border shadow-xl",
         "inset-0 md:inset-auto",
-        "md:right-0 md:top-0 md:bottom-0 md:w-[420px] md:z-30"
+        "md:left-0 md:top-0 md:bottom-0 md:w-[420px] md:z-30"
       )}>
         {/* Header */}
         <div className="flex-shrink-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white">
@@ -317,7 +317,7 @@ export function AIAssistant({ onMinimizedChange }: AIAssistantProps) {
                 onClick={() => setIsMinimized(true)}
                 title="Minimizar"
               >
-                <PanelRightClose className="h-3.5 w-3.5" />
+                <PanelLeftClose className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
