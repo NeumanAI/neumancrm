@@ -188,7 +188,7 @@ export function usePortalSettings() {
   const { organization } = useTeam();
   const queryClient = useQueryClient();
 
-  const isPortalEnabled: boolean = !!(organization as any)?.settings?.portal_enabled ?? false;
+  const isPortalEnabled: boolean = (organization as any)?.settings?.portal_enabled === true;
 
   const togglePortal = useMutation({
     mutationFn: async (enabled: boolean) => {

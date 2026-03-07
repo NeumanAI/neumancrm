@@ -144,6 +144,14 @@ const App = () => (
               <Route path="/documents" element={<AppLayout><Documents /></AppLayout>} />
               <Route path="/shared/:token" element={<SharedDocument />} />
               <Route path="/auth/google-calendar-callback" element={<GoogleCalendarCallback />} />
+
+              {/* Portal de Clientes */}
+              <Route path="/portal/login" element={<PortalLogin />} />
+              <Route path="/portal" element={<PortalLayout />}>
+                <Route path="cartera" element={<PortalCartera />} />
+                <Route path="citas" element={<PortalCitas />} />
+                <Route path="documentos" element={<PortalDocumentos />} />
+              </Route>
               
               {/* Redirect root to dashboard */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />

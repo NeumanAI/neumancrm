@@ -362,6 +362,11 @@ export default function Settings() {
         <TabsContent value="billing">
           <BillingTab />
         </TabsContent>
+
+        {/* Portal Tab */}
+        <TabsContent value="portal">
+          <PortalSettingsPanel />
+        </TabsContent>
       </Tabs>
     </motion.div>
   );
