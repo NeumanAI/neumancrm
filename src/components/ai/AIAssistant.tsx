@@ -2,7 +2,7 @@ import { useState, useEffect, KeyboardEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Sparkles, ChevronLeft, PanelRightClose, PanelRightOpen,
+  Sparkles, ChevronLeft, PanelLeftClose, PanelLeftOpen,
   Send, Loader2, Plus, RefreshCw, AlertTriangle, Flame, Lightbulb,
   X, CheckCircle, MessageSquare, History,
 } from 'lucide-react';
