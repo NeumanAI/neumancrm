@@ -221,7 +221,7 @@ export function AIAssistant({ onMinimizedChange }: AIAssistantProps) {
     return (
       <>
         {/* Desktop: vertical strip */}
-        <div className="fixed left-0 top-0 bottom-0 w-14 z-30 hidden md:flex flex-col items-center bg-card border-r border-border">
+        <div className="fixed right-0 top-0 bottom-0 w-14 z-30 hidden md:flex flex-col items-center bg-card border-l border-border">
           <button
             onClick={() => setIsMinimized(false)}
             className="mt-4 flex flex-col items-center gap-3 group"
