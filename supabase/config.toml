@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.twilio-notify-team]
 verify_jwt = false
+
+[functions.portal-register]
+verify_jwt = false
