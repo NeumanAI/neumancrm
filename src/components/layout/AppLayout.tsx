@@ -36,7 +36,10 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [bootTimedOut, setBootTimedOut] = useState(false);
-  const [aiMinimized, setAiMinimized] = useState(() => sessionStorage.getItem('ai-assistant-minimized') === 'true');
+  const [aiMinimized, setAiMinimized] = useState(() => {
+    const stored = sessionStorage.getItem('ai-assistant-minimized');
+    return stored === null ? true : stored === 'true';
+  });
   const navigate = useNavigate();
 
   const isLoading = authLoading || teamLoading;
@@ -132,7 +135,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           <Header onMenuClick={() => setMobileMenuOpen(true)} />
           <main className={cn(
             "flex-1 overflow-auto p-4 md:p-6 transition-[padding] duration-200",
-            !isMobile && (aiMinimized ? 'md:pl-20' : 'md:pl-[27rem]')
+            !isMobile && (aiMinimized ? 'md:pr-20' : 'md:pr-[27rem]')
           )}>
             {children}
           </main>
