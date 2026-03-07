@@ -132,7 +132,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           <Header onMenuClick={() => setMobileMenuOpen(true)} />
           <main className={cn(
             "flex-1 overflow-auto p-4 md:p-6 transition-[padding] duration-200",
-            !isMobile && (aiMinimized ? 'md:pl-20' : 'md:pl-[27rem]')
+            !isMobile && (aiMinimized ? 'md:pr-20' : 'md:pr-[27rem]')
           )}>
             {children}
           </main>
