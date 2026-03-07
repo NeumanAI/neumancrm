@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { IntegrationsTab } from '@/components/settings/IntegrationsTab';
 import { NotificationPreferences } from '@/components/notifications/NotificationPreferences';
 import { BillingTab } from '@/components/billing';
+import { PortalSettingsPanel } from '@/components/settings/PortalSettingsPanel';
 import { useVertical } from '@/hooks/useVertical';
 
 export default function Settings() {
@@ -141,6 +142,10 @@ export default function Settings() {
           <TabsTrigger value="billing" className="gap-2">
             <CreditCard className="h-4 w-4" />
             Plan & Consumo
+          </TabsTrigger>
+          <TabsTrigger value="portal" className="gap-2">
+            <Globe className="h-4 w-4" />
+            Portal
           </TabsTrigger>
         </TabsList>
 
@@ -356,6 +361,11 @@ export default function Settings() {
         {/* Billing Tab */}
         <TabsContent value="billing">
           <BillingTab />
+        </TabsContent>
+
+        {/* Portal Tab */}
+        <TabsContent value="portal">
+          <PortalSettingsPanel />
         </TabsContent>
       </Tabs>
     </motion.div>

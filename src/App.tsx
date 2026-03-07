@@ -48,6 +48,11 @@ import PortfolioContractDetail from "./pages/PortfolioContractDetail";
 import Openmedic from "./pages/Openmedic";
 import Consulta from "./pages/Consulta";
 import Messaging from "./pages/Messaging";
+import PortalLayout from "./pages/portal/PortalLayout";
+import PortalLogin from "./pages/portal/PortalLogin";
+import PortalCartera from "./pages/portal/PortalCartera";
+import PortalCitas from "./pages/portal/PortalCitas";
+import PortalDocumentos from "./pages/portal/PortalDocumentos";
 
 // Redirect helper
 function ProjectRedirect() {
@@ -139,6 +144,14 @@ const App = () => (
               <Route path="/documents" element={<AppLayout><Documents /></AppLayout>} />
               <Route path="/shared/:token" element={<SharedDocument />} />
               <Route path="/auth/google-calendar-callback" element={<GoogleCalendarCallback />} />
+
+              {/* Portal de Clientes */}
+              <Route path="/portal/login" element={<PortalLogin />} />
+              <Route path="/portal" element={<PortalLayout />}>
+                <Route path="cartera" element={<PortalCartera />} />
+                <Route path="citas" element={<PortalCitas />} />
+                <Route path="documentos" element={<PortalDocumentos />} />
+              </Route>
               
               {/* Redirect root to dashboard */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />

@@ -573,6 +573,66 @@ export type Database = {
         }
         Relationships: []
       }
+      client_portal_users: {
+        Row: {
+          block_reason: string | null
+          blocked_at: string | null
+          blocked_by: string | null
+          contact_id: string
+          created_at: string | null
+          id: string
+          is_blocked: boolean | null
+          last_login_at: string | null
+          organization_id: string
+          registered_at: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          block_reason?: string | null
+          blocked_at?: string | null
+          blocked_by?: string | null
+          contact_id: string
+          created_at?: string | null
+          id?: string
+          is_blocked?: boolean | null
+          last_login_at?: string | null
+          organization_id: string
+          registered_at?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          block_reason?: string | null
+          blocked_at?: string | null
+          blocked_by?: string | null
+          contact_id?: string
+          created_at?: string | null
+          id?: string
+          is_blocked?: boolean | null
+          last_login_at?: string | null
+          organization_id?: string
+          registered_at?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_portal_users_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_portal_users_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinical_notes: {
         Row: {
           analysis: string | null
@@ -3639,6 +3699,22 @@ export type Database = {
           secondary_color: string
         }[]
       }
+      get_portal_session: {
+        Args: { p_user_id: string }
+        Returns: {
+          contact_email: string
+          contact_first_name: string
+          contact_id: string
+          contact_last_name: string
+          is_blocked: boolean
+          org_logo: string
+          org_name: string
+          org_primary_color: string
+          org_secondary_color: string
+          org_slug: string
+          organization_id: string
+        }[]
+      }
       get_reseller_organization_id: { Args: never; Returns: string }
       get_shared_document: {
         Args: { p_token: string }
@@ -3669,12 +3745,35 @@ export type Database = {
       }
       is_reseller_admin: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      register_portal_user: {
+        Args: {
+          p_contact_id: string
+          p_organization_id: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       update_overdue_installments: { Args: never; Returns: undefined }
+      update_portal_last_login: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
       user_has_role: {
         Args: { _role: Database["public"]["Enums"]["team_role"] }
         Returns: boolean
       }
       user_is_org_member: { Args: { _org_id: string }; Returns: boolean }
+      verify_portal_email: {
+        Args: { p_email: string; p_org_slug: string }
+        Returns: {
+          already_registered: boolean
+          contact_id: string
+          first_name: string
+          is_blocked: boolean
+          last_name: string
+          organization_id: string
+        }[]
+      }
     }
     Enums: {
       contact_project_status: "lead" | "qualified" | "customer" | "inactive"
