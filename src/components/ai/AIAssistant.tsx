@@ -317,7 +317,7 @@ export function AIAssistant({ onMinimizedChange }: AIAssistantProps) {
                 onClick={() => setIsMinimized(true)}
                 title="Minimizar"
               >
-                <PanelRightClose className="h-3.5 w-3.5" />
+                <PanelLeftClose className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
