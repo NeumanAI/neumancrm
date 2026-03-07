@@ -91,7 +91,7 @@ export function usePortalSession() {
       const row = (data as any[])?.[0];
       if (!row) return null;
       // Update last_login in background
-      supabase.rpc('update_portal_last_login', { p_user_id: user!.id } as any).catch(() => {});
+      supabase.rpc('update_portal_last_login', { p_user_id: user!.id } as any).then(() => {}).catch(() => {});
       return row as PortalSession;
     },
   });
