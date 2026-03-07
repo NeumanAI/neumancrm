@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { IntegrationsTab } from '@/components/settings/IntegrationsTab';
 import { NotificationPreferences } from '@/components/notifications/NotificationPreferences';
 import { BillingTab } from '@/components/billing';
+import { PortalSettingsPanel } from '@/components/settings/PortalSettingsPanel';
 import { useVertical } from '@/hooks/useVertical';
 
 export default function Settings() {
