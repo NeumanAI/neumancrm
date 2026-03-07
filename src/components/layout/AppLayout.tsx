@@ -36,7 +36,10 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [bootTimedOut, setBootTimedOut] = useState(false);
-  const [aiMinimized, setAiMinimized] = useState(() => sessionStorage.getItem('ai-assistant-minimized') === 'true');
+  const [aiMinimized, setAiMinimized] = useState(() => {
+    const stored = sessionStorage.getItem('ai-assistant-minimized');
+    return stored === null ? true : stored === 'true';
+  });
   const navigate = useNavigate();
 
   const isLoading = authLoading || teamLoading;
