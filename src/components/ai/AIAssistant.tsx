@@ -254,7 +254,7 @@ export function AIAssistant({ onMinimizedChange }: AIAssistantProps) {
         >
           <Sparkles className="h-6 w-6 text-white" />
           {urgentCount > 0 && (
-            <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-white text-[10px] flex items-center justify-center font-bold">
+            <span className="absolute -top-1 -left-1 h-5 w-5 rounded-full bg-destructive text-white text-[10px] flex items-center justify-center font-bold">
               {urgentCount}
             </span>
           )}
