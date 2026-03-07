@@ -48,6 +48,11 @@ import PortfolioContractDetail from "./pages/PortfolioContractDetail";
 import Openmedic from "./pages/Openmedic";
 import Consulta from "./pages/Consulta";
 import Messaging from "./pages/Messaging";
+import PortalLayout from "./pages/portal/PortalLayout";
+import PortalLogin from "./pages/portal/PortalLogin";
+import PortalCartera from "./pages/portal/PortalCartera";
+import PortalCitas from "./pages/portal/PortalCitas";
+import PortalDocumentos from "./pages/portal/PortalDocumentos";
 
 // Redirect helper
 function ProjectRedirect() {
