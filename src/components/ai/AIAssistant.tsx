@@ -276,7 +276,7 @@ export function AIAssistant({ onMinimizedChange }: AIAssistantProps) {
       <div className={cn(
         "fixed z-50 flex flex-col bg-card border-l border-border shadow-xl",
         "inset-0 md:inset-auto",
-        "md:left-0 md:top-0 md:bottom-0 md:w-[420px] md:z-30"
+        "md:right-0 md:top-0 md:bottom-0 md:w-[420px] md:z-30"
       )}>
         {/* Header */}
         <div className="flex-shrink-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white">
